@@ -1,0 +1,388 @@
+---
+title: "PCoA non rarefied"
+author: "Sara Correa Garcia"
+format: html
+---
+
+********************************************************
+# LOAD PACKAGES
+# ********************************************************
+
+```{r}
+source(here::here("source", "libraries.R"))
+```
+
+********************************************************
+# LOAD DATA
+# ********************************************************
+
+## Metadata
+```{r}
+meta <- read.csv(file = here("data","clean", "mapping_file.tsv"), dec = ".", header = T, row.names = 1, sep = "\t", comment.char = "") #load
+str(meta)
+## Convert character vectors to factors
+meta[sapply(meta, is.character)] <- lapply(meta[sapply(meta, is.character)], as.factor) # did it work? Check with str(meta)
+rownames(meta) <- sub(".*i5_", "", rownames(meta))
+rownames(meta) <- stringr::str_replace_all(rownames(meta), '[-]', '.')
+```
+
+
+
+## 16S ASV table
+
+```{r}
+raw_counts <- read.csv(file = here("data", "clean", "feature_table_filtered.tsv"), dec = ".", sep = "\t", header = T, row.names = 1, comment.char = "") #2957 objs in 59 vars
+
+#raw_counts_rarefied <- read.csv(file = here("data", "clean", "feature_table_final_rarefied.tsv"), dec = ".", sep = "\t", header = T, row.names = 1, comment.char = "") #2957 objs in 59 vars
+```
+
+Quickly fix sample names
+
+```{r}
+names(raw_counts) <- sub(".*i5_", "", names(raw_counts))
+```
+
+## Relative abundances
+### Phylum
+```{r}
+#### -----------------  - PHYLUM Relative abundance - Stackbars ------- 
+phylum <- read.table(file = here("data", "clean", "feature_table_final_rarefied_L2.tsv"), header = T, sep = "\t", row.names = 1)
+# recoding of sample names ----
+names(phylum) <- sub(".*i5_", "", names(phylum))
+#str(phylum) #check structure
+phylum <- data.frame(t(phylum))
+```
+
+### Class
+```{r}
+#### -----------------  - CLASS Relative abundance - Stackbars --------------------------------- 
+class <- read.table(file = here("data", "clean", "feature_table_final_rarefied_L3.tsv"), header = T, sep = "\t", row.names = 1)
+# recoding of sample names ----
+names(class) <- sub(".*i5_", "", names(class))
+#str(class) #check structure
+class <- data.frame(t(class))
+```
+
+### Genus
+```{r}
+#### -----------------  - GENUS Relative abundance - Stackbars --------------------------------- 
+genus  <- read.table(file = here("data", "clean", "feature_table_final_rarefied_L6.tsv"), header = T, sep = "\t", row.names = 1)
+
+# recoding of sample names ----
+names(genus) <- sub(".*i5_", "", names(genus))
+#str(genus) #check structure
+genus <- data.frame(t(genus))
+```
+
+``` {#r}
+save.image(file = here::here("source", "raw_data.RData"))
+```
+
+********************************************************
+# TAXONOMY
+# ********************************************************
+
+## Create taxonomy table
+
+```{r}
+dim(raw_counts) # 2957 and  59
+taxonomy <- as.data.frame(raw_counts[,ncol(raw_counts)]) # taxonomy from last column as independent table
+otuids <- rownames((raw_counts))
+rownames(taxonomy) <- otuids
+names(taxonomy) <- c("Taxonomy")
+```
+
+## Separate taxonomy into groups
+
+```{r}
+# separate taxonomic groups in variables ----
+tax.clean <- separate(taxonomy, Taxonomy, into = c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species", "Strain"), sep = ";")
+tax.clean <- tax.clean[,-which(names(tax.clean) %in% c("Species", "Strain"))]
+tax.clean <- as.data.frame(tax.clean)
+levels(as.factor(tax.clean$Domain)) # 3 Domain 
+levels(as.factor(tax.clean$Phylum)) #  39 Phyla 
+levels(as.factor(tax.clean$Class)) # 87 classes
+levels(as.factor(tax.clean$Order)) # 201 orders
+levels(as.factor(tax.clean$Family)) # 321 Families
+levels(as.factor(tax.clean$Genus)) # 617 genus
+str(tax.clean)
+```
+
+********************************************************
+# CLEAN TABLES
+# ********************************************************
+## Filter ASVs 
+that do not correspond to Bacteria and Archaea
+The preliminary check at Domain level reveal that up to 3 domains have been retained: Archaea, Bacteria and Eukaryota. 
+```{r}
+eukaryotas <- raw_counts[grep("Eukaryota",raw_counts$taxonomy),] 
+#View(eukaryotas)
+dim(eukaryotas) # 12 ASVs -- Cryptomycota
+```
+
+Exclude Eukaryotas
+```{r}
+counts <- raw_counts[!grepl("Eukaryota",raw_counts$taxonomy),] 
+```
+
+Same in taxonomy
+```{r}
+taxonomy_clean <- as.data.frame(taxonomy[rownames(taxonomy) %in% rownames(counts),])
+names(taxonomy_clean) <- c("Taxonomy")
+tax_clean <- as.data.frame(tax.clean[rownames(tax.clean) %in% rownames(counts),])
+rm(list = c("tax.clean", "taxonomy", "raw_counts"))
+rownames(taxonomy_clean) <- rownames(counts)
+```
+
+
+
+## Clean taxonomy names
+
+```{r}
+# eliminate the characters  -----
+pattern <- "[a-z]__"
+replacement <- ""
+tax_clean <- as.data.frame(apply(tax_clean, 2, function(col) gsub(pattern, replacement, col)))
+#write.table(tax.clean, file = here::here("data", "clean", "clean_taxonomy.txt"),sep = "\t")
+rm(pattern)
+rm(replacement)
+rownames(tax_clean) <- rownames(counts)
+```
+
+```{#r}
+## Collate ASVs with good taxonomy
+# collate otus with clean taxonomy table
+raw_counts_bis = cbind(raw_counts[,1:ncol(raw_counts)-1], tax.clean)
+### tyding up
+rm(otuids)
+rm(taxonomy)
+rm(raw_counts)
+```
+
+## Order metadata
+
+```{r}
+meta_sorted <- meta[order(row.names(meta)),] # order metadata 
+#rownames(meta_sorted) 
+str(meta_sorted) # 196 7 variables
+```
+
+## Drop Blank process
+```{r}
+meta_sorted <- meta_sorted[!grepl("BlankpcrCES", meta_sorted$alias),]
+```
+
+## Create treament variable
+```{r}
+meta_sorted$treatment <- as.factor(paste0(meta_sorted$Sample_type, "_", meta_sorted$Water_type))
+levels(meta_sorted$treatment)
+meta_sorted$treatment <- factor(meta_sorted$treatment, 
+                                levels = c("No_plant_Artificial_OSPW", "No_plant_OSPW", "Carex_OSPW"), 
+                                labels = c("No_plant_CTRL", "No_plant_OSPW", "Carex_OSPW"))
+```
+
+
+********************************************************
+# ABUNDANCE TABLE
+# ********************************************************
+
+## Transpose
+```{r}
+com <- counts[,1:(ncol(counts)-1)] # create community table with asv table with only abundances not taxonomy
+com_t = t(com) # transposing table, samples as rows, species as columns to match metadata
+```
+
+## Keep only defined treatments as in metadata
+```{r}
+com_s <- com_t[rownames(com_t) %in% rownames(meta_sorted),]
+meta_sorted <- meta_sorted[rownames(meta_sorted) %in% rownames(com_s),]
+```
+
+## Order table and check
+```{r}
+com_sorted <- com_s[order(row.names(com_s)),]
+rownames(meta_sorted) == rownames(com_sorted)
+```
+
+## Tidy environment
+```{r}
+rm(list = c("otuids", "com_t", "com_s", "eukaryotas", "com"))
+```
+
+
+#Export only once
+
+```{r}
+#save.image(file = here::here("source", "clean_Data_rarefied.RData"))
+```
+
+********************************************************
+# END OF SCRIPT
+# ********************************************************
+
+
+
+********************************************************
+# LOAD ENV
+# ********************************************************
+
+``` {r}
+rm(list = ls())
+load(file = here::here("source", "clean_Data_rarefied.RData"))
+```
+
+********************************************************
+# DISSIMILARITY MATRIX
+# ********************************************************
+
+## Calculate relative abundance from rarefied data
+```{r}
+com_rel <- (com_sorted/rowSums(com_sorted)) #Normalization by relative abundance
+sanity.check <- rowSums(com_rel) #Sanity check
+rownames(meta_sorted) == rownames(com_rel) # All true
+```
+
+## Calculate Bray Curtis dissimilarity 
+from relative abundance on rarefied data
+```{r}
+bray_dist <- vegdist(com_rel, method = "bray")
+```
+
+#********************************************************
+# PERMANOVA
+# ********************************************************
+## Permanova procedure
+```{r}
+set.seed(27)
+perm <- adonis2(bray_dist~Water_type*Sample_type*Time, data = meta_sorted, permutations = 999)
+as.data.frame(perm)
+write.csv(file = here::here("output", "tables", "permanova_full_model_16S-water_NONrarefied.csv"), perm)
+```
+
+## Betadisper 
+(multivariate analogue of Levene's test for homogeneity of variances) - Marti Anderson's PERMDISP2.
+### Calculate multivariate dispersions
+```{r}
+dispersion <- betadisper(bray_dist, meta_sorted$treatment, sqrt.dist = TRUE, type = "centroid", bias.adjust = FALSE)
+```
+
+### perform test
+```{r}
+anova(dispersion) 
+```
+
+### Permutation test for F
+```{r}
+permutest(dispersion, pairwise = TRUE, permutations = 999)
+```
+
+### Plot the groups and distance to centroids on the first two PCoA axes
+```{r}
+plot(dispersion)
+plot(dispersion, ellipse = TRUE, hull = FALSE) # 90% data ellipse
+```
+
+### Boxplot of the distances to centroid for each group
+```{r}
+boxplot(dispersion)
+```
+
+#********************************************************
+# INDICATOR SPECIES
+# ********************************************************
+## Indicspecies
+```{r}
+library(indicspecies)
+inval <- indicspecies::multipatt(com_sorted, meta_sorted$treatment, control = how(nperm = 999))
+summary(inval, alpha = 0.001)
+dim(com_sorted)
+```
+
+
+#********************************************************
+# PCoA
+# ********************************************************
+
+## PCoA calculation
+```{r}
+pcoa <- cmdscale(sqrt(bray_dist), eig = TRUE)
+```
+
+##Calculate % variability 
+explained by eigenvalues 1 and 2.
+```{r}
+explainedvar1 <- (pcoa$eig[1]/sum(pcoa$eig)*100)#Axis1 explains 11.06879% of the variance
+explainedvar1
+explainedvar2 <- (pcoa$eig[2]/sum(pcoa$eig)*100)#Axis2 explains 9.358371% of the variance
+explainedvar2
+sumeigen <- (explainedvar1 + explainedvar2)# 20.42716%
+sumeigen
+```
+
+Axis 1 explains `r round(explainedvar1, digits=2)`% of the total variability, whereas the second axis explains `r round(explainedvar2, digits=2)`%. together, axis 1 and 2 explain `r round(sumeigen, digits = 2)`% of the variance.
+
+## Create coordinates
+for axis 1 and 2 for PCoA from eigenvalues
+```{r}
+pcoa_points <- data.frame(pcoa$points) # create a column with the coordinates for each sample
+colnames(pcoa_points) = c("Axis1", "Axis2") # rename coordinate columns
+```
+
+## Bind axes coords to meta
+need to be in the same object, ordered community and ordered metadata
+```{r}
+pcoa_points_bind <- cbind(pcoa_points, meta_sorted) #
+str(pcoa_points_bind)
+```
+
+## PCoA PLOT
+
+```{r}
+pcoa_points_bind$Time <- factor(pcoa_points_bind$Time, levels = c("D-0", "D8", "D28", "D42", "D84"))
+pcoa_points_bind$treatment <- factor(pcoa_points_bind$treatment, labels = c("Lab water", "OSPW", "OSPW + Carex"))
+pcoa_plot <- ggplot(data = pcoa_points_bind, aes(x = Axis1, y = Axis2)) +
+        geom_vline(xintercept = 0, linetype = 'twodash', col = 'grey') +
+        geom_hline(yintercept = 0, linetype = 'twodash', col = 'grey') +
+        geom_point(aes(shape = Time, color = treatment, size = 5)) + 
+        #scale_shape_manual(values = c(16,17,1)) +
+        scale_color_manual(values = c("#009ACD", "#EEC900", "#787878")) + 
+        xlab(glue("PCo 1 = {round(explainedvar1, 2)} %")) + 
+        ylab(glue("PCo 2 = {round(explainedvar2, 2)} %")) + 
+        ggtitle("PCoA with BC Dissimilarity of the aquatic bacterial community") +
+        scale_size(guide="none") + 
+    #+  # to hide the part of the legend corresponding to size
+        theme_classic() +
+        theme_linedraw() +
+        theme(axis.title.x = element_text(size = 24, face = "bold"),
+              axis.text.x = element_text(size = 20),
+              panel.grid = element_blank(),
+              #axis.ticks.x = element_blank(),
+              axis.title.y = element_text(size = 24, face = "bold"),
+              axis.text.y = element_text(size = 20),
+              legend.position = "right",
+              legend.text = element_text(size = 18),
+              legend.title = element_blank(),
+              #axis.line = element_line(linewidth = 1),
+              plot.title = element_text(hjust = 0.5, face = "bold")) +
+        guides(colour = guide_legend(override.aes = list(size=5))) +
+        guides(shape = guide_legend(override.aes = list(size=5))) 
+pcoa_plot
+
+ggsave(file = here("output","figures", "PCoA_BC_NON_rarefied.pdf"), pcoa_plot, height = 8, width = 10, units = "in")
+ggsave(file = here("output","figures", "PCoA_BC_NON_rarefied.eps"), pcoa_plot, height = 8, width = 10, units = "in")
+```
+
+
+#********************************************************
+# END OF SCRIPT
+# ********************************************************
+
+##Palettes
+```{r}
+earthy_pal <- c("#E8B89A", "#BBB7AC", "#506A67", "#BF795F","#506A67", "#434341", "#E2DFD8")
+c( "#3b528b", "#EEC900", "#1F1F1F", "#FF7F00", "#9400D3","#00BFFF",)
+c("#fde725", "#5ec962","#21918c", "#3b528b", "#440154")
+c("#787878", "#9C9C9C", "#BABABA", "#C4C4C4", "#E5E5E5", "#F2F2F2")
+c("#104E8B", "#1874CD", "#1E90FF", "#009ACD", "#63B8FF", "#4F94CD", "#87CEFF", "#4876FF", "#C6E2FF", "#3A5FCD", "#87CEFA", "#BFEFFF")
+```
+

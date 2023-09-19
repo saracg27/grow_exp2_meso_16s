@@ -1,0 +1,271 @@
+---
+title: "02_alpha-diversity"
+format: html
+author: "Sara Correa-Garcia"
+---
+********************************************************
+# LOAD ENV
+# ********************************************************
+
+``` {r}
+rm(list = ls())
+load(file = here::here("source", "clean_Data.RData"))
+```
+
+# WRANGLING
+
+The vegan() packages calculates several diversity indices. It requires a dataframe with counts where columns are species and sites are rows.
+
+## Check data
+```{r}
+rownames(meta_sorted) == rownames(com_sorted)
+```
+
+
+********************************************************
+# CALCULATE INDICES
+# ********************************************************
+
+## Shannon
+```{r}
+library(vegan)
+meta_sorted$Shannon = diversity(com_sorted)
+```
+
+## Number of species
+```{r}
+meta_sorted$observed = specnumber(com_sorted)
+```
+
+## Evenness
+We manually calculate evenness using the Pielou's evenness index j = H'/log(S)
+```{r}
+meta_sorted$evenness = meta_sorted$Shannon/log(meta_sorted$observed)
+```
+
+********************************************************
+# STATISTICAL ANALYSIS
+# ********************************************************
+
+## Statistical summary 
+```{r}
+diversity_summary = psych::describeBy(x = meta_sorted[,(ncol(meta_sorted)-2):(ncol(meta_sorted))], 
+                                      group = meta_sorted$treatment, 
+                                      mat = TRUE, digits = 3)
+#write.csv(x = diversity_summary, file = here("output", "tables", "16S_water_diversity-indices_summary.csv"), row.names = TRUE)
+```
+
+## Histograms
+```{r }
+par(mfrow = c(1,3))
+hist((meta_sorted$Shannon), main = "Shannon diversity", xlab = "", breaks = 10)
+hist(meta_sorted$evenness, main = "Evenness", xlab = "", breaks = 15)
+hist(meta_sorted$observed, main = "observed species", xlab =  "", breaks = 15)
+```
+
+## Shannon 
+
+### Assumptions
+```{r }
+par(mfrow = c(1,1))
+shapiro.test(meta_sorted$Shannon) # W = 0.98262, p-value = 0.5833
+qqnorm(meta_sorted$Shannon)
+qqline(meta_sorted$Shannon)
+stats::bartlett.test(Shannon ~treatment, data = meta_sorted) #Bartlett's K-squared = 9.1438, df = 2, p-value = 0.01034
+```
+
+### Kruskal-Wallis
+```{r }
+shannon.kw <- kruskal.test(Shannon ~ treatment, data = meta_sorted)
+shannon.kw # Kruskal-Wallis chi-squared = 16.744, df = 2, p-value = 0.0002313
+#capture.output(shannon.kw, file = here("output","tables", "Shannon-16swater_Kruskal-Wallis.txt"))
+```
+
+### Dunn test
+```{r }
+Shannon <- meta_sorted$Shannon # Create vectors for Dunn tests
+treatment <- as.factor(meta_sorted$treatment) # Create vectors for Dunn tests
+capture.output(dunn.test(Shannon, treatment,   kw = FALSE, list = TRUE, method = "bh"), file = here("output", "tables","Shannon-16swater_Dunn-test.txt"))
+```
+
+### Tukey groups
+```{r }
+anova.shan <- aov(Shannon~treatment, data = meta_sorted)
+summary(anova.shan)
+tukeyshan <- HSD.test(anova.shan, "treatment", group = TRUE)
+tukeyshan
+capture.output(tukeyshan, file = here("output", "tables", "Shannon-16swater_Tukey-BY-group.txt"))
+```
+
+## Observed 
+
+### Assumptions
+```{r }
+par(mfrow = c(1,1))
+shapiro.test(meta_sorted$observed) # W = 0.95759, p-value = 0.0439
+qqnorm(meta_sorted$observed)
+qqline(meta_sorted$observed)
+stats::bartlett.test(observed ~ treatment, data = meta_sorted) #Bartlett's K-squared = 2.3609, df = 2, p-value = 0.3071
+```
+
+### Kruskal-Wallis
+
+```{r }
+observed.kw <- kruskal.test(observed ~ treatment, data = meta_sorted)
+observed.kw #Kruskal-Wallis chi-squared = 8.9671, df = 2, p-value = 0.01129
+capture.output(observed.kw, file = here("output","tables", "Observed-16swater_Kruskal-Wallis.txt"))
+```
+
+### Dunn test
+```{r }
+observed <- meta_sorted$observed # Create vectors for Dunn tests
+treatment <- as.factor(meta_sorted$treatment) # Create vectors for Dunn tests
+capture.output(dunn.test(observed, treatment,  kw = FALSE, list = TRUE, method = "bh"), file = here("output", "tables","Observed-16swater_Dunn-test.txt"))
+```
+
+### Tukey groups
+```{r }
+anova.obs <- aov(observed~treatment, data = meta_sorted)
+summary(anova.obs)
+tukeyobs <- HSD.test(anova.obs, "treatment", group = TRUE)
+tukeyobs
+capture.output(tukeyobs, file = here("output", "tables", "Observed-16swater_Tukey-BY-group.txt"))
+```
+
+********************************************************
+# RAINCLOUD PLOTS
+# ********************************************************
+
+## Order factors
+```{r}
+levels(meta_sorted$treatment)
+meta_sorted$Time = factor(meta_sorted$Time, levels = c("D-0", "D8","D28", "D42", "D84" ))
+```
+
+## Color palette
+```{r}
+c("#B1965F", "burlywood4", "#44474C", "#C0A88A", "#506A67", "#EFE1D8", "#738579", "#8F6C3E", "#BF795F", "#434341", "#E8B89A", "#E2DFD8", "#BBB7AC")
+
+earthy_pal <- c("#E8B89A", "#BBB7AC", "#506A67", "#BF795F","#506A67", "#434341", "#E2DFD8")
+```
+
+## Shannon raincloud
+
+Plot by water type and plant treatment
+```{r}
+raincloud_shannon <- ggplot(meta_sorted, aes(x = Shannon, y = treatment)) +
+    ggdist::stat_halfeye(
+        aes(color = treatment,
+        fill = after_scale(lighten(color, .5))),
+        ## custom bandwidth
+    adjust = .5, 
+    ## adjust height
+    width = .6, 
+    ## move geom to the right
+    justification = -.2, 
+    ## remove slab interval
+    .width = 0, 
+    point_colour = NA, 
+    scale = 0.4
+  ) + 
+     scale_color_manual(
+    values = earthy_pal,
+    aesthetics = "color"
+  ) +
+  geom_boxplot(
+    width = .12, 
+    ## remove outliers
+    outlier.color = NA ## `outlier.shape = NA` works as well
+  ) +
+  ## add dot plots from {ggdist} package
+  ggdist::stat_dots(
+    ## orientation to the left
+    side = "left", 
+    ## move geom to the left
+    justification = 1.1, 
+    ## adjust grouping (binning) of observations 
+    binwidth = .03,
+  ) + 
+  ## remove white space on the left
+  coord_cartesian(xlim = c(1.2, NA)) +
+       theme_cowplot() +
+   theme(
+      legend.position = "none", 
+      plot.title = element_text(face = "bold", size = 16), 
+      axis.text.x = element_text(size = 10, hjust = 1, angle = 0), 
+      axis.text.y = element_text(size = 12, hjust = 1, angle = 0), 
+      axis.title.y = element_text(size = 12, face = "bold"),
+      axis.title.x = element_text(size = 12, face = "bold"),
+      strip.text = element_text(size = 16, face = "bold")
+         ) +
+    ylab("Water type and plant treatment") +
+    xlab("Shannon H' diversity of aquatic bacterial communties") 
+    
+
+raincloud_shannon
+ggsave(file = here::here("output", "figures", "shannon_16swater_raincloud.pdf"), raincloud_shannon, height = 4,  width = 7, units = "in")
+ggsave(file = here::here("output", "figures", "shannon_16swater_raincloud.eps"), raincloud_shannon, height = 4,  width = 7, units = "in")
+ggsave(file = here::here("output", "figures", "shannon_16swater_raincloud.tiff"), raincloud_shannon, height = 4,  width = 7, units = "in")
+```
+
+## Observed raincloud
+
+Plot by water type and compartment
+```{r}
+raincloud_obs = ggplot(meta_sorted, aes(x = observed, y = treatment)) +
+    ggdist::stat_halfeye(
+        aes(color = treatment,
+        fill = after_scale(lighten(color, .5))),
+        ## custom bandwidth
+    adjust = .5, 
+    ## adjust height
+    width = .6, 
+    ## move geom to the right
+    justification = -.2, 
+    ## remove slab interval
+    .width = 0, 
+    point_colour = NA, 
+    scale = 0.6
+  ) + 
+     scale_color_manual(
+    values = earthy_pal,
+    aesthetics = "color"
+  ) +
+  geom_boxplot(
+    width = .12, 
+    ## remove outliers
+    outlier.color = NA ## `outlier.shape = NA` works as well
+  ) +
+  ## add dot plots from {ggdist} package
+  ggdist::stat_dots(
+    ## orientation to the left
+    side = "left", 
+    ## move geom to the left
+    justification = 1.1, 
+    ## adjust grouping (binning) of observations 
+    binwidth = 2,
+  ) + 
+  ## remove white space on the left
+  coord_cartesian(xlim = c(1.2, NA)) +
+       theme_cowplot() +
+   theme(
+      legend.position = "none", 
+      plot.title = element_text(face = "bold", size = 16), 
+      axis.text.x = element_text(size = 10, hjust = 1, angle = 0), 
+      axis.text.y = element_text(size = 12, hjust = 1, angle = 0), 
+      axis.title.y = element_text(size = 12, face = "bold"),
+      axis.title.x = element_text(size = 12, face = "bold"),
+      strip.text = element_text(size = 16, face = "bold")
+         ) +
+    ylab("Water type and compartment") +
+    xlab("ASV richness of aquatic bacterial communties") 
+    
+raincloud_obs
+ggsave(file = here::here("output", "figures", "observed_16swater_raincloud.pdf"), raincloud_obs, height = 4,  width = 7, units = "in")
+ggsave(file = here::here("output", "figures", "observed_16swater_raincloud.eps"), raincloud_obs, height = 4,  width = 7, units = "in")
+ggsave(file = here::here("output", "figures", "observed_16swater_raincloud.tiff"), raincloud_obs, height = 4,  width = 7, units = "in")
+```
+
+#********************************************************
+# END OF SCRIPT
+# ********************************************************

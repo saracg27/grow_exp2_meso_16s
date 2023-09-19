@@ -1,0 +1,333 @@
+---
+title: "04_RelAbund-barcharts"
+author: "Sara Correa Garcia"
+format: html
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+# -------------------------------------------------------
+
+# LOAD ENV
+
+# -------------------------------------------------------
+
+## Environment objects
+
+```{r}
+load(file = here::here("RData", "clean_Data_rarefied.RData"))
+```
+
+# -------------------------------------------------------
+
+# DATA WRANGLING - PHYLUM
+
+# -------------------------------------------------------
+
+## Order and check dataframes
+
+Once we have the data sets (communities at phylum and class levels and
+metadata, for treatment classification), we order the data frames and
+check them. Relative abundance stacked bars - Phyla
+
+```{r}
+phylum <- phylum[order(row.names(phylum)),]
+class <- class[order(row.names(class)),]
+genus <- genus[order(row.names(genus)),]
+row.names(phylum) == row.names(class)
+row.names(phylum) == row.names(genus)
+row.names(meta_sorted) == row.names(phylum)
+```
+
+Meta_sorted may or may not have more rows than the relative abundance
+data. We may need to subset meta_sorted to keep only the matching
+samples present in the phylum, class and genus objects. Also, the
+phylum, class and genus tables may contain samples with bad code
+information. Subset to eliminate those from the final tables.
+
+```{r}
+meta_sorted <- subset(meta_sorted, rownames(meta_sorted) %in% rownames(phylum))
+phylum <- subset(phylum, rownames(phylum) %in%  rownames(meta_sorted))
+class <- subset(class, rownames(class) %in%  rownames(meta_sorted))
+genus <- subset(genus, rownames(genus) %in%  rownames(meta_sorted))
+```
+
+Check again
+
+```{r}
+row.names(phylum) == row.names(class)
+row.names(phylum) == row.names(genus)
+row.names(meta_sorted) == row.names(phylum)
+```
+
+## Rearrange factor levels in meta_sorted
+
+```{r}
+droplevels(meta_sorted)
+levels(meta_sorted$Time)
+meta_sorted$Time <- factor(meta_sorted$Time, levels = c("D-0", "D8", "D28", "D42", "D84"))
+meta_sorted$Sample_type <- factor(meta_sorted$Sample_type, levels = c("No_plant", "Carex"), labels = c("No plant", "Carex"))
+meta_sorted$Water_type <- factor(meta_sorted$Water_type, levels = c("Artificial_OSPW", "OSPW"), labels = c("Control", "OSPW"))
+```
+
+## Attach proteobacteria classes
+
+```{r}
+phylum <- as.data.frame(phylum)
+phylum <- phylum[, -grep("Proteobacteria", colnames(phylum))] # Remove proteobacteria phylum
+phylum <- cbind(phylum, class[,grep("proteobacteria", colnames(class))]) # Attach proteobacteria classes
+```
+
+## Remove low abundances
+
+```{r}
+abund <- phylum[, colMeans(phylum) > 0.01] # 7
+abund$Others = 1 - rowSums(abund)#Add an "Other" category
+colnames(abund)
+```
+
+## Recode phylum names
+
+```{r}
+str(abund)
+phylum_names <- colnames(abund)
+phylum_names <- gsub(".*p__", "", phylum_names) 
+phylum_names <- gsub(".*c__", "", phylum_names) 
+colnames(abund) <- phylum_names
+```
+
+## Bind treatments and class abundances
+
+```{r}
+treat <- meta_sorted[,4:ncol(meta_sorted)]
+rownames(abund) == rownames(treat)
+abund_treat = cbind(treat,abund)
+dim(abund_treat) # 57 14
+```
+
+## Gather in long format for ggplot
+
+```{r}
+long <- gather(abund_treat,Taxa,RelAbund,7:ncol(abund_treat)) 
+head(long) # It looks ok!
+phylum_long <- long
+```
+
+# -------------------------------------------------------
+
+# STACKED BARS PHYLUM
+
+# -------------------------------------------------------
+
+## Relevel groups to put the largest group at the bottom, and the second largest at the top
+
+```{r}
+phylum_long$Taxa <- fct_relevel(phylum_long$Taxa, "Alphaproteobacteria", after = Inf)
+phylum_long$Taxa <- fct_relevel(phylum_long$Taxa, "Gammaproteobacteria", after = 0L)
+```
+
+## Color palette
+
+```{r}
+pal3 <- c("#F2D696","#F59C9B","#71ACD6","#7B9E81","#CDC0B0","#968EC2","#B2D2E8","#F7C6EC", "#C7DBC5")
+```
+
+## Create the stack bar chart
+
+```{r}
+stack_phylum <- ggplot(phylum_long, aes(fill = Taxa, y = RelAbund, x = Time)) + 
+  geom_bar(stat = "identity", position = "fill") +
+  labs( y = "Relative abundance",
+        title = "Relative abundance of aquatic bacterial community (Phylum)") + 
+  theme_minimal() +
+  theme(strip.text.x = element_text(face = "bold", size = 18),
+        axis.text.x = element_text(size = 16, angle = 360, hjust = 0.5, face = "bold"),
+        axis.text.y = element_text(size = 16, face = "bold"),
+        plot.title = element_text(face = "bold", size = 16),
+        legend.title = element_text(size = 14, color = "black", face = "bold"),
+        legend.text = element_text(size = 10, face ="bold", color ="black"),
+        axis.title = element_text(size = 16, face = "bold"),
+        rect = element_rect(fill = "white")) +
+  scale_fill_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 12))) +
+  scale_color_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 12))) +
+  facet_grid(.~ Water_type*Sample_type,  scales = "free_x", space = "free_x") +
+  scale_y_continuous(limits = c(0,1), expand = c(0,0)) +
+  scale_x_discrete(name = "Time")
+
+stack_phylum
+
+# ggsave(file = here::here("output", "figures", "relAbund_phylum_16Swater.pdf"), stack_phylum, width = 10, height = 7, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_phylum_16Swater.eps"), stack_phylum, width = 10, height = 7, units = "in", dpi = 300,bg = "white")
+```
+
+## No title stack bar chart
+
+```{r}
+stack_phylum <- ggplot(phylum_long, aes(fill = Taxa, y = RelAbund, x = Time)) + 
+  geom_bar(stat = "identity", position = "fill") +
+  labs( y = "Relative abundance"
+        #title = "Relative abundance of aquatic bacterial community (Phylum)"
+        ) + 
+  theme_minimal() +
+  theme(strip.text.x = element_text(face = "bold", size = 18),
+        axis.text.x = element_text(size = 16, angle = 360, hjust = 0.5, face = "bold"),
+        axis.text.y = element_text(size = 16, face = "bold"),
+        plot.title = element_text(face = "bold", size = 16),
+        legend.title = element_text(size = 14, color = "black", face = "bold"),
+        legend.text = element_text(size = 10, face ="bold", color ="black"),
+        axis.title = element_text(size = 16, face = "bold"),
+        rect = element_rect(fill = "white")) +
+  scale_fill_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 12))) +
+  scale_color_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 12))) +
+  facet_grid(.~ Water_type*Sample_type,  scales = "free_x", space = "free_x") +
+  scale_y_continuous(limits = c(0,1), expand = c(0,0)) +
+  scale_x_discrete(name = "Time")
+
+stack_phylum
+
+#ggsave(file = here::here("output", "figures", "relAbund_phylum_16Swater-notitle.pdf"), stack_phylum, width = 10, height = 7, units = "in", dpi = 300,bg = "white")
+#ggsave(file = here::here("output", "figures", "relAbund_phylum_16Swater-notitle.eps"), stack_phylum, width = 10, height = 7, units = "in", dpi = 300,bg = "white")
+```
+
+# -------------------------------------------------------
+
+# DATA WRANGLING GENUS
+
+# -------------------------------------------------------
+
+## Order and check dataframes
+
+```{r}
+row.names(meta_sorted) == row.names(genus)
+```
+
+## Remove low abundances
+
+```{r}
+abund <- genus[, colMeans(genus) > 0.01] # 19
+abund$Others = 1 - rowSums(abund)#Add an "Other" category
+colnames(abund)
+```
+
+## Recode phylum names
+
+```{r}
+str(abund)
+genus_names <- colnames(abund)
+genus_names <- gsub(".*f__", "", genus_names) 
+genus_names <- gsub(".g__", " - ", genus_names) 
+colnames(abund) <- genus_names
+```
+
+## Bind treatments and class abundances
+
+```{r}
+treat <- meta_sorted[,4:ncol(meta_sorted)]
+rownames(abund) == rownames(treat)
+abund_treat = cbind(treat,abund)
+dim(abund_treat) # 57 26
+```
+
+## Gather in long format for ggplot
+
+```{r}
+long <- gather(abund_treat,Taxa,RelAbund,7:ncol(abund_treat)) 
+head(long) # It looks ok!
+genus_long <- long
+```
+
+# -------------------------------------------------------
+
+# STACKED BARS GENUS
+
+# -------------------------------------------------------
+
+## Relevel groups to put the largest group at the bottom, and the second largest at the top
+
+```{r}
+genus_long$Taxa <- fct_relevel(genus_long$Taxa,"Cyanobiaceae - Cyanobium.PCC.6307" , after = Inf)
+genus_long$Taxa <- fct_relevel(genus_long$Taxa,"Chitinophagaceae - Sediminibacterium" , after = 1)
+genus_long$Taxa <- fct_relevel(genus_long$Taxa,"Comamonadaceae - Hydrogenophaga" , after = 2)
+
+genus_long$Taxa <- fct_relevel(genus_long$Taxa, "Others" , after = 0L)
+```
+
+## Color palette
+
+```{r}
+pal3 <- c("#F2D696","#F59C9B","#71ACD6","#7B9E81","#CDC0B0","#968EC2","#B2D2E8","#F7C6EC", "#C7DBC5","#FAFAD2","#C25B57","#A2C5F2", "#C6F7D0","#B88988","#C3C5FA","#8CBCFA","#DBADD3","#E0EEEE","#FFD39B", "#E7D0F5","#C3F3FA")
+```
+
+## Create the stack bar chart
+
+```{r}
+stack_genus <- ggplot(genus_long, aes(fill = Taxa, y = RelAbund, x = Time)) + 
+  geom_bar(stat = "identity", position = "fill") +
+  labs( y = "Relative abundance",
+        title = "Relative abundance of aquatic bacterial community (Genus)") + 
+  theme_minimal() +
+  theme(strip.text.x = element_text(face = "bold", size = 18),
+        axis.text.x = element_text(size = 16, angle = 360, hjust = 0.5, face = "bold"),
+        axis.text.y = element_text(size = 16, face = "bold"),
+        plot.title = element_text(face = "bold", size = 16),
+        legend.title = element_text(size = 14, color = "black", face = "bold"),
+        legend.text = element_text(size = 10, face = "bold", color = "black"),
+        axis.title = element_text(size = 16, face = "bold"),
+        rect = element_rect(fill = "white")) +
+  scale_fill_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 12))) +
+  scale_color_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 12))) +
+  facet_grid(.~ Water_type*Sample_type,  scales = "free_x", space = "free_x") +
+  scale_y_continuous(limits = c(0,1), expand = c(0,0)) +
+  scale_x_discrete(name = "Time")
+
+stack_genus
+
+#ggsave(file = here::here("output", "figures", "relAbund_genus_16Swater.pdf"), stack_genus, width = 13, height = 7, units = "in", dpi = 300,bg = "white")
+#ggsave(file = here::here("output", "figures", "relAbund_genus_16Swater.eps"), stack_genus, width = 13, height = 7, units = "in", dpi = 300,bg = "white")
+```
+
+## No title stack bar chart
+
+```{r}
+stack_genus <- ggplot(genus_long, aes(fill = Taxa, y = RelAbund, x = Time)) + 
+  geom_bar(stat = "identity", position = "fill") +
+  labs( y = "Relative abundance"
+        #title = "Relative abundance of aquatic bacterial community (Genus)"
+        ) + 
+  theme_minimal() +
+  theme(strip.text.x = element_text(face = "bold", size = 18),
+        axis.text.x = element_text(size = 16, angle = 360, hjust = 0.5, face = "bold"),
+        axis.text.y = element_text(size = 16, face = "bold"),
+        plot.title = element_text(face = "bold", size = 16),
+        legend.title = element_text(size = 14, color = "black", face = "bold"),
+        legend.text = element_text(size = 10, face = "bold", color = "black"),
+        axis.title = element_text(size = 16, face = "bold"),
+        rect = element_rect(fill = "white")) +
+  scale_fill_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 12))) +
+  scale_color_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 12))) +
+  facet_grid(.~ Water_type*Sample_type,  scales = "free_x", space = "free_x") +
+  scale_y_continuous(limits = c(0,1), expand = c(0,0)) +
+  scale_x_discrete(name = "Time")
+
+stack_genus
+
+#ggsave(file = here::here("output", "figures", "relAbund_genus_16Swater-notitle.pdf"), stack_genus, width = 13, height = 7, units = "in", dpi = 300,bg = "white")
+#ggsave(file = here::here("output", "figures", "relAbund_genus_16Swater-notitle.eps"), stack_genus, width = 13, height = 7, units = "in", dpi = 300,bg = "white")
+```
+
+# -------------------------------------------------------
+
+# END OF SCRIPT
+
+# -------------------------------------------------------
+
+### Other palettes
+
+```{r}
+CPCOLS2 <- c("#FFD700","#458B74", "#00BFFF","#104E8B","#7FFFD4","#FFD39B", "#FF4040","#C1CDCD","#FF34B3", "#00BFFF","#838B8B", "#104E8B","#FF4040", "#8B2323",  "#8B7355", "#00BFFF",  "#76EE00", "#458B00", "#FFD700", "#8B7500", "#FF34B3", "#FF7F50","#8B1C62", "#008B8B")
+pal1 <- c("#CDC0B0", "#E0EEEE", "#FFD39B", "#EEE0E5", "#FAFAD2", "#B4EEB4", "#F7D3D2", "#F7C6EC", "#CBE9FA", "#CFBEF7", "#A0FAF4", "#CAEDE1", "#C7DBC5", "#EBF7AF", "#CCC9A3", "#DBB0AF", "#F2D696", "#F4FABB", "#E4E6B8", "#DBADD3", "#E7D0F5", "#C7A9F2", "#968EC2", "#C3C5FA", "#A2C5F2", "#D3D2F5", "#71ACD6", "#B2D2E8", "#8CBCFA", "#C3F3FA", "#AAFAD7", "#BDFFF0", "#C6F7D0", "#B6FAAF", "#7B9E81", "#8FB598", "#98AD99", "#B2BF99", "#BCC7A3", "#A5D4C6", "#CCE8C7", "#ADDBC1", "#CDF5BC", "#F59C9B", "#C25B57", "#B88988", "#E6B9B8")
+pal2 <- c("#CDC0B0", "#E0EEEE", "#FFD39B", "#EEE0E5", "#FAFAD2", "#B4EEB4", "#F7D3D2",  "#CBE9FA", "#CFBEF7",  "#CAEDE1", "#C7DBC5", "#EBF7AF", "#CCC9A3", "#DBB0AF", "#F2D696", "#F4FABB", "#E4E6B8", "#DBADD3", "#E7D0F5", "#C7A9F2", "#968EC2", "#C3C5FA", "#A2C5F2", "#D3D2F5", "#71ACD6", "#B2D2E8", "#8CBCFA", "#C3F3FA", "#AAFAD7", "#BDFFF0", "#C6F7D0", "#B6FAAF", "#7B9E81", "#8FB598", "#98AD99", "#B2BF99", "#BCC7A3", "#A5D4C6", "#CCE8C7", "#ADDBC1", "#CDF5BC", "#F59C9B", "#C25B57", "#B88988", "#E6B9B8")
+
+pal4 <- c(  "#EEE0E5",  "#B4EEB4", "#F7D3D2",  "#CBE9FA", "#CFBEF7",  "#CAEDE1", "#C7DBC5", "#EBF7AF", "#CCC9A3", "#DBB0AF",  "#F4FABB", "#E4E6B8",  "#C7A9F2",    "#D3D2F5",  "#AAFAD7", "#BDFFF0",  "#B6FAAF",  "#8FB598", "#98AD99", "#B2BF99", "#BCC7A3", "#A5D4C6", "#CCE8C7", "#ADDBC1", "#CDF5BC",    "#E6B9B8")
+```

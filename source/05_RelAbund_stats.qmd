@@ -1,0 +1,560 @@
+---
+title: "05_RelAbund_stats"
+author: "Sara Correa Garcia"
+format: html
+---
+
+# -------------------------------------------------------
+
+# LOAD ENV
+
+# -------------------------------------------------------
+
+## Environment objects
+
+```{r}
+#pacman::p_load(pacman, colorspace, cowplot, DESeq2, dunn.test, glue,
+               # ggdist, ggforce, ggpubr, ggtext, here, labdsv, MASS, psych, 
+               # tidyverse, roperators, vegan)
+
+#pacman::pload(pacman, cowplot, dunn.test, glue, ggpubr, tidyr, vegan, DESeq2)
+```
+
+
+
+```{r}
+load(file = here::here("RData", "DA_data.RData"))
+```
+
+# -------------------------------------------------------
+# DESEQ2
+# -------------------------------------------------------
+
+To work on a cluster, need to load packages within script, installed using R interactive mode
+The code combines data loading, manipulation, and file exports.
+Run on the cluster using split_contrasts.sh from the code folder: 
+1) connect to graham on your terminal: ssh -vvv -Y username@graham.computecanada.ca
+2) Navigate to the folder: cd projects/def-profname-ab/yourusername/
+3) Create a folder "test": mkdir test
+
+In a new terminal tab: 
+2) transfer the 20230616_DA.R and the 20230616_DA.sh scripts as well as the data to the test folder using the scp or sftp protocols as described in notes.txt
+
+3) connect to graham on your terminal: ssh -vvv -Y username@graham.computecanada.ca
+4) Navigate to the folder: cd projects/def-profname-ab/youruser/test
+5) Submit the job: sbatch 20230616_DA.sh
+
+
+```{r}
+library(here)
+library(tidyverse)
+library(DESeq2)
+```
+
+## Load data
+```{r}
+com_path <- here('data', 'com.csv')
+meta_path <- here('data', 'metadata.csv')
+meta <- read.csv(meta_path, sep = ",",comment.char = "", header = T, row.names = 1)
+com <- read.csv(com_path, sep = ",",comment.char = "", header = T, row.names = 1)
+```
+
+## Clean data 
+```{r}
+tax <- as.data.frame(com$taxonomy)
+colnames(tax) <- "taxonomy"
+rownames(tax) <- rownames(com)
+
+com <- com[, 1:ncol(com)-1]
+```
+
+
+## Get the matching column indices based on row names
+```{r}
+matching_columns <- match(rownames(meta), colnames(com))
+```
+
+
+# Reorder the columns in 'com' based on the matching column indices
+com <- com[, matching_columns]
+
+rm(com_path)
+rm(matching_columns)
+rm(meta_path)
+
+print('concluded data cleaning... Starting DA')
+# ------------------ Differential analysis ------------------
+
+dds <- DESeqDataSetFromMatrix(countData = com,
+                              colData = meta,
+                              design = ~ contamination)
+# Perform normalization
+dds <- DESeq(dds)
+
+# Conduct differential analysis
+res <- results(dds)
+res_df <- as.data.frame(res)
+res_df$asv_id <- rownames(res_df)
+
+# Volcano plot
+volcano <- ggplot(data = res_df, aes(x = log2FoldChange, y = -log10(pvalue))) +
+    geom_point(size = 2, color = ifelse(res_df$padj < 0.05, "red", "black"), alpha = 0.7) +
+    xlim(c(-5, 5)) +
+    ylim(c(0, 10)) +
+    labs(x = "Log2 Fold Change",
+         y = "-Log10 p-value",
+         title = "Volcano Plot",
+         subtitle = "Differential Abundance Analysis") +
+    theme_light() +
+    theme(plot.title = element_text(face = "bold", size = 14),
+          plot.subtitle = element_text(size = 12),
+          axis.title = element_text(face = "bold", size = 12),
+          axis.text = element_text(size = 10),
+          legend.position = "none")
+#volcano
+print('concluded DA ... Exporting results')
+# ------------------ Export results ------------------
+
+# Save the plot as a high-resolution image (e.g., PDF)
+ggsave(here("out","volcano_plot.pdf"), plot = volcano, width = 6, height = 4, units = "in", dpi = 300)
+write.csv(res_df, file = here('out', 'DA_results.csv'))
+
+
+print('concluded exporting results ... analysis complete')
+
+
+
+
+
+
+
+
+
+
+# -------------------------------------------------------
+# ALDEx2
+# -------------------------------------------------------
+
+# -------------------------------------------------------
+# Maaslin2
+# -------------------------------------------------------
+
+```{r}
+# Load required libraries
+library(Maaslin2)
+
+# Load your microbiome data and metadata
+# Assuming the microbiome data is in a table where rows are samples and columns are taxa
+microbiome_data <- read.table("path_to_microbiome_data.tsv", header = TRUE, row.names = 1, sep = "\t")
+
+# Assuming the metadata is in a table where rows are samples and columns are metadata factors
+metadata <- read.table("path_to_metadata.tsv", header = TRUE, row.names = 1, sep = "\t")
+
+# Run Maaslin2
+results <- Maaslin2(
+  input_data = microbiome_data,
+  input_metadata = metadata,
+  output = "path_to_output_directory",
+  fixed_effects = c("Factor1", "Factor2", "Factor3"),
+  random_effects = NULL,
+  normalization = "TSS", # Total Sum Scaling
+  transform = "LOG",
+  standardize = TRUE,
+  min_abundance = 0.01,
+  min_prevalence = 0.1,
+  max_significance = 0.05
+)
+
+# View results
+head(results$fixed_effects)
+
+```
+
+
+# -------------------------------------------------------
+# ANCOMBC-2
+# -------------------------------------------------------
+
+# ancombc 2 in paralelle ro example using the its table
+
+## Create a phyloseq object from a feature table (by default, the name will be counts), metadata and taxonomy
+
+# **********************************************************************
+# ................................................................ ----
+# 00_Load data ####
+# ................................................................ ----
+# **********************************************************************
+## Packages ####
+#source(here::here("source", "libraries.R"))
+library(ANCOMBC)
+#library(tidyverse)
+library(DT)
+## Data ####
+### Metadata ####
+meta <- read.csv(file = here::here("data","clean", "mapping_file.tsv"), dec = ".", header = T, row.names = 1, sep = "\t", comment.char = "") #load
+
+### Counts ITS ####
+counts <- read.csv(file = here::here("data", "clean", "feature_table_filtered.tsv"), dec = ".", sep = "\t", header = T, row.names = 1, comment.char = "")
+
+# **********************************************************************
+# ................................................................ ----
+# 01_Clean data ####
+# ................................................................ ----
+# **********************************************************************
+
+## Recode sample names ----
+samplenames <- colnames(counts) #  sample names to be changed
+library(roperators)
+goodsamplenames <- samplenames %-% '[X]'# erase the X added by R 
+goodsamplenames <- stringr::str_replace_all(goodsamplenames, '[.]', '-') # 
+#goodsamplenames # check it works
+colnames(counts) <- goodsamplenames #change the column names for the good names without X
+#str(counts) #check structure
+rm(goodsamplenames) # tidy up environment
+rm(samplenames) # erases junk intermediate data to prevent future problems
+
+str(meta)
+## Convert character vectors to factors
+meta[sapply(meta, is.character)] = lapply(meta[sapply(meta, is.character)], as.factor) # did it work? Check with str(meta)
+levels(meta$Compartment)
+meta$Compartment # duplicated Root and Roots. Probably gone when filtering out undefined samples.
+
+
+## Create taxonomy ----
+dim(counts) # 3814 and 197 - last
+#counts[,ncol(counts)] # last column contains taxonomy
+taxonomy_its = as.data.frame(counts[,ncol(counts)]) # taxonomy from last column as independent table
+otuids_its = rownames((counts))
+rownames(taxonomy_its) = otuids_its # keep same row names in counts and in taxonomy
+colnames(taxonomy_its) = c("Taxonomy")
+
+## Separate taxonomy into ranks ----
+
+tax_clean = tidyr::separate(taxonomy_its, Taxonomy, into = c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species", "Strain"), sep = ";")
+tax_clean = tax_clean[,-which(names(tax_clean) %in% c("Species", "Strain"))]
+tax_clean = as.data.frame(tax_clean)
+levels(as.factor(tax_clean$Domain)) # 9 Domain 
+levels(as.factor(tax_clean$Phylum)) #  21 Phyla 
+#levels(as.factor(tax_clean$Class)) # 63 classes
+#levels(as.factor(tax_clean$Order)) # 147 orders
+#levels(as.factor(tax_clean$Family)) # 309 Families
+#levels(as.factor(tax_clean$Genus)) # 592 genus
+#str(tax_clean)
+
+## Clean taxonomy rank names ----
+
+#### Eliminate level characters 
+tax_clean$Domain <- stringr::str_replace(tax_clean$Domain,'[k]', '')
+tax_clean$Domain <- stringr::str_replace_all(tax_clean$Domain,'[__]', '')
+tax_clean$Phylum <- stringr::str_replace(tax_clean$Phylum,'[p__]', '')
+tax_clean$Phylum <- stringr::str_replace_all(tax_clean$Phylum,'[__]', '')
+tax_clean$Class <- stringr::str_replace(tax_clean$Class,'[c__]', '')
+tax_clean$Class <- stringr::str_replace_all(tax_clean$Class,'[__]', '')
+tax_clean$Order <- stringr::str_replace(tax_clean$Order, '[o]', '')
+tax_clean$Order <- stringr::str_replace_all(tax_clean$Order, '[__]', '')
+tax_clean$Family <- stringr::str_replace(tax_clean$Family, '[f]', '')
+tax_clean$Family <- stringr::str_replace_all(tax_clean$Family, '[__]', '')
+tax_clean$Genus <- stringr::str_replace(tax_clean$Genus, '[g]','')
+tax_clean$Genus <- stringr::str_replace_all(tax_clean$Genus, '[__]', '')
+str(tax_clean)
+
+## Collate counts with clean taxonomy ####
+counts_tax <- cbind(counts[,1:ncol(counts) - 1], tax_clean)
+
+## Clean counts ####
+counts1 <- counts[,1:ncol(counts) - 1]
+### tyding up
+rm(otuids_its)
+rm(taxonomy_its)
+
+## Keep only Fungal Counts ####
+
+#There are many Domains other than Fungi in this amplicon dataset. 
+# For Carex, 10 instances have been found, mainly in root samples. 
+# Separate Fungi in one side, protists and algae in other, and filter out Viridiplantae. \### Fungi
+
+fungi <- counts_tax[counts_tax$Domain == "Fungi",] # 2948 instances
+fungi[sapply(fungi, is.character)] <- lapply(fungi[sapply(fungi, is.character)], as.factor)
+levels(fungi$Phylum) # "" "Ascomycota"  "Basidiomycota" "Blastocladiomycota" "Chytridiomycota""Monoblepharomycota" "Mortierellomycota" "Mucoromycota"  "Olpidiomycota" 
+levels(fungi$Class) # 41 levels
+levels(fungi$Family) # 243 levels
+levels(fungi$Genus) # 494 levels
+
+## Keep only Fungal Taxonomy ####
+tax_fungi <- fungi[,(ncol(fungi)-5):ncol(fungi)] # the last 6 columns (only tax)
+
+### Algae and protists
+# no.fungi = counts_tax[counts_tax$Domain != "Fungi",] # 866 instances
+# algae = no.fungi[no.fungi$Domain != "Viridiplantae",] # 369 instances
+# algae[sapply(algae, is.character)] = lapply(algae[sapply(algae, is.character)], as.factor)
+# levels(algae$Phylum) # ""Arthropoda"  "Cercozoa""Ciliophora" "Cryptophyta" "Haplosporidia" "Nematoda" "Ochrophyta" "Rhodophyta"   
+# levels(algae$Class) # 13 levels
+# levels(algae$Family) # 27 levels
+# levels(algae$Genus) # 32 levels
+
+### Viridiplantae
+# viridiplantae = counts_tax[counts_tax$Domain == "Viridiplantae",]
+# viridiplantae[sapply(viridiplantae, is.character)] = lapply(viridiplantae[sapply(viridiplantae, is.character)], as.factor)
+# levels(viridiplantae$Phylum) # "Anthophyta"  "Bryophyta"   "Chlorophyta" "Monilophyta"
+# levels(viridiplantae$Class) # 11 levels
+# levels(viridiplantae$Family) # 41 levels
+# levels(viridiplantae$Genus) # 68 levels
+
+## Order Meta table ####
+metaits_sorted <- meta[order(row.names(meta)),] # order metadata 
+dim(metaits_sorted) # 196 7 variables OK
+#rownames(metaits_sorted) 
+
+## Create treatment variable ####
+metaits_sorted$treatment <- as.factor(paste0(metaits_sorted$Sample_type, "_", metaits_sorted$Water_type, "_", metaits_sorted$Compartment))
+metaits_sorted$treatment <- factor(metaits_sorted$treatment, levels = c("No_plant_Artificial_OSPW_Sediments","No_plant_OSPW_Sediments","Carex_OSPW_Sediments","Carex_OSPW_Rhizosphere","Carex_OSPW_Roots"))
+levels(metaits_sorted$treatment)
+## Drop undefined samples ####
+metaits_sorted <- metaits_sorted[!grepl("undefined", metaits_sorted$treatment),]
+metaits_sorted <- droplevels(metaits_sorted)
+
+## Filter - D8 only ####
+metaits_sorted_d8 <- metaits_sorted[metaits_sorted$Time == "D8",]
+metaits_sorted_d8 <- droplevels(metaits_sorted_d8)
+
+## Create Fungi Count table ####
+counts_fungi <- fungi[,1:(ncol(fungi) - 6)]
+
+## Keep only defined in Fungi Counts #### 
+counts_fungi_d8 <- counts_fungi[,colnames(counts_fungi) %in% rownames(metaits_sorted_d8)] # To match metadata
+
+## Order Count table
+counts_fungi_d8 <- counts_fungi_d8[,order(colnames(counts_fungi_d8))]
+colnames(counts_fungi_d8) == rownames(metaits_sorted_d8) #Check
+
+## Check Count and Tax names
+if (all(row.names(counts_fungi) == row.names(tax_fungi))) {
+    print("Sanity check ok")
+} else {
+    print("ERROR: not all row names are the same")
+}
+
+## Filter out low abundance counts ----
+
+# Calculate the number of samples (columns)
+num_samples <- ncol(counts_fungi_d8)
+# Calculate the threshold (10% of samples) - arbitrary 
+threshold <- 0.1 * num_samples
+# Select rows where there is a value larger than 0 across at least 10% of the samples
+selected_rows <- apply(counts_fungi_d8, 1, function(row) sum(row > 0) >= threshold)
+# Subset the data frame to keep only the selected rows
+filtered_counts_fungi_d8 <- counts_fungi_d8[selected_rows, ]
+
+# Keep only tax retained in fungi_d8
+tax_fungi_d8 <- tax_fungi[rownames(tax_fungi) %in% rownames(filtered_counts_fungi_d8),]
+
+
+# **********************************************************************
+# ................................................................ ----
+# 02_Phyloseq object ----
+# ................................................................ ----
+# **********************************************************************
+library(phyloseq)
+# Phyloseq object need to have defined row names. Done in the previous section.
+
+## Transform Taxonomy to matrix ----
+tax_mat <- as.matrix(tax_fungi_d8)
+#tax_dat <- as.data.frame(tax_fungi)
+## Transform Counts to matrix ----
+counts_mat <- as.matrix(filtered_counts_fungi_d8)
+#counts_dat <- as.data.frame(counts_fungi)
+## Transform to PHYLOSEQ objects ----
+counts <- otu_table(counts_mat, taxa_are_rows = T)
+tax <- tax_table(tax_mat)
+meta_data <- sample_data(as.data.frame(metaits_sorted_d8))
+
+its <- phyloseq(counts, tax, meta_data)
+pseq_genus <- phyloseq::tax_glom(its, taxrank = "Genus") # aggregate to genus level
+
+
+
+# **********************************************************************
+# ................................................................ ----
+# 03_Tree Summarized Experiment ----
+# ................................................................ ----
+# **********************************************************************
+## Create tse ----
+tse <- mia::makeTreeSummarizedExperimentFromPhyloseq(its)
+
+
+
+# **********************************************************************
+# ................................................................ ----
+# 04_ Run ANCOMBC2 ----
+# ................................................................ ----
+# **********************************************************************
+#detach("package:tidyverse", unload=TRUE)
+set.seed(123)
+# It should be noted that we have set the number of bootstrap samples (B) equal 
+# to 10 in the 'trend_control' function for computational expediency. 
+# However, it is recommended that users utilize the default value of B, 
+# which is 100, or larger values for optimal performance.
+tictoc::tic()
+
+## Run ancombc2 ----
+
+output <- ancombc2(data = its,  # either a phyloseq or a TreeSummarizedExperiment object, which consists of a feature table (microbial count table), a sample metadata table, a taxonomy table (optional), and a phylogenetic tree (optional).
+                   #assay_name = "counts", # Character. Name of the count table in the data object. Only applicable if the data is aTSE
+                   tax_level = NULL ,# Character, i.e., "Family" Taxonomic level of interest. # NULL will berform analysis at the lowest taxonomic level of the input data
+                   fix_formula = "treatment", # Character. expresses how the microbial absolute abundance for each taxon depend on the fixed effects in metadata. Include the group varaible in the formula
+                   #rand_formula = "(Time)", # the character string expresses how the microbial absolute abundances for each taxon depend on the random effects in metadata
+                   p_adj_method = "BH", 
+                   pseudo_sens = TRUE, # logical. Whether to perform the sensitivity analysis to the pseudo-count addition. Default is TRUE. While ANCOM-BC2 utilizes complete data (nonzero counts) by default for its analysis, a comprehensive evaluation of result robustness is performed by assessing how pseudo-count addition may affect the outcomes.
+                   prv_cut = 0.05, # prevalence cut. the proportion of samples in which the taxon is present. Defaults to 0.1
+                   lib_cut = 0, # numerical threshold for filtering samples based on library sizes. Samples with lib size less than the cut are excluded. 
+                   s0_perc = 0.05, #a numerical fraction between 0 and 1. Inspired by Significance Analysis of Microarrays (SAM) methodology, a small positive constant is added to the denominator of ANCOM-BC2 test statistic corresponding to each taxon to avoid the significance due to extremely small standard errors, especially for rare taxa. This small positive constant is chosen as s0_perc-th percentile of standard error values for each fixed effect. Default is 0.05 (5th percentile).
+                   group = "treatment", # character. the name of the group variable in metadata. The group parameter should be a character string representing the name of the group variable in the metadata. The group variable should be discrete, meaning it consists of categorical values. Specifying the group variable is required if you are interested in detecting structural zeros and performing performing multi-group comparisons (global test, pairwise directional test, Dunnett's type of test, and trend test). However, if these analyses are not of interest to you, you can leave the group parameter as NULL. If the group variable of interest contains only two categories, you can also leave the group parameter as NULL. Default is NULL.
+                   struc_zero = TRUE, # logical. Whether to detect structural zeros based on group. Default is FALSE.
+                   neg_lb = FALSE, #  logical. Whether to classify a taxon as a structural zero using its asymptotic lower bound. Default is FALSE.
+                   alpha = 0.05, 
+                   n_cl = 1, # numeric. The number of nodes to be forked. For details, see ?parallel::makeCluster. Default is 1 (no parallel computing).
+                   #verbose = TRUE, #logical. Whether to generate verbose output during the ANCOM-BC2 fitting process. 
+                   #global = TRUE, #logical. Whether to perform the global test.
+                   pairwise = TRUE, #logical. Whether to perform the pairwise directional test. Default is FALSE
+                   dunnet = TRUE, #logical. Whether to perform the Dunnett's type of test. Default is FALSE.
+                   #trend = FALSE, #logical. Whether to perform trend test. Default is FALSE.
+                   iter_control = list(tol = 1e-2, max_iter = 2,verbose = TRUE), #a named list of control parameters for the iterative MLE or RMEL algorithm, including 1) tol: the iteration convergence tolerance (default is 1e-02), 2) max_iter: the maximum number of iterations (default is 20), and 3)verbose: whether to show the verbose output (default is FALSE).
+                   em_control = list(tol = 1e-5, max_iter = 100), # a named list of control parameters for the E-M algorithm, including 1) tol: the iteration convergence tolerance (default is 1e-05) and 2) max_iter: the maximum number of iterations (default is 100).
+                   #lme_control = lme4::lmerControl(), #a list of control parameters for mixed model fitting.
+                   mdfdr_control = list(fwer_ctrl_method = "BH", B = 100), #a named list of control parameters for mixed directional false discover rate (mdFDR), including 1) fwer_ctrl_method: family wise error (FWER) controlling procedure, such as "holm", "hochberg", "bonferroni", etc (default is "holm") and 2) B: the number of bootstrap samples (default is 100). Increase B will lead to a more accurate p-values. See Details for a more comprehensive discussion on mdFDR.
+                   #trend_control = NULL #a named list of control parameters for the trend test, including 1) contrast: the list of contrast matrices for constructing inequalities, 2) node: the list of positions for the nodal parameter, 3) solver: a string indicating the solver to use (default is "ECOS"), and 4) B: the number of bootstrap samples (default is 100). Increase B will lead to a more accurate p-values.
+)
+tictoc::toc()
+
+## Structural zeros ----
+
+# A clarification regarding Structural zeros: A taxon is considered to
+# have structural zeros in some (>=1) groups if it is completely 
+# (or nearly completely) missing in these groups. For instance, suppose 
+# there are three groups: g1, g2, and g3. If the counts of taxon A in 
+# g1 are 0, but they are nonzero in g2 and g3, then taxon A will be 
+# considered to contain structural zeros in g1. In this example, taxon A 
+# is declared to be differentially abundant between g1 and g2, g1 and g3,
+# and consequently, it is globally differentially abundant with respect 
+# to this group variable. Such taxa are not further analyzed using 
+# ANCOM-BC2, but the results are summarized in the overall summary.
+
+tab_zero <- output$zero_ind
+tab_zero |> 
+    datatable(caption = 'The detection of structural zeros')
+
+
+## Evaluate primary results ----
+res_prim <- output$res
+
+## Evaluate multiple pairwise comparisons ----
+
+# ANCOM-BC2 multiple pairwise comparisons aim to determine taxa that are 
+# differentially abundant between any pair of two groups across three or more 
+# experimental groups, while controlling the mdFDR.
+# We want to identify taxa that are differentially abundant between any pair
+# of two groups across.The result contains: 1) log fold changes, 2) standard errors, 
+# 3) test statistics, 4) p-values, 5) adjusted p-values, 6) indicators of whether the 
+# taxon is differentially abundant (TRUE) or not (FALSE).
+
+res_pair <- output$res_pair
+
+
+
+
+
+
+
+# -------------------------------------------------------
+# CONSENSUS
+# -------------------------------------------------------
+
+## Intersect between all common ASV/genera/phyla detected by the different DA methods
+```{r}
+# Define seven vectors
+vector1 <- c(1, 2, 3, 4, 5)
+vector2 <- c(3, 4, 5, 6, 7)
+vector3 <- c(5, 6, 7, 8, 9)
+vector4 <- c(5, 10, 11, 12, 13)
+vector5 <- c(5, 14, 15, 16, 17)
+vector6 <- c(5, 18, 19, 20, 21)
+vector7 <- c(5, 22, 23, 24, 25)
+
+# Put all vectors in a list
+vector_list <- list(vector1, vector2, vector3, vector4, vector5, vector6, vector7)
+
+# Find the intersection of all vectors
+common_elements <- Reduce(intersect, vector_list)
+
+# Print the result
+print(common_elements)
+
+```
+
+## Venn Diagram
+
+```{r}
+install.packages("VennDiagram")
+library(VennDiagram)
+
+```
+
+### Define the four vectors
+```{r}
+vector1 <- c(1, 2, 3, 4, 5, 6)
+vector2 <- c(3, 4, 5, 6, 7, 8)
+vector3 <- c(5, 6, 7, 8, 9, 10)
+vector4 <- c(5, 10, 11, 12, 13, 14)
+
+```
+
+### Create the Venn diagram
+```{r}
+venn.plot <- venn.diagram(
+  x = list(vector1, vector2, vector3, vector4),
+  category.names = c("Maaslin2", "DESeq2", "ALDEx2", "ANCOM-BC2"),
+  output = TRUE,
+  filename = here::here("output", "figures", "venn_diagram.png"),
+  output.format = "png",
+  height = 800,
+  width = 1200,
+  resolution = 300,
+  compression = "lzw",
+  units = "px",
+  fontface = "bold",
+  fontfamily = "sans",
+  cat.default.pos = "text",
+  cat.default.just = list(c(0.6, 0.8), c(0.8, 0.2), c(0.2, 0.2), c(0.1, 0.8)),
+  cat.default.cex = 0.6,
+  cat.col = c("black", "black", "black", "black"),
+  cat.fontfamily = "sans",
+  fill = c("red", "green", "blue", "yellow")
+)
+
+```
+
+Find the common elements between a combination of 2-3 different methods
+```{r}
+# Define the vectors (if not already defined)
+vector1 <- c(1, 2, 3, 4, 5, 6)
+vector2 <- c(3, 4, 5, 6, 7, 8)
+vector3 <- c(5, 6, 7, 8, 9, 10)
+vector4 <- c(5, 10, 11, 12, 13, 14)
+
+# Find the intersection of vectors 2, 3, and 4
+common_234 <- Reduce(intersect, list(vector2, vector3, vector4))
+
+# Subtract the elements that are also in vector 1
+result <- setdiff(common_234, vector1)
+
+# Print the result
+print(result)
+
+```
+
+
+# -------------------------------------------------------
+
+# END OF SCRIPT
+
+# -------------------------------------------------------
