@@ -4,164 +4,133 @@ format: html
 editor: source
 ---
 
-********************************************************
+------------------------------------------------------------------------
+
 # LOAD PACKAGES & DATA
-# ********************************************************
+
+# ------------------------------------------------------------------------
 
 ## Packages
+
 ```{r}
 library(here)
 source(here("source", "libraries.R"))
 ```
 
 ## Metadata
+
 ```{r}
-meta <- read.csv(file = here("data","clean", "mapping_file.tsv"), dec = ".", header = T, row.names = 1, sep = "\t", comment.char = "") #load
+meta <- read.csv(file = here("data","clean", "metadata.tsv"), dec = ".", header = T, row.names = 1, sep = "\t", comment.char = "") #load
 str(meta)
 ## Convert character vectors to factors
 meta[sapply(meta, is.character)] <- lapply(meta[sapply(meta, is.character)], as.factor) # did it work? Check with str(meta)
-rownames(meta) <- sub(".*i5_", "", rownames(meta))
+#rownames(meta) <- sub(".*i5_", "", rownames(meta))
 rownames(meta) <- stringr::str_replace_all(rownames(meta), '[-]', '.')
+```
+
+Explore for negative controls. After visual exploration in scripts 00_explore_neg_controls.R and 001_relAbund_neg_controls.R, we decide (Simon Morvan and I) to move forward without substracting ASVs from samples. 
+```{r}
+levels(factor(meta$Experiment)) # 7 levels, including 6 negative controls for extraction and PCR
+meta <- meta[grep("E2",rownames(meta)),] # Exclude negative controls
+levels(factor(meta$Experiment)) # Check
 ```
 
 ## 16S ASV table
 
-Because raw counts and rarefied data are not the same, the number of rows and the taxa retained are different. Therefore, it is necessary to keep two different clean_taxa objects, one for each asv table. 
-
 ### Raw filtered counts
 ```{r}
-raw <- read.csv(file = here("data", "clean", "feature_table_filtered.tsv"), dec = ".", sep = "\t", header = T, row.names = 1, comment.char = "") #2957 objs in 59 vars
+raw <- read.csv(file = here("data", "clean", "feature_table_filtered.tsv"), dec = ".", sep = "\t", header = T, row.names = 1, comment.char = "") #20078 objs in 299 vars
 ```
+
+### Keep only samples
+```{r}
+# Find columns with "E2" in their name
+e2_cols <- grep("E2", colnames(raw))
+# Find the index of the "taxonomy" column
+taxonomy_col <- which(colnames(raw) == "taxonomy")
+# Combine the indices
+cols_to_keep <- c(e2_cols, taxonomy_col)
+# Subset the dataframe
+raw <- raw[, cols_to_keep]
+```
+
+
+### Keep only ASVs from samples
+ASV present ONLY in negative controls will be excluded at this point
+```{r}
+# Compute row sums excluding the 'taxonomy' column
+row_sums_without_taxonomy <- rowSums(raw[, sapply(raw, is.numeric)])
+
+# Subset the dataframe based on the condition
+raw <- raw[row_sums_without_taxonomy > 0, ]
+```
+
+
 Quickly fix sample names
 ```{r}
-names(raw) <- sub(".*i5_", "", names(raw))
-
+names(raw) <- sub("X", "", names(raw))
+dim(raw) # 20063   284 including taxonomy
 ```
+
 Check library size
 ```{r}
 raw_libsize <- as.data.frame(colSums(raw[,1:ncol(raw)-1]))
 summary(raw_libsize)
 ```
-There is one library that is too small: 8.M3.13.07.21 with only 111 counts.
-   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-    111   22457   25262   24480   27334   33747 
 
+There is one library that is too small: 223.224MesoRh.4.1G.E2.16S.D66 with only 10 counts. The other samples.
+ Min.   :   10                  
+ 1st Qu.:20833                  
+ Median :37976                  
+ Mean   :37509                  
+ 3rd Qu.:53254                  
+ Max.   :99100  
 
-### Rarefied counts
+Eliminate 223.224MesoRh.4.1G.E2.16S.D66 from raw and metadata
+
 ```{r}
-rarefied <- read.csv(file = here("data", "clean", "feature_table_final_rarefied.tsv"), dec = ".", sep = "\t", header = T, row.names = 1, comment.char = "") #2957 objs in 59 vars
+'223.224MesoRh.4.1G.E2.16S.D66' %in% colnames(raw)
+raw <- raw[, colnames(raw) != '223.224MesoRh.4.1G.E2.16S.D66']
+meta <- meta[rownames(meta) != '223.224MesoRh.4.1G.E2.16S.D66',]
 ```
 
-Quickly fix sample names
+tidy environment
 ```{r}
-names(rarefied) <- sub(".*i5_", "", names(rarefied))
+rm(list = c("cols_to_keep", "e2_cols", "row_sums_without_taxonomy", "taxonomy_col"))
 ```
 
-Check library size
-```{r}
-rar_libsize <- as.data.frame(colSums(rarefied[,1:ncol(rarefied)-1]))
-summary(rar_libsize)
-```
-   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-   1000    1000    1000    1000    1000    1000 
-  
-As expected, rarefied data contain only 1000 total counts per sample as implemented in AmpliconTagger. Sample under that threshold are lost (in this case, sample 8.M3.13.07.21 was not retained with only 111 counts).
 
-For this experiment, we will retain both datasets:
+------------------------------------------------------------------------
 
-- The rarefied data will be used to calculate alpha and beta diversity (PCoA, permanova and related analysis, and ALDEx2).
-- The raw count data will be used for calculating differential analyses: DESeq2, Maaslin2 and ANCOM-BC2 (as these analyses require raw count to perform their different normalization procedures)
-
-
-## Relative abundances
-### Phylum
-```{r}
-phylum <- read.table(file = here("data", "clean", "feature_table_final_rarefied_L2.tsv"), header = T, sep = "\t", row.names = 1)
-names(phylum) <- sub(".*i5_", "", names(phylum)) # recoding of sample names ----
-#str(phylum) #check structure
-phylum <- data.frame(t(phylum))
-```
-
-### Class
-```{r}
-class <- read.table(file = here("data", "clean", "feature_table_final_rarefied_L3.tsv"), header = T, sep = "\t", row.names = 1)
-names(class) <- sub(".*i5_", "", names(class)) # recoding of sample names ----
-#str(class) #check structure
-class <- data.frame(t(class))
-```
-
-### Genus
-```{r}
-genus  <- read.table(file = here("data", "clean", "feature_table_final_rarefied_L6.tsv"), header = T, sep = "\t", row.names = 1)
-names(genus) <- sub(".*i5_", "", names(genus))
-#str(genus) #check structure
-genus <- data.frame(t(genus))
-```
-
-``` {#r}
-save.image(file = here::here("source", "raw_data.RData"))
-```
-
-********************************************************
 # CLEAN METADATA
-# ********************************************************
+
+# ------------------------------------------------------------------------
+
 ## Order metadata
+
 ```{r}
 meta_sorted <- meta[order(row.names(meta)),] # order metadata 
 #rownames(meta_sorted) 
-str(meta_sorted) # 196 7 variables
+str(meta_sorted) # 282 4 variables
 ```
 
-## Drop Blank process
+## Keep interestig variables
 ```{r}
-meta_sorted <- meta_sorted[!grepl("BlankpcrCES", meta_sorted$alias),]
+names(meta_sorted)
+cols_to_keep <- c("Sample.type", "Time", "Plant.type", "Temperature")
+meta_sorted <- meta_sorted[, cols_to_keep]
 ```
 
-## Create treament variable
-```{r}
-meta_sorted$treatment <- as.factor(paste0(meta_sorted$Sample_type, "_", meta_sorted$Water_type))
-levels(meta_sorted$treatment)
-meta_sorted$treatment <- factor(meta_sorted$treatment, 
-                                levels = c("No_plant_Artificial_OSPW", "No_plant_OSPW", "Carex_OSPW"), 
-                                labels = c("No_plant_CTRL", "No_plant_OSPW", "Carex_OSPW"))
-```
+# ------------------------------------------------------------------------
 
-
-********************************************************
-# TAXONOMY (RAREFIED)
-# ********************************************************
-
-## Create tax_rar table for rarefied data
-```{r}
-dim(rarefied) # 2956 and  58 OK
-tax_rar <- as.data.frame(rarefied[,ncol(rarefied)]) # taxonomy obtained from last column as independent table
-otuids <- rownames((rarefied))
-rownames(tax_rar) <- otuids
-names(tax_rar) <- c("taxonomy")
-```
-
-## Separate tax_rar into groups
-```{r}
-tax_rar_clean <- separate(tax_rar, taxonomy, into = c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species", "Strain"), sep = ";")
-tax_rar_clean <- tax_rar_clean[,-which(names(tax_rar_clean) %in% c("Species", "Strain"))]
-tax_rar_clean <- as.data.frame(tax_rar_clean)
-levels(as.factor(tax_rar_clean$Domain)) # 3 Domain 
-levels(as.factor(tax_rar_clean$Phylum)) #  39 Phyla 
-levels(as.factor(tax_rar_clean$Class)) # 87 classes
-levels(as.factor(tax_rar_clean$Order)) # 201 orders
-levels(as.factor(tax_rar_clean$Family)) # 321 Families
-levels(as.factor(tax_rar_clean$Genus)) # 617 genus
-str(tax_rar_clean)
-```
-
-
-********************************************************
 # TAXONOMY (RAW COUNTS)
-# ********************************************************
+
+# ------------------------------------------------------------------------
 
 ## Create tax_raw table for raw data
+
 ```{r}
-dim(raw) # 2957 and  59 OK
+dim(raw) # 20063   283 OK
 tax_raw <- as.data.frame(raw[,ncol(raw)]) # taxonomy obtained from last column as independent table
 otuids <- rownames((raw))
 rownames(tax_raw) <- otuids
@@ -173,34 +142,15 @@ names(tax_raw) <- c("taxonomy")
 tax_raw_clean <- separate(tax_raw, taxonomy, into = c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species", "Strain"), sep = ";")
 tax_raw_clean <- tax_raw_clean[,-which(names(tax_raw_clean) %in% c("Species", "Strain"))]
 tax_raw_clean <- as.data.frame(tax_raw_clean)
-levels(as.factor(tax_raw_clean$Domain)) # 3 Domain 
-levels(as.factor(tax_raw_clean$Phylum)) #  39 Phyla 
-levels(as.factor(tax_raw_clean$Class)) # 87 classes
-levels(as.factor(tax_raw_clean$Order)) # 201 orders
-levels(as.factor(tax_raw_clean$Family)) # 321 Families
-levels(as.factor(tax_raw_clean$Genus)) # 617 genus
+levels(as.factor(tax_raw_clean$Domain)) # 2 Domain: Archaea and Bacteria, all ok
+levels(as.factor(tax_raw_clean$Phylum)) #  43 Phyla 
+levels(as.factor(tax_raw_clean$Class)) # 121 classes
+levels(as.factor(tax_raw_clean$Order)) # 296 orders
+levels(as.factor(tax_raw_clean$Family)) # 466 Families
+levels(as.factor(tax_raw_clean$Genus)) # 882 genus
 str(tax_raw_clean)
 ```
 
-
-********************************************************
-# CLEAN TABLES (RAREFIED)
-# ********************************************************
-## Filter ASVs 
-that do not correspond to Bacteria and Archaea
-The preliminary check at Domain level reveal that up to 3 domains have been retained: Archaea, Bacteria and Eukaryota. 
-```{r}
-eukaryotas <- rarefied[grep("Eukaryota",rarefied$taxonomy),] 
-#View(eukaryotas)
-dim(eukaryotas) # 12 ASVs -- Cryptomycota
-```
-
-Exclude Eukaryotas
-```{r}
-rarefied_counts <- rarefied[!grepl("Eukaryota",rarefied$taxonomy),] 
-```
-
-Same in taxonomy
 ```{r}
 taxonomy_clean <- as.data.frame(taxonomy[rownames(taxonomy) %in% rownames(rarefied_counts),])
 names(taxonomy_clean) <- c("Taxonomy")
@@ -214,43 +164,103 @@ rownames(taxonomy_clean) <- rownames(rarefied_counts)
 # eliminate the characters  -----
 pattern <- "[a-z]__"
 replacement <- ""
-tax_clean <- as.data.frame(apply(tax_clean, 2, function(col) gsub(pattern, replacement, col)))
-#write.table(tax.clean, file = here::here("data", "clean", "clean_taxonomy.txt"),sep = "\t")
+tax_clean <- as.data.frame(apply(tax_raw_clean, 2, function(col) gsub(pattern, replacement, col)))
 rm(pattern)
 rm(replacement)
-rownames(tax_clean) <- rownames(rarefied_counts)
+
 ```
+
+## Fill NAs with last available taxon rank
+```{r}
+tax_clean_filled <- tax_clean |> 
+   t() |> 
+   as.data.frame() |> 
+   fill(everything(), .direction = "down") |> 
+   t() |> 
+   as.data.frame()
+#write.table(tax.clean, file = here::here("data", "clean", "clean_taxonomy.txt"),sep = "\t")
+rm(list = c("raw_libsize", "tax_raw", "tax_clean", "tax_raw_clean", "pattern", "replacement", "otuids", "cols_to_keep"))
+```
+
+# ------------------------------------------------------------------------
+
+# ABUNDANCE TABLES (RAW) - PHYLUM
+
+# ------------------------------------------------------------------------
+
+```{r}
+counts_clean_tax <- merge( raw, tax_clean_filled, by ="row.names")
+rownames(counts_clean_tax) <- counts_clean_tax$Row.names
+counts_clean_tax$Row.names <- NULL
+counts_clean_tax$taxonomy <- NULL
+```
+
+## Aggregate as a function of phylum
+
+```{r}
+counts <- counts_clean_tax[ , sapply(counts_clean_tax, is.numeric)]
+phylum <- cbind(counts_clean_tax$Phylum, counts)
+names(phylum)[names(phylum) == "counts_clean_tax$Phylum"] <- "phylum"
+phylum <- aggregate(. ~ phylum, data = phylum, sum)
+```
+
+# ------------------------------------------------------------------------
+
+# ABUNDANCE TABLES (RAW)
+
+# ------------------------------------------------------------------------
+
+## Transpose
+
+```{r}
+com_raw <- raw_counts[,1:(ncol(raw_counts)-1)] # create community table with asv table with only abundances not taxonomy
+com_raw_t = t(com_raw) # transposing table, samples as rows, species as columns to match metadata
+```
+
+## Keep only defined treatments as in metadata
+
+```{r}
+com_raw_s <- com_raw_t[rownames(com_raw_t) %in% rownames(meta_sorted),]
+meta_sorted <- meta_sorted[rownames(meta_sorted) %in% rownames(com_raw_s),]
+```
+
+## Order table and check
+
+```{r}
+com_raw_sorted <- com_raw_s[order(row.names(com_raw_s)),]
+rownames(meta_sorted) == rownames(com_raw_sorted)
+```
+
+## Tidy environment
+
+```{r}
+rm(list = c("otuids", "com_t", "com_s", "eukaryotas", "com"))
+```
+
+# ------------------------------------------------------------------------
+
+## Save RDS objects
+
+```{r}
+save(meta_sorted, com_sorted,com_raw_sorted, tax_clean, file = here::here("RData", "DA_data.RData"))
+```
+
+##Export only once
+
+```{r}
+#save.image(file = here::here("source", "clean_Data_rarefied.RData"))
+```
+
+------------------------------------------------------------------------
+
+# END OF SCRIPT
+
+# ------------------------------------------------------------------------
+
+
+## Set diff: used to compare between raw and rarefied data
 
 ```{#r}
-## Collate ASVs with good taxonomy
-# collate otus with clean taxonomy table
-rarefied_bis = cbind(rarefied[,1:ncol(rarefied)-1], tax.clean)
-### tyding up
-rm(otuids)
-rm(taxonomy)
-rm(rarefied)
-```
-
-
-# CLEAN TABLES (RAW)
-# ********************************************************
-## Filter ASVs 
-that do not correspond to Bacteria and Archaea
-The preliminary check at Domain level reveal that up to 3 domains have been retained: Archaea, Bacteria and Eukaryota. 
-```{r}
-eukaryotas <- raw[grep("Eukaryota",raw$taxonomy),] 
-#View(eukaryotas)
-dim(eukaryotas) # 12 ASVs -- Cryptomycota
-```
-
-Exclude Eukaryotas
-```{r}
-raw_counts <- raw[!grepl("Eukaryota",raw$taxonomy),] 
-```
-
-
-## Set diff
-```{r}
 A <- raw_counts
 B <- rarefied_counts
 rownames(A) <- raw_counts$taxonomy
@@ -261,75 +271,3 @@ setdiff(colnames(raw_counts), colnames(rarefied_counts))
 setdiff(rownames(raw_counts), rownames(rarefied_counts))
 setdiff(rownames(raw_counts), rownames(rarefied_counts))
 ```
-
-
-********************************************************
-# ABUNDANCE TABLE (RAREFIED)
-# ********************************************************
-
-## Transpose
-```{r}
-com <- rarefied_counts[,1:(ncol(rarefied_counts)-1)] # create community table with asv table with only abundances not taxonomy
-com_t = t(com) # transposing table, samples as rows, species as columns to match metadata
-```
-
-## Keep only defined treatments as in metadata
-```{r}
-com_s <- com_t[rownames(com_t) %in% rownames(meta_sorted),]
-meta_sorted <- meta_sorted[rownames(meta_sorted) %in% rownames(com_s),]
-```
-
-## Order table and check
-```{r}
-com_sorted <- com_s[order(row.names(com_s)),]
-rownames(meta_sorted) == rownames(com_sorted)
-```
-
-## Tidy environment
-```{r}
-rm(list = c("otuids", "com_t", "com_s", "eukaryotas", "com"))
-```
-
-
-********************************************************
-# ABUNDANCE TABLE (RAW)
-# ********************************************************
-
-## Transpose
-```{r}
-com_raw <- raw_counts[,1:(ncol(raw_counts)-1)] # create community table with asv table with only abundances not taxonomy
-com_raw_t = t(com_raw) # transposing table, samples as rows, species as columns to match metadata
-```
-
-## Keep only defined treatments as in metadata
-```{r}
-com_raw_s <- com_raw_t[rownames(com_raw_t) %in% rownames(meta_sorted),]
-meta_sorted <- meta_sorted[rownames(meta_sorted) %in% rownames(com_raw_s),]
-```
-
-## Order table and check
-```{r}
-com_raw_sorted <- com_raw_s[order(row.names(com_raw_s)),]
-rownames(meta_sorted) == rownames(com_raw_sorted)
-```
-
-## Tidy environment
-```{r}
-rm(list = c("otuids", "com_t", "com_s", "eukaryotas", "com"))
-```
-
-# ********************************************************
-## Save RDS objects
-```{r}
-save(meta_sorted, com_sorted,com_raw_sorted, tax_clean, file = here::here("RData", "DA_data.RData"))
-```
-
-##Export only once
-```{r}
-#save.image(file = here::here("source", "clean_Data_rarefied.RData"))
-```
-
-********************************************************
-# END OF SCRIPT
-# ********************************************************
-
