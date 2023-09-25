@@ -151,7 +151,7 @@ levels(as.factor(tax_raw_clean$Genus)) # 882 genus
 str(tax_raw_clean)
 ```
 
-```{r}
+```{#r}
 taxonomy_clean <- as.data.frame(taxonomy[rownames(taxonomy) %in% rownames(rarefied_counts),])
 names(taxonomy_clean) <- c("Taxonomy")
 tax_clean <- as.data.frame(tax.clean[rownames(tax.clean) %in% rownames(rarefied_counts),])
@@ -179,7 +179,7 @@ tax_clean_filled <- tax_clean |>
    t() |> 
    as.data.frame()
 #write.table(tax.clean, file = here::here("data", "clean", "clean_taxonomy.txt"),sep = "\t")
-rm(list = c("raw_libsize", "tax_raw", "tax_clean", "tax_raw_clean", "pattern", "replacement", "otuids", "cols_to_keep"))
+#rm(list = c("raw_libsize", "tax_raw", "tax_clean", "tax_raw_clean", "pattern", "replacement", "otuids", "cols_to_keep"))
 ```
 
 # ------------------------------------------------------------------------
@@ -231,9 +231,19 @@ phylum <- cbind(phylum, proteo)
 
 ## Genus
 ### Aggregate table
-```{r}
+```{#r}
 genus <- cbind(counts_clean_tax$Genus, counts)
 names(genus)[names(genus) == "counts_clean_tax$Genus"] <- "genus"
+genus <- aggregate(. ~ genus, data = genus, sum)
+rownames(genus) <- genus$genus # set row names with first column containing genus names
+genus$genus <- NULL # remove column with tax rank
+genus <- as.matrix(t(genus)) # transpose
+```
+
+### Aggregate table from raw tax
+```{r}
+genus <- cbind(tax_raw$taxonomy, counts)
+names(genus)[names(genus) == "tax_raw$taxonomy"] <- "genus"
 genus <- aggregate(. ~ genus, data = genus, sum)
 rownames(genus) <- genus$genus # set row names with first column containing genus names
 genus$genus <- NULL # remove column with tax rank
@@ -283,7 +293,7 @@ if (all(row.names(meta_sorted) == rownames(genus_sorted) )) {
 
 ## Export tax rank abundance tables
 ```{r}
-#save(meta_sorted, phylum_sorted, genus_sorted, file = here::here("RData", "RelAbund_tables.RData"))
+save(meta_sorted, phylum_sorted, genus_sorted, file = here::here("RData", "RelAbund_tables.RData"))
 ```
 
 
