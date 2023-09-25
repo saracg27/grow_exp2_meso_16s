@@ -188,21 +188,104 @@ rm(list = c("raw_libsize", "tax_raw", "tax_clean", "tax_raw_clean", "pattern", "
 
 # ------------------------------------------------------------------------
 
+## Create clean count table no tax
 ```{r}
 counts_clean_tax <- merge( raw, tax_clean_filled, by ="row.names")
 rownames(counts_clean_tax) <- counts_clean_tax$Row.names
 counts_clean_tax$Row.names <- NULL
 counts_clean_tax$taxonomy <- NULL
+counts <- counts_clean_tax[ , sapply(counts_clean_tax, is.numeric)]
 ```
 
-## Aggregate as a function of phylum
-
+## Phylum
+### Aggregate by phylum
 ```{r}
-counts <- counts_clean_tax[ , sapply(counts_clean_tax, is.numeric)]
 phylum <- cbind(counts_clean_tax$Phylum, counts)
 names(phylum)[names(phylum) == "counts_clean_tax$Phylum"] <- "phylum"
 phylum <- aggregate(. ~ phylum, data = phylum, sum)
+phylum <- phylum[-grep("Proteobacteria", phylum$phylum),] # eliminate proteobacteria to then attach proteobacteria classes
+str(phylum)
+rownames(phylum) <- phylum$phylum # set row names with first column containing phylum names
+phylum$phylum <- NULL # remove column with tax rank
+phylum <- as.matrix(t(phylum)) # transpose
 ```
+
+### Aggregate by class 
+to find all proteobacteria classes
+```{r}
+class <- cbind(counts_clean_tax$Class, counts)
+names(class)[names(class) == "counts_clean_tax$Class"] <- "class"
+class <- aggregate(. ~ class, data = class, sum)
+str(class)
+rownames(class) <- class$class # set row names with first column containing class names
+class$class <- NULL # remove column with tax rank
+class <- as.matrix(t(class)) 
+proteo <- class[, grep("proteobacteria", colnames(class)) ]
+```
+
+
+### Attach proteobacteria classes to phylum
+```{r}
+phylum <- cbind(phylum, proteo)
+```
+
+## Genus
+### Aggregate table
+```{r}
+genus <- cbind(counts_clean_tax$Genus, counts)
+names(genus)[names(genus) == "counts_clean_tax$Genus"] <- "genus"
+genus <- aggregate(. ~ genus, data = genus, sum)
+rownames(genus) <- genus$genus # set row names with first column containing genus names
+genus$genus <- NULL # remove column with tax rank
+genus <- as.matrix(t(genus)) # transpose
+```
+
+## Calculate relative abundances
+```{r}
+genus_rel <- (genus/rowSums(genus))
+#Check
+if (all(round(rowSums(genus_rel),6) == 1)) { #Sanity check all 1 - round() reduces the risk of floating-point errors
+  print("Sanity check ok = all sum to 1")
+} else {
+  print("ERROR: not all columns sum to 1")
+}
+#Check
+phylum_rel <- (phylum/rowSums(phylum))
+if (all(round(rowSums(phylum_rel),6) == 1)) { #Sanity check all 1 - round() reduces the risk of floating-point errors
+  print("Sanity check ok = all sum to 1")
+} else {
+  print("ERROR: not all columns sum to 1")
+}
+```
+
+## Order by row names
+```{r}
+meta_sorted <- meta_sorted[order(row.names(meta_sorted)),] 
+phylum_sorted <- phylum_rel[order(row.names(phylum_rel)),] 
+genus_sorted <- genus_rel[order(row.names(genus_rel)),] # order 
+
+# Sanity check for phylum
+if (all(row.names(meta_sorted) == rownames(phylum_sorted) )) {
+  print("Sanity check ok")
+} else {
+  print("ERROR: not all row names are the same")
+}
+
+# Sanity check for genus
+if (all(row.names(meta_sorted) == rownames(genus_sorted) )) {
+  print("Sanity check ok")
+} else {
+  print("ERROR: not all row names are the same")
+}
+
+```
+
+
+## Export tax rank abundance tables
+```{r}
+#save(meta_sorted, phylum_sorted, genus_sorted, file = here::here("RData", "RelAbund_tables.RData"))
+```
+
 
 # ------------------------------------------------------------------------
 
