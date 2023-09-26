@@ -276,26 +276,14 @@ genus_long$Taxa <- fct_relevel(genus_long$Taxa, "Others" , after = 0L)
 pal3 <- c("#F2D696","#F59C9B","#71ACD6","#7B9E81","#CDC0B0","#968EC2","#B2D2E8","#F7C6EC", "#C7DBC5","#FAFAD2","#C25B57","#A2C5F2", "#C6F7D0","#B88988","#C3C5FA","#8CBCFA","#DBADD3","#E0EEEE","#FFD39B", "#E7D0F5","#C3F3FA","#838B8B")
 ```
 
-## Color palette
 
-```{#r}
-pal3 <- c("#F2D696","#BDFFF0","#F59C9B","#71ACD6","#7B9E81","#CDC0B0","#968EC2","#B2D2E8","#F7C6EC", "#C7DBC5","#C1CDCD")
-
-
-CPCOLS2 <- c("#FFD700","#458B74", "#00BFFF","#104E8B","#7FFFD4","#FFD39B", "#FF4040","#C1CDCD","#FF34B3", "#00BFFF","#838B8B", "#104E8B","#FF4040", "#8B2323",  "#8B7355", "#00BFFF",  "#76EE00", "#458B00", "#FFD700", "#8B7500", "#FF34B3", "#FF7F50","#8B1C62", "#008B8B")
-pal1 <- c("#CDC0B0", "#E0EEEE", "#FFD39B", "#EEE0E5", "#FAFAD2", "#B4EEB4", "#F7D3D2", "#F7C6EC", "#CBE9FA", "#CFBEF7", "#A0FAF4", "#CAEDE1", "#C7DBC5", "#EBF7AF", "#CCC9A3", "#DBB0AF", "#F2D696", "#F4FABB", "#E4E6B8", "#DBADD3", "#E7D0F5", "#C7A9F2", "#968EC2", "#C3C5FA", "#A2C5F2", "#D3D2F5", "#71ACD6", "#B2D2E8", "#8CBCFA", "#C3F3FA", "#AAFAD7", "#BDFFF0", "#C6F7D0", "#B6FAAF", "#7B9E81", "#8FB598", "#98AD99", "#B2BF99", "#BCC7A3", "#A5D4C6", "#CCE8C7", "#ADDBC1", "#CDF5BC", "#F59C9B", "#C25B57", "#B88988", "#E6B9B8")
-pal2 <- c("#CDC0B0", "#E0EEEE", "#FFD39B", "#EEE0E5", "#FAFAD2", "#B4EEB4", "#F7D3D2",  "#CBE9FA", "#CFBEF7",  "#CAEDE1", "#C7DBC5", "#EBF7AF", "#CCC9A3", "#DBB0AF", "#F2D696", "#F4FABB", "#E4E6B8", "#DBADD3", "#E7D0F5", "#C7A9F2", "#968EC2", "#C3C5FA", "#A2C5F2", "#D3D2F5", "#71ACD6", "#B2D2E8", "#8CBCFA", "#C3F3FA", "#AAFAD7", "#BDFFF0", "#C6F7D0", "#B6FAAF", "#7B9E81", "#8FB598", "#98AD99", "#B2BF99", "#BCC7A3", "#A5D4C6", "#CCE8C7", "#ADDBC1", "#CDF5BC", "#F59C9B", "#C25B57", "#B88988", "#E6B9B8")
-
-pal4 <- c(  "#EEE0E5",  "#B4EEB4", "#F7D3D2",  "#CBE9FA", "#CFBEF7",  "#CAEDE1", "#C7DBC5", "#EBF7AF", "#CCC9A3", "#DBB0AF",  "#F4FABB", "#E4E6B8",  "#C7A9F2",    "#D3D2F5",  "#AAFAD7", "#BDFFF0",  "#B6FAAF",  "#8FB598", "#98AD99", "#B2BF99", "#BCC7A3", "#A5D4C6", "#CCE8C7", "#ADDBC1", "#CDF5BC",    "#E6B9B8")
-
-
-```
-
-## Create the stack bar chart
+# Create the stack bar charts for combined figure
 ## d4 plot
 ```{r}
 genus_long$Time <- factor(x = genus_long$Time, levels = c("D4", "D13", "D20", "D40", "D66"), labels = c("4", "13", "20", "40", "66"))
 genus_long$treatment <- factor(paste(genus_long$Plant.type, genus_long$Sample.type, sep = " "))
+genus_long$treatment <- factor(genus_long$treatment, 
+                               levels = c("no plant Sd","Scirpus Sd","Triglochin Sd","Scirpus Rz","Triglochin Rz","Scirpus Rt","Triglochin Rt"))
 genus_long$treat_time <- factor(paste(genus_long$treatment, genus_long$Time, sep = " "))
 
 d4 <- droplevels(genus_long[genus_long$Time == "4",])
@@ -307,11 +295,11 @@ stack_genus_d4 <- ggplot(d4, aes(fill = Taxa, y = RelAbund, x = id)) +
   theme_minimal() +
   theme(strip.text.x = element_text(face = "bold.italic", size = 9),
         #axis.text.x = element_text(size = 12, angle = 360, hjust = 0.5, face = "bold"),
-        axis.text.y = element_text(size = 12, face = "bold"),
-        plot.title = element_text(face = "bold", size = 16),
-        legend.title = element_text(size = 14, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"),
+        plot.title = element_text(face = "bold", size = 10),
+        legend.title = element_text(size = 10, color = "black", face = "bold"),
         legend.text = element_text(size = 10, face ="bold", color ="black"),
-        axis.title.y = element_text(size = 16, face = "bold"),
+        axis.title.y = element_text(size = 10, face = "bold"),
         axis.title.x = element_blank(),
         axis.text.x = element_blank(),
         legend.position = "none",
@@ -336,11 +324,11 @@ stack_genus_d13 <- ggplot(d13, aes(fill = Taxa, y = RelAbund, x = id)) +
   theme_minimal() +
   theme(strip.text.x = element_text(face = "bold.italic", size = 9),
         #axis.text.x = element_text(size = 12, angle = 360, hjust = 0.5, face = "bold"),
-        axis.text.y = element_text(size = 12, face = "bold"),
-        plot.title = element_text(face = "bold", size = 16),
-        legend.title = element_text(size = 14, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"),
+        plot.title = element_text(face = "bold", size = 10),
+        legend.title = element_text(size = 10, color = "black", face = "bold"),
         legend.text = element_text(size = 10, face ="bold", color ="black"),
-        axis.title.y = element_text(size = 16, face = "bold"),
+        axis.title.y = element_text(size = 10, face = "bold"),
         axis.title.x = element_blank(),
         axis.text.x = element_blank(),
         legend.position = "none",
@@ -365,11 +353,11 @@ stack_genus_d20 <- ggplot(d20, aes(fill = Taxa, y = RelAbund, x = id)) +
   theme_minimal() +
   theme(strip.text.x = element_text(face = "bold.italic", size = 9),
         #axis.text.x = element_text(size = 12, angle = 360, hjust = 0.5, face = "bold"),
-        axis.text.y = element_text(size = 12, face = "bold"),
-        plot.title = element_text(face = "bold", size = 16),
-        legend.title = element_text(size = 14, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"),
+        plot.title = element_text(face = "bold", size = 10),
+        legend.title = element_text(size = 10, color = "black", face = "bold"),
         legend.text = element_text(size = 10, face ="bold", color ="black"),
-        axis.title.y = element_text(size = 16, face = "bold"),
+        axis.title.y = element_text(size = 10, face = "bold"),
         axis.title.x = element_blank(),
         axis.text.x = element_blank(),
         legend.position = "none",
@@ -394,11 +382,11 @@ stack_genus_d40 <- ggplot(d40, aes(fill = Taxa, y = RelAbund, x = id)) +
   theme_minimal() +
   theme(strip.text.x = element_text(face = "bold.italic", size = 9),
         #axis.text.x = element_text(size = 12, angle = 360, hjust = 0.5, face = "bold"),
-        axis.text.y = element_text(size = 12, face = "bold"),
-        plot.title = element_text(face = "bold", size = 16),
-        legend.title = element_text(size = 14, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"),
+        plot.title = element_text(face = "bold", size = 10),
+        legend.title = element_text(size = 10, color = "black", face = "bold"),
         legend.text = element_text(size = 10, face ="bold", color ="black"),
-        axis.title.y = element_text(size = 16, face = "bold"),
+        axis.title.y = element_text(size = 10, face = "bold"),
         axis.title.x = element_blank(),
         axis.text.x = element_blank(),
         legend.position = "none",
@@ -423,11 +411,11 @@ stack_genus_d66 <- ggplot(d66, aes(fill = Taxa, y = RelAbund, x = id)) +
   theme_minimal() +
   theme(strip.text.x = element_text(face = "bold.italic", size = 9),
         #axis.text.x = element_text(size = 12, angle = 360, hjust = 0.5, face = "bold"),
-        axis.text.y = element_text(size = 12, face = "bold"),
-        plot.title = element_text(face = "bold", size = 16),
-        legend.title = element_text(size = 14, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"),
+        plot.title = element_text(face = "bold", size = 10),
+        legend.title = element_text(size = 10, color = "black", face = "bold"),
         legend.text = element_text(size = 10, face ="bold", color ="black"),
-        axis.title.y = element_text(size = 16, face = "bold"),
+        axis.title.y = element_text(size = 10, face = "bold"),
         axis.title.x = element_blank(),
         axis.text.x = element_blank(),
         legend.position = "none",
@@ -452,11 +440,11 @@ legend <- get_legend(ggplot(d66, aes(fill = Taxa, y = RelAbund, x = id)) +
   theme_minimal() +
   theme(strip.text.x = element_text(face = "bold.italic", size = 9),
         #axis.text.x = element_text(size = 12, angle = 360, hjust = 0.5, face = "bold"),
-        axis.text.y = element_text(size = 12, face = "bold"),
-        plot.title = element_text(face = "bold", size = 16),
-        legend.title = element_text(size = 14, color = "black", face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"),
+        plot.title = element_text(face = "bold", size = 10),
+        legend.title = element_text(size = 10, color = "black", face = "bold"),
         legend.text = element_text(size = 10, face ="bold", color ="black"),
-        axis.title.y = element_text(size = 16, face = "bold"),
+        axis.title.y = element_text(size = 10, face = "bold"),
         axis.title.x = element_blank(),
         axis.text.x = element_blank(),
         #legend.position = "none",
@@ -484,7 +472,14 @@ combined_plot
 
 combined_plot <- plot_grid(stack_genus_d4, stack_genus_d13, stack_genus_d20, stack_genus_d40, stack_genus_d66, legend, ncol = 2, rel_widths = c(3,1))
 combined_plot
-ggsave("plot.png", combined_plot, width = 4, height = 7)
+combined_plot2 <- plot_grid(stack_genus_d4, stack_genus_d13, stack_genus_d20, stack_genus_d40, stack_genus_d66, ncol = 1, scale = 1)
+combined_plot3 <- plot_grid(combined_plot2, legend, ncol = 2, rel_widths = c(3,1))
+
+
+#ggsave(file = here("output", "figures", "genus_relAbund_combined_plot2.pdf"), combined_plot2, width = 8, height = 20)
+ggsave(file = here("output", "figures", "genus_relAbund_combined_plot3.pdf"), combined_plot3, width = 13, height = 15)
+ggsave(file = here("output", "figures", "genus_relAbund_combined_plot3.eps"), combined_plot3, width = 13, height = 15)
+ggsave(file = here("output", "figures", "genus_relAbund_combined_plot3.tiff"), combined_plot3, width = 13, height = 15)
 ```
 
 Run only once
@@ -496,18 +491,205 @@ ggsave(file = here::here("output", "figures", "relAbund_phylum_16S.tiff"), combi
 ```
 
 
+
+
+
+# Create the stack bar charts for INDIVIDUAL figures
+
+## Recode labels 
+```{r}
+genus_long$Time <- factor(x = genus_long$Time, levels = c("D4", "D13", "D20", "D40", "D66"), labels = c("4", "13", "20", "40", "66"))
+genus_long$treatment <- factor(paste(genus_long$Plant.type, genus_long$Sample.type, sep = " "))
+genus_long$treatment <- factor(genus_long$treatment, 
+                               levels = c("no plant Sd","Scirpus Sd","Triglochin Sd","Scirpus Rz","Triglochin Rz","Scirpus Rt","Triglochin Rt"))
+
+levels(genus_long$treatment) <- c("no plant Sd" = "plain('no plant Sd')", 
+                                  "Scirpus Sd" = "italic('Scirpus') ~ 'Sd'",
+                                  "Triglochin Sd" = "italic('Triglochin') ~ 'Sd'",
+                                  "Scirpus Rz" = "italic('Scirpus') ~ 'Rz'",
+                                  "Triglochin Rz" = "italic('Triglochin') ~ 'Rz'",
+                                  "Scirpus Rt" = "italic('Scirpus') ~ 'Rt'",
+                                  "Triglochin Rt" = "italic('Triglochin') ~ 'Rt'")
+```
+
+## d4 plot
+```{r}
+d4 <- droplevels(genus_long[genus_long$Time == "4",])
+
+stack_genus_d4 <- ggplot(d4, aes(fill = Taxa, y = RelAbund, x = id)) + 
+    geom_bar(stat = "identity", position = "stack") +
+  labs( y = "Relative abundance",
+        title = "D4 - most abundant genera",
+        x = "Treatment replicates") + 
+  theme_minimal() +
+  theme(strip.text.x = element_text(face = "bold", size = 8),
+        #axis.text.x = element_text(size = 12, angle = 360, hjust = 0.5, face = "bold"),
+        axis.text.y = element_text(size = 9, face = "bold"),
+        plot.title = element_text(face = "bold", size = 12),
+        legend.title = element_text(size = 8, color = "black", face = "bold"),
+        legend.text = element_text(size = 8, face ="bold", color ="black"),
+        axis.title.y = element_text(size = 9, face = "bold"),
+        axis.title.x = element_text(size = 9, face = "bold"),
+        axis.text.x = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_blank(),
+        #legend.position = "none",
+        rect = element_rect(fill = "white")) +
+  scale_fill_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 8))) +
+  scale_color_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 8))) +
+  facet_wrap( ~ Temperature + treatment,  scales = "free_x", nrow = 2, ncol = 7,drop = TRUE, labeller = label_parsed) +
+  scale_y_continuous() 
+  #scale_x_discrete(name = "Time in days since OSPW introduction")
+stack_genus_d4
+
+ggsave(file = here("output", "figures", "genus_relAbund_d4.pdf"), stack_genus_d4, width = 9, height = 6)
+ggsave(file = here("output", "figures", "genus_relAbund_d4.eps"), stack_genus_d4, width = 9, height = 6)
+
+```
+
+## d13 plot
+```{r}
+d13 <- droplevels(genus_long[genus_long$Time == "13",])
+
+stack_genus_d13 <- ggplot(d13, aes(fill = Taxa, y = RelAbund, x = id)) + 
+    geom_bar(stat = "identity", position = "stack") +
+  labs( y = "Relative abundance",
+        title = "D13 - most abundant genera",
+        x = "Treatment replicates") + 
+  theme_minimal() +
+  theme(strip.text.x = element_text(face = "bold", size = 8),
+        #axis.text.x = element_text(size = 12, angle = 360, hjust = 0.5, face = "bold"),
+        axis.text.y = element_text(size = 9, face = "bold"),
+        plot.title = element_text(face = "bold", size = 12),
+        legend.title = element_text(size = 8, color = "black", face = "bold"),
+        legend.text = element_text(size = 8, face ="bold", color ="black"),
+        axis.title.y = element_text(size = 9, face = "bold"),
+        axis.title.x = element_text(size = 9, face = "bold"),
+        axis.text.x = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_blank(),
+        #legend.position = "none",
+        rect = element_rect(fill = "white")) +
+  scale_fill_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 8))) +
+  scale_color_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 8))) +
+  facet_wrap( ~ Temperature + treatment,  scales = "free_x", nrow = 2, ncol = 7,drop = TRUE, labeller = label_parsed) +
+  scale_y_continuous() 
+  #scale_x_discrete(name = "Time in days since OSPW introduction")
+stack_genus_d13
+
+ggsave(file = here("output", "figures", "genus_relAbund_d13.pdf"), stack_genus_d13, width = 9, height = 6)
+ggsave(file = here("output", "figures", "genus_relAbund_d13.eps"), stack_genus_d13, width = 9, height = 6)
+
+```
+
+## d20 plot
+```{r}
+d20 <- droplevels(genus_long[genus_long$Time == "20",])
+
+stack_genus_d20 <- ggplot(d20, aes(fill = Taxa, y = RelAbund, x = id)) + 
+    geom_bar(stat = "identity", position = "stack") +
+  labs( y = "Relative abundance",
+        title = "d20 - most abundant genera",
+        x = "Treatment replicates") + 
+  theme_minimal() +
+  theme(strip.text.x = element_text(face = "bold", size = 8),
+        #axis.text.x = element_text(size = 12, angle = 360, hjust = 0.5, face = "bold"),
+        axis.text.y = element_text(size = 9, face = "bold"),
+        plot.title = element_text(face = "bold", size = 12),
+        legend.title = element_text(size = 8, color = "black", face = "bold"),
+        legend.text = element_text(size = 8, face ="bold", color ="black"),
+        axis.title.y = element_text(size = 9, face = "bold"),
+        axis.title.x = element_text(size = 9, face = "bold"),
+        axis.text.x = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_blank(),
+        #legend.position = "none",
+        rect = element_rect(fill = "white")) +
+  scale_fill_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 8))) +
+  scale_color_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 8))) +
+  facet_wrap( ~ Temperature + treatment,  scales = "free_x", nrow = 2, ncol = 7,drop = TRUE, labeller = label_parsed) +
+  scale_y_continuous() 
+  #scale_x_discrete(name = "Time in days since OSPW introduction")
+stack_genus_d20
+
+ggsave(file = here("output", "figures", "genus_relAbund_d20.pdf"), stack_genus_d20, width = 9, height = 6)
+ggsave(file = here("output", "figures", "genus_relAbund_d20.eps"), stack_genus_d20, width = 9, height = 6)
+```
+
+
+## d40 plot
+```{r}
+d40 <- droplevels(genus_long[genus_long$Time == "40",])
+
+stack_genus_d40 <- ggplot(d40, aes(fill = Taxa, y = RelAbund, x = id)) + 
+    geom_bar(stat = "identity", position = "stack") +
+  labs( y = "Relative abundance",
+        title = "D40 - most abundant genera",
+        x = "Treatment replicates") + 
+  theme_minimal() +
+  theme(strip.text.x = element_text(face = "bold", size = 8),
+        #axis.text.x = element_text(size = 12, angle = 360, hjust = 0.5, face = "bold"),
+        axis.text.y = element_text(size = 9, face = "bold"),
+        plot.title = element_text(face = "bold", size = 12),
+        legend.title = element_text(size = 8, color = "black", face = "bold"),
+        legend.text = element_text(size = 8, face ="bold", color ="black"),
+        axis.title.y = element_text(size = 9, face = "bold"),
+        axis.title.x = element_text(size = 9, face = "bold"),
+        axis.text.x = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_blank(),
+        #legend.position = "none",
+        rect = element_rect(fill = "white")) +
+  scale_fill_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 8))) +
+  scale_color_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 8))) +
+  facet_wrap( ~ Temperature + treatment,  scales = "free_x", nrow = 2, ncol = 7,drop = TRUE, labeller = label_parsed) +
+  scale_y_continuous() 
+  #scale_x_discrete(name = "Time in days since OSPW introduction")
+stack_genus_d40
+
+ggsave(file = here("output", "figures", "genus_relAbund_d40.pdf"), stack_genus_d40, width = 9, height = 6)
+ggsave(file = here("output", "figures", "genus_relAbund_d40.eps"), stack_genus_d40, width = 9, height = 6)
+```
+
+
+## d66 plot
+```{r}
+d66 <- droplevels(genus_long[genus_long$Time == "66",])
+
+stack_genus_d66 <- ggplot(d66, aes(fill = Taxa, y = RelAbund, x = id)) + 
+    geom_bar(stat = "identity", position = "stack") +
+  labs( y = "Relative abundance",
+        title = "D66 - most abundant genera",
+        x = "Treatment replicates") + 
+  theme_minimal() +
+  theme(strip.text.x = element_text(face = "bold.italic", size = 8),
+        #axis.text.x = element_text(size = 12, angle = 360, hjust = 0.5, face = "bold"),
+        axis.text.y = element_text(size = 9, face = "bold"),
+        plot.title = element_text(face = "bold", size = 12),
+        legend.title = element_text(size = 8, color = "black", face = "bold"),
+        legend.text = element_text(size = 8, face ="bold", color ="black"),
+        axis.title.y = element_text(size = 9, face = "bold"),
+        axis.title.x = element_text(size = 9, face = "bold"),
+        axis.text.x = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_blank(),
+        #legend.position = "none",
+        rect = element_rect(fill = "white")) +
+  scale_fill_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 8))) +
+  scale_color_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 8))) +
+  facet_wrap( ~ Temperature + treatment,  scales = "free_x", nrow = 2, ncol = 7,drop = TRUE, labeller = label_parsed) +
+  scale_y_continuous() 
+  #scale_x_discrete(name = "Time in days since OSPW introduction")
+stack_genus_d66
+
+ggsave(file = here("output", "figures", "genus_relAbund_d66.pdf"), stack_genus_d66, width = 9, height = 6)
+ggsave(file = here("output", "figures", "genus_relAbund_d66.eps"), stack_genus_d66, width = 9, height = 6)
+```
+
+
 # -------------------------------------------------------
 
 # END OF SCRIPT
 
 # -------------------------------------------------------
 
-### Other palettes
-
-```{r}
-CPCOLS2 <- c("#FFD700","#458B74", "#00BFFF","#104E8B","#7FFFD4","#FFD39B", "#FF4040","#C1CDCD","#FF34B3", "#00BFFF","#838B8B", "#104E8B","#FF4040", "#8B2323",  "#8B7355", "#00BFFF",  "#76EE00", "#458B00", "#FFD700", "#8B7500", "#FF34B3", "#FF7F50","#8B1C62", "#008B8B")
-pal1 <- c("#CDC0B0", "#E0EEEE", "#FFD39B", "#EEE0E5", "#FAFAD2", "#B4EEB4", "#F7D3D2", "#F7C6EC", "#CBE9FA", "#CFBEF7", "#A0FAF4", "#CAEDE1", "#C7DBC5", "#EBF7AF", "#CCC9A3", "#DBB0AF", "#F2D696", "#F4FABB", "#E4E6B8", "#DBADD3", "#E7D0F5", "#C7A9F2", "#968EC2", "#C3C5FA", "#A2C5F2", "#D3D2F5", "#71ACD6", "#B2D2E8", "#8CBCFA", "#C3F3FA", "#AAFAD7", "#BDFFF0", "#C6F7D0", "#B6FAAF", "#7B9E81", "#8FB598", "#98AD99", "#B2BF99", "#BCC7A3", "#A5D4C6", "#CCE8C7", "#ADDBC1", "#CDF5BC", "#F59C9B", "#C25B57", "#B88988", "#E6B9B8")
-pal2 <- c("#CDC0B0", "#E0EEEE", "#FFD39B", "#EEE0E5", "#FAFAD2", "#B4EEB4", "#F7D3D2",  "#CBE9FA", "#CFBEF7",  "#CAEDE1", "#C7DBC5", "#EBF7AF", "#CCC9A3", "#DBB0AF", "#F2D696", "#F4FABB", "#E4E6B8", "#DBADD3", "#E7D0F5", "#C7A9F2", "#968EC2", "#C3C5FA", "#A2C5F2", "#D3D2F5", "#71ACD6", "#B2D2E8", "#8CBCFA", "#C3F3FA", "#AAFAD7", "#BDFFF0", "#C6F7D0", "#B6FAAF", "#7B9E81", "#8FB598", "#98AD99", "#B2BF99", "#BCC7A3", "#A5D4C6", "#CCE8C7", "#ADDBC1", "#CDF5BC", "#F59C9B", "#C25B57", "#B88988", "#E6B9B8")
-
-pal4 <- c(  "#EEE0E5",  "#B4EEB4", "#F7D3D2",  "#CBE9FA", "#CFBEF7",  "#CAEDE1", "#C7DBC5", "#EBF7AF", "#CCC9A3", "#DBB0AF",  "#F4FABB", "#E4E6B8",  "#C7A9F2",    "#D3D2F5",  "#AAFAD7", "#BDFFF0",  "#B6FAAF",  "#8FB598", "#98AD99", "#B2BF99", "#BCC7A3", "#A5D4C6", "#CCE8C7", "#ADDBC1", "#CDF5BC",    "#E6B9B8")
-```
