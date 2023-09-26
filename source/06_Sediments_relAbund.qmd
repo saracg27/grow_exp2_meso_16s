@@ -1,0 +1,191 @@
+---
+title: "06_Sediments_relAbund"
+author: "Sara Correa Garcia"
+format: html
+editor: source
+---
+
+## Environment objects
+
+```{r}
+library(here)
+source(here("source", "libraries.R"))
+load(file = here::here("RData", "RelAbund_tables.RData"))
+```
+
+Subset sediments
+```{r}
+meta_sed <- meta_sorted[meta_sorted$Sample.type == "Sediment",] # metadata
+phylum_sed <- phylum_sorted[rownames(phylum_sorted) %in% rownames(meta_sed),]
+genus_sed <- genus_sorted[rownames(genus_sorted) %in% rownames(meta_sed),]
+
+rownames(phylum_sed) == rownames(genus_sed)
+rownames(genus_sed) == rownames(meta_sed)
+genus_sed_abund <- genus_sed[, (colSums(genus_sed) > 0)]
+phylum_sed_abund <- phylum_sed[, (colSums(phylum_sed) > 0)]
+```
+
+# -------------------------------------------------------
+
+# DATA WRANGLING - PHYLUM
+
+# -------------------------------------------------------
+
+
+## Rearrange factor levels in meta_sed
+```{r}
+meta_sed <- droplevels(meta_sed)
+levels(meta_sed$Time)
+meta_sed$Time <- factor(meta_sed$Time, levels = c("D4", "D13", "D20", "D40", "D66"))
+meta_sed$Plant.type <- factor(meta_sed$Plant.type, levels = c("no plant", "Scirpus", "Triglochin"))
+meta_sed$Temperature <- factor(meta_sed$Temperature, 
+                                  levels = c("10°C day 5°C night", "10°C day/ 5°C night", "20°C day 10°C night", "20°C day/ 10°C night"),
+                                  labels = c("cold", "cold", "warm", "warm"))
+```
+
+
+## Remove low abundances
+
+```{r}
+phylum <- phylum_sed
+abund <- as.data.frame(phylum[, colMeans(phylum) > 0.01]) # 10
+abund$Others = 1 - rowSums(abund)#Add an "Other" category
+colnames(abund) # there are empty spaces in column names
+colnames(abund) <- gsub(" ", "", colnames(abund)) # trim empty spaces
+```
+
+Only 10 phyla had a relative abundance higher than 1%: Acidobacteriota, Actinobacteriota, Bacteroidota, Chloroflexi, Cyanobacteria, Deinococcota, Firmicutes, Planctomycetota, Alphaproteobacteria and Gammaproteobacteria. 
+
+
+## Bind treatments and  abundances
+```{r}
+treat <- meta_sed
+rownames(abund) == rownames(treat)
+abund_treat = cbind(treat,abund)
+dim(abund_treat) # 120 15
+```
+
+## Gather in long format for ggplot
+
+```{r}
+long <- gather(abund_treat,Taxa,RelAbund,5:ncol(abund_treat)) #change the column index value to match the first column that contains a Taxa name and not a treatment
+head(long) # It looks ok!
+phylum_long <- long
+```
+
+# -------------------------------------------------------
+
+# STACKED BARS PHYLUM
+
+# -------------------------------------------------------
+
+## Relevel groups to put the largest group at the bottom, and the second largest at the top
+
+```{r}
+phylum_long$Taxa <- fct_relevel(phylum_long$Taxa, "Alphaproteobacteria", after = 0L)
+phylum_long$Taxa <- fct_relevel(phylum_long$Taxa, "Gammaproteobacteria", after = Inf)
+```
+
+## Color palette
+
+```{r}
+pal3 <- c("#F2D696","#BDFFF0","#F59C9B","#71ACD6","#7B9E81","#CDC0B0","#968EC2","#B2D2E8","#F7C6EC", "#C7DBC5","#C1CDCD")
+```
+
+## Create the stack bar chart
+## Warmen plot
+```{r}
+phylum_long$Time <- factor(x = phylum_long$Time, levels = c("D4", "D13", "D20", "D40", "D66"), labels = c("4", "13", "20", "40", "66"))
+
+warm <- droplevels(phylum_long[phylum_long$Temperature == "warm",])
+warm$Taxa <- fct_relevel(warm$Taxa, "Alphaproteobacteria", after = 0L)
+warm$Taxa <- fct_relevel(warm$Taxa, "Gammaproteobacteria", after = Inf)
+
+stack_phylum_warm <- ggplot(warm, aes(fill = Taxa, y = RelAbund, x = Time)) + 
+  geom_bar(stat = "identity", position = "fill") +
+  labs( y = "Relative abundance",
+        title = "20\u00B0C day / 10\u00B0C night") + 
+  theme_minimal() +
+  theme(strip.text.x = element_text(face = "bold.italic", size = 16),
+        axis.text.x = element_text(size = 12, angle = 360, hjust = 0.5, face = "bold"),
+        axis.text.y = element_text(size = 12, face = "bold"),
+        plot.title = element_text(face = "bold", size = 16),
+        legend.title = element_text(size = 14, color = "black", face = "bold"),
+        legend.text = element_text(size = 10, face ="bold", color ="black"),
+        axis.title.y = element_text(size = 16, face = "bold"),
+        axis.title.x = element_blank(),
+        legend.position = "none",
+        rect = element_rect(fill = "white")) +
+  scale_fill_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 12))) +
+  scale_color_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 12))) +
+  facet_grid(.~ Sample.type*Plant.type,  scales = "free_x", space = "free_x") + 
+  scale_y_continuous(limits = c(0,1), expand = c(0,0)) 
+  #scale_x_discrete(name = "Time in days since OSPW introduction")
+
+stack_phylum_warm
+```
+
+## Cold plot
+```{r}
+cold <- droplevels(phylum_long[phylum_long$Temperature == "cold",])
+cold$Taxa <- fct_relevel(cold$Taxa, "Alphaproteobacteria", after = 0L)
+cold$Taxa <- fct_relevel(cold$Taxa, "Gammaproteobacteria", after = Inf)
+stack_phylum_cold <- ggplot(cold, aes(fill = Taxa, y = RelAbund, x = Time)) + 
+  geom_bar(stat = "identity", position = "fill") +
+  labs( y = "Relative abundance",
+        title = "10\u00B0C day / 5\u00B0C night") + 
+  theme_minimal() +
+  theme(strip.text.x = element_text(face = "bold.italic", size = 16),
+        axis.text.x = element_text(size = 12, angle = 360, hjust = 0.5, face = "bold"),
+        axis.text.y = element_text(size = 12, face = "bold"),
+        plot.title = element_text(face = "bold", size = 16),
+        legend.title = element_text(size = 14, color = "black", face = "bold"),
+        legend.text = element_text(size = 10, face ="bold", color ="black"),
+        legend.position = "none",
+        axis.title = element_text(size = 16, face = "bold"),
+        rect = element_rect(fill = "white")) +
+  scale_fill_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 12))) +
+  scale_color_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 12))) +
+  facet_grid(.~ Sample.type*Plant.type,  scales = "free_x", space = "free_x") + 
+  scale_y_continuous(limits = c(0,1), expand = c(0,0)) +
+  scale_x_discrete(name = "Time in days since OSPW introduction")
+
+stack_phylum_cold
+#Get legend
+```
+
+## Legend
+```{r}
+legend <- get_legend(ggplot(cold, aes(fill = Taxa, y = RelAbund, x = Time)) + 
+  geom_bar(stat = "identity", position = "fill") + 
+      scale_fill_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 12))) +
+  scale_color_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 12))) +
+  theme(strip.text.x = element_text(face = "bold.italic", size = 16),
+        axis.text.x = element_text(size = 12, angle = 360, hjust = 0.5, face = "bold"),
+        axis.text.y = element_text(size = 12, face = "bold"),
+        plot.title = element_text(face = "bold", size = 16),
+        legend.title = element_text(size = 14, color = "black", face = "bold"),
+        legend.text = element_text(size = 10, face ="bold", color ="black"),
+        axis.title = element_text(size = 16, face = "bold"),
+        rect = element_rect(fill = "white")))
+```
+
+## Combine plots
+```{r}
+combined_plot <- ggdraw() +
+  draw_plot(stack_phylum_warm, x = 0, y = 0.5, width = 0.8, height = 0.5) +
+  draw_plot(stack_phylum_cold, x = 0, y = 0, width = 0.8, height = 0.5) +
+  draw_plot(legend, x = 0.75, y = 0.25, width = 0.3, height = 0.5) +
+  draw_label("A)", x = 0.02, y = 0.98, size = 17, fontface ="bold") +  
+  draw_label("B)", x = 0.02, y = 0.48, size = 17, fontface ="bold") 
+combined_plot
+```
+
+Run only once
+```{r}
+# Save plots
+ggsave(file = here::here("output", "figures", "relAbund_phylum_16S_sediments.pdf"), combined_plot, width = 11, height = 8, units = "in", dpi = 300,bg = "white")
+ggsave(file = here::here("output", "figures", "relAbund_phylum_16S_sediments.eps"), combined_plot, width = 11, height = 8, units = "in", dpi = 300,bg = "white")
+#ggsave(file = here::here("output", "figures", "relAbund_phylum_16S.tiff"), combined_plot, width = 11, height = 8, units = "in", dpi = 300,bg = "white")
+```
+
