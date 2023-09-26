@@ -1,0 +1,255 @@
+---
+title: "07_DESeq2_Sed_D4-D66"
+author: "Sara Correa Garcia"
+format: html
+---
+
+# -------------------------------------------------------
+
+# DESeq2 - time effect on sediments
+
+# -------------------------------------------------------
+Use the genus dataset raw data
+ 
+## 16S ASV table
+
+### Raw filtered counts
+```{r}
+raw <- read.csv(file = here("data", "clean", "feature_table_filtered.tsv"), dec = ".", sep = "\t", header = T, row.names = 1, comment.char = "") #20078 objs in 299 vars
+```
+
+### Keep only experimental samples (E2)
+```{r}
+# Find columns with "E2" in their name
+e2_cols <- grep("E2", colnames(raw))
+# Find the index of the "taxonomy" column
+taxonomy_col <- which(colnames(raw) == "taxonomy")
+# Combine the indices
+cols_to_keep <- c(e2_cols, taxonomy_col)
+# Subset the dataframe
+raw <- raw[, cols_to_keep]
+```
+
+
+### Keep only ASVs from samples
+ASV present ONLY in negative controls will be excluded at this point
+```{r}
+# Compute row sums excluding the 'taxonomy' column
+row_sums_without_taxonomy <- rowSums(raw[, sapply(raw, is.numeric)])
+
+# Subset the dataframe based on the condition
+raw <- raw[row_sums_without_taxonomy > 0, ]
+```
+
+
+Quickly fix sample names
+```{r}
+names(raw) <- sub("X", "", names(raw))
+dim(raw) # 20063   284 including taxonomy
+```
+
+Check library size
+```{r}
+raw_libsize <- as.data.frame(colSums(raw[,1:ncol(raw)-1]))
+summary(raw_libsize)
+```
+
+There is one library that is too small: 223.224MesoRh.4.1G.E2.16S.D66 with only 10 counts. The other samples.
+ Min.   :   10                  
+ 1st Qu.:20833                  
+ Median :37976                  
+ Mean   :37509                  
+ 3rd Qu.:53254                  
+ Max.   :99100  
+
+Eliminate 223.224MesoRh.4.1G.E2.16S.D66 from raw and metadata
+
+```{r}
+'223.224MesoRh.4.1G.E2.16S.D66' %in% colnames(raw)
+raw <- raw[, colnames(raw) != '223.224MesoRh.4.1G.E2.16S.D66']
+meta <- meta[rownames(meta) != '223.224MesoRh.4.1G.E2.16S.D66',]
+```
+
+tidy environment
+```{r}
+rm(list = c("cols_to_keep", "e2_cols", "row_sums_without_taxonomy", "taxonomy_col"))
+```
+
+## Keep only SEDIMENTS
+```{r}
+raw_sed <- raw[, colnames(raw) %in% rownames(meta_sed)]#Subset columns
+#raw_sed <- cbind(raw_sed, raw$taxonomy)
+raw_sed <- raw_sed[(rowSums(raw_sed) > 0) ,] # Keep only ASV with at leat 1 count. 
+taxonomy <- as.data.frame(raw$taxonomy, row.names = rownames(raw)) # get taxonomy appart
+taxonomy <- as.data.frame(taxonomy[rownames(taxonomy) %in% rownames(raw_sed),], row.names = rownames(raw_sed))
+```
+
+## Separate and clean new taxonomy
+```{r}
+colnames(taxonomy) <- c("taxonomy")
+```
+
+## Separate tax_raw into groups
+```{r}
+tax_raw_clean <- separate(taxonomy, taxonomy, into = c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species", "Strain"), sep = ";")
+tax_raw_clean <- tax_raw_clean[,-which(names(tax_raw_clean) %in% c("Strain"))]
+tax_raw_clean <- as.data.frame(tax_raw_clean)
+levels(as.factor(tax_raw_clean$Domain)) # 2 Domain: Archaea and Bacteria, all ok
+levels(as.factor(tax_raw_clean$Phylum)) #  43 Phyla 
+levels(as.factor(tax_raw_clean$Class)) # 121 classes
+levels(as.factor(tax_raw_clean$Order)) # 296 orders
+levels(as.factor(tax_raw_clean$Family)) # 466 Families
+levels(as.factor(tax_raw_clean$Genus)) # 882 genus
+str(tax_raw_clean)
+```
+
+
+## Clean taxonomy names
+```{r}
+# eliminate the characters  -----
+pattern <- "[a-z]__"
+replacement <- ""
+tax_clean <- as.data.frame(apply(tax_raw_clean, 2, function(col) gsub(pattern, replacement, col)))
+rm(pattern)
+rm(replacement)
+```
+
+## Fill NAs with last available taxon rank
+```{r}
+tax_clean_filled <- tax_clean |> 
+   t() |> 
+   as.data.frame() |> 
+   fill(everything(), .direction = "down") |> 
+   t() |> 
+   as.data.frame()
+```
+
+## Sanity check for genus
+```{r}
+if (all(row.names(tax_clean_filled) == rownames(raw_sed) )) {
+  print("Sanity check ok")
+} else {
+  print("ERROR: not all row names are the same")
+}
+```
+
+## Sanity check for meta_sed
+```{r}
+if (all(row.names(meta_sed) == colnames(raw_sed) )) {
+  print("Sanity check ok")
+} else {
+  print("ERROR: not all row names are the same")
+}
+```
+
+# Create phyloseq object
+
+```{r}
+library(phyloseq)
+otu <- otu_table(as.matrix(raw_sed), taxa_are_rows = TRUE)
+tax <- tax_table(as.matrix(tax_clean_filled))
+sample <- sample_data(meta_sed)
+
+# merge
+ps <- phyloseq(otu, tax, sample)
+```
+
+# 
+```{r}
+sample_data(ps)$Time <- as.factor(sample_data(ps)$Time) # factorize for DESeq2
+ps.taxa <- tax_glom(ps, taxrank = 'Genus', NArm = FALSE)
+```
+
+```{r}
+# Subset the original phyloseq object 'ps.taxa' to only include samples from time points "D4" and "D66"
+ps.taxa.sub <- subset_samples(ps.taxa, Time %in% c("D4", "D66"))
+
+# Filter out features (OTUs or taxa) that have more than 90% zeros across all samples
+# This is done by checking the number of zeros in each row of the OTU table and comparing it to 90% of the total number of columns (samples)
+ps.taxa.pse.sub <- prune_taxa(rowSums(otu_table(ps.taxa.sub) == 0) < ncol(otu_table(ps.taxa.sub)) * 0.9, ps.taxa.sub)
+
+# Convert the filtered phyloseq object to a DESeq2 object, using 'Time' as the variable of interest
+ps_ds <- phyloseq_to_deseq2(ps.taxa.pse.sub, ~ Time)
+
+# Estimate size factors for normalization using the "poscounts" method, which is useful when many genes have zeros in some samples
+ds <- estimateSizeFactors(ps_ds, type="poscounts")
+
+# Perform differential abundance analysis using the Wald test and a parametric fit
+ds <- DESeq(ds, test="Wald", fitType="parametric")
+
+# Set the significance threshold (alpha) to 0.05
+alpha = 0.05 
+
+# Retrieve the results of the differential abundance analysis
+res = results(ds, alpha=alpha)
+
+# Order the results by the adjusted p-values (padj) in ascending order
+res = res[order(res$padj, na.last=NA), ]
+
+# Extract the names (taxa) of the top 20 features with the lowest adjusted p-values
+taxa_sig = rownames(res[1:20, ])
+taxa_sig <- tax_tab
+
+# Convert the counts in the original phyloseq object 'ps.taxa' to relative abundances (percentages)
+ps.taxa.rel <- transform_sample_counts(ps, function(x) x/sum(x)*100)
+
+# Subset the relative abundance phyloseq object to only include the significant taxa identified earlier
+ps.taxa.rel.sig <- prune_taxa(taxa_sig, ps.taxa.rel)
+
+# Further subset the relative abundance phyloseq object to only include samples from time points "D4" and "D66"
+ps.taxa.rel.sig <- prune_samples(colnames(otu_table(ps.taxa.pse.sub)), ps.taxa.rel.sig)
+
+```
+
+## Heatmap plot
+```{r}
+# if (!require("BiocManager", quietly = TRUE))
+#     install.packages("BiocManager")
+# 
+# BiocManager::install("ComplexHeatmap")
+library(ComplexHeatmap)
+
+matrix <- as.matrix(data.frame(otu_table(ps.taxa.rel.sig)))
+rownames(matrix) <- as.character(tax_table(ps.taxa.rel.sig)[, "Genus"])
+metadata_sub <- data.frame(sample_data(ps.taxa.rel.sig))
+# Define the annotation color for columns and rows
+annotation_col = data.frame(
+    `Plant type` = as.factor(metadata_sub$Plant.type), 
+    Time = as.factor(metadata_sub$Time), 
+    check.names = FALSE
+)
+rownames(annotation_col) = rownames(metadata_sub)
+
+annotation_row = data.frame(
+    Phylum = as.factor(tax_table(ps.taxa.rel.sig)[, "Phylum"])
+)
+rownames(annotation_row) = rownames(matrix)
+
+# ann_color should be named vectors
+phylum_col = RColorBrewer::brewer.pal(length(levels(annotation_row$Phylum)), "Paired")
+names(phylum_col) = levels(annotation_row$Phylum)
+ann_colors = list(
+    `Plant type` = c(`no plant` = "red", `Scirpus` = "blue", `Triglochin` = "green"),
+    `Time` = c(D4 = "purple", D66 = "yellow"),
+    Phylum = phylum_col
+)
+
+ComplexHeatmap::pheatmap(matrix, scale= "row", 
+                         annotation_col = annotation_col, 
+                         annotation_row = annotation_row, 
+                         annotation_colors = ann_colors)
+# Save on landscape mode 7 * 5 inch
+
+```
+
+
+Volcano plot
+```{r}
+  # if (!requireNamespace('BiocManager', quietly = TRUE))
+  #   install.packages('BiocManager')
+  # 
+  # BiocManager::install('EnhancedVolcano')
+  
+library(EnhancedVolcano)
+```
+
