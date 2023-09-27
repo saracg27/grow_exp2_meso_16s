@@ -1,0 +1,239 @@
+---
+title: "08_DESeq2_Sed_D4-D13"
+author: "Sara Correa Garcia"
+format: html
+---
+
+```{r}
+load(here("Rdata", "ps.RData"))
+```
+
+
+# -------------------------------------------------------
+
+# DESeq2 - GENUS
+
+# -------------------------------------------------------
+
+# -------------------------------------------------------
+
+## Agglom at genus
+```{r}
+ps_taxa <- tax_glom(ps, taxrank = 'Genus', NArm = FALSE) # 1046
+```
+
+
+## DESeq2 genus
+```{r}
+# Subset the original phyloseq object 'ps_taxa' to only include samples from time points "D4" and "D66"
+ps_taxa_sub <- subset_samples(ps_taxa, Time %in% c("D4", "D13")) # 48 samples
+
+# Filter out features (OTUs or taxa) that have more than 90% zeros across all samples
+# This is done by checking the number of zeros in each row of the OTU table and comparing it to 90% of the total number of columns (samples)
+ps_taxa_pse_sub <- prune_taxa(rowSums(otu_table(ps_taxa_sub) == 0) < ncol(otu_table(ps_taxa_sub)) * 0.9, ps_taxa_sub) # 442
+
+# Convert the filtered phyloseq object to a DESeq2 object, using 'Time' as the variable of interest
+ps_ds <- phyloseq_to_deseq2(ps_taxa_pse_sub, ~ Time)
+
+# Estimate size factors for normalization using the "poscounts" method, which is useful when many genes have zeros in some samples
+ds <- estimateSizeFactors(ps_ds, type = "poscounts")
+
+# Perform differential abundance analysis using the Wald test and a parametric fit
+ds <- DESeq(ds, test = "Wald", fitType = "parametric")
+
+# Set the significance threshold (alpha) to 0_05
+alpha <- 0.05 
+
+# Retrieve the results of the differential abundance analysis
+res <- results(ds, alpha = alpha)
+
+# Order the results by the adjusted p-values (padj) in ascending order
+res <- res[order(res$padj, na.last = NA), ]
+
+# Extract the names (taxa) of the top 20 features with the lowest adjusted p-values
+taxa_sig <- rownames(res[1:20, ])
+
+# Convert the counts in the original phyloseq object 'ps_taxa' to relative abundances (percentages)
+ps_taxa_rel <- transform_sample_counts(ps, function(x) x/sum(x)*100)
+
+# Subset the relative abundance phyloseq object to only include the significant taxa identified earlier
+ps_taxa_rel_sig <- prune_taxa(taxa_sig, ps_taxa_rel)
+
+# Further subset the relative abundance phyloseq object to only include samples from time points "D4" and "D13"
+ps_taxa_rel_sig <- prune_samples(colnames(otu_table(ps_taxa_pse_sub)), ps_taxa_rel_sig)
+
+```
+
+## Heatmap genus
+```{r}
+# if (!require("BiocManager", quietly = TRUE))
+#     install.packages("BiocManager")
+# 
+# BiocManager::install("ComplexHeatmap")
+library(ComplexHeatmap)
+
+matrix <- as.matrix(data.frame(otu_table(ps_taxa_rel_sig)))
+rownames(matrix) <- as.character(tax_table(ps_taxa_rel_sig)[, "Genus"])
+metadata_sub <- data.frame(sample_data(ps_taxa_rel_sig))
+# Define the annotation color for columns and rows
+annotation_col = data.frame(
+    `Plant type` = as.factor(metadata_sub$Plant.type), 
+    Time = as.factor(metadata_sub$Time), 
+    check.names = FALSE
+)
+rownames(annotation_col) = rownames(metadata_sub)
+
+annotation_row = data.frame(
+    Phylum = as.factor(tax_table(ps_taxa_rel_sig)[, "Phylum"])
+)
+rownames(annotation_row) = rownames(matrix)
+
+# ann_color should be named vectors
+phylum_col = RColorBrewer::brewer.pal(length(levels(annotation_row$Phylum)), "Paired")
+names(phylum_col) = levels(annotation_row$Phylum)
+ann_colors = list(
+    `Plant type` = c(`no plant` = "red", `Scirpus` = "blue", `Triglochin` = "green"),
+    `Time` = c(D4 = "purple", D13 = "yellow"),
+    Phylum = phylum_col
+)
+png(here("output", "figures","heatmap_D4-D13-on-sediments.png"),width=8,height=4,units="in",res=600)
+ComplexHeatmap::pheatmap(matrix, scale = "row", 
+                         fontface_row = "italic",
+                         show_colnames = FALSE,
+                         fontsize = 8, 
+                         fontsize_row = 8,       # Font size for row names
+                         fontsize_col = 8, 
+                         annotation_col = annotation_col, 
+                         annotation_row = annotation_row, 
+                         annotation_colors = ann_colors)
+dev.off()
+```
+
+
+## Volcano genus
+
+https://bioconductor_org/packages/devel/bioc/vignettes/EnhancedVolcano/inst/doc/EnhancedVolcano_html#introduction
+```{r}
+  # if (!requireNamespace('BiocManager', quietly = TRUE))
+  #   install_packages('BiocManager')
+  # 
+  # BiocManager::install('EnhancedVolcano')
+
+res_df <- as.data.frame(res)
+taxa_sig_df <- tax_clean[rownames(tax_clean) %in% rownames(res_df),]
+library(EnhancedVolcano)
+res_volcano <- merge(res_df, taxa_sig_df, by = "row.names")
+volcano_sed_4.13_genus <- EnhancedVolcano(res_volcano, 
+                          lab = res_volcano$Genus, 
+                          x = 'log2FoldChange', 
+                          y = "padj",
+                          title = "",
+                          subtitle = "D4 vs D13 in Sediments",
+                          pointSize = 4.0,
+                          labSize = 3.0,
+                          colAlpha = 0.5,
+                          legendPosition = 'top',
+                          legendLabSize = 10,
+                          legendIconSize = 4.0,
+                          drawConnectors = TRUE,
+                          widthConnectors = 0.6,)
+
+volcano_sed_4.13_genus
+
+ggsave(filename = here("output", "figures", "deseq_volcano_sed_4.13_genus.png"), plot = volcano_sed_4.13_genus, width = 6, height = 6, dpi = 300)
+ggsave(filename = here("output", "figures", "deseq_volcano_sed_4.13_genus.pdf"), plot = volcano_sed_4.13_genus, width = 6, height = 6, dpi = 300)
+
+```
+
+No genera were found to be differentially abundant between D13 and D4 using DESeq2.
+
+
+
+# -------------------------------------------------------
+
+# DESeq2 -  ORDER
+
+# -------------------------------------------------------
+
+
+
+## Agglom at Order level
+```{r}
+sample_data(ps)$Time <- as.factor(sample_data(ps)$Time) # factorize for DESeq2
+ps_taxa <- tax_glom(ps, taxrank = 'Order', NArm = FALSE) # 323
+```
+
+```{r}
+# Subset the original phyloseq object 'ps_taxa' to only include samples from time points "D4" and "D13"
+ps_taxa_sub <- subset_samples(ps_taxa, Time %in% c("D4", "D13"))
+
+# Filter out features (OTUs or taxa) that have more than 90% zeros across all samples
+# This is done by checking the number of zeros in each row of the OTU table and comparing it to 90% of the total number of columns (samples)
+ps_taxa_pse_sub <- prune_taxa(rowSums(otu_table(ps_taxa_sub) == 0) < ncol(otu_table(ps_taxa_sub)) * 0.9, ps_taxa_sub) #153
+
+# Convert the filtered phyloseq object to a DESeq2 object, using 'Time' as the variable of interest
+ps_ds <- phyloseq_to_deseq2(ps_taxa_pse_sub, ~ Time)
+
+# Estimate size factors for normalization using the "poscounts" method, which is useful when many genes have zeros in some samples
+ds <- estimateSizeFactors(ps_ds, type = "poscounts")
+
+# Perform differential abundance analysis using the Wald test and a parametric fit
+ds <- DESeq(ds, test = "Wald", fitType = "parametric")
+
+# Set the significance threshold (alpha) to 0_05
+alpha <- 0.05 
+
+# Retrieve the results of the differential abundance analysis
+res <- results(ds, alpha = alpha)
+
+# Order the results by the adjusted p-values (padj) in ascending order
+res <- res[order(res$padj, na.last = NA), ]
+res_df1 <- res
+# Extract the names (taxa) of the top 20 features with the lowest adjusted p-values
+taxa_sig <- rownames(res[1:20, ])
+
+# Convert the counts in the original phyloseq object 'ps_taxa' to relative abundances (percentages)
+ps_taxa_rel <- transform_sample_counts(ps, function(x) x/sum(x)*100)
+
+# Subset the relative abundance phyloseq object to only include the significant taxa identified earlier
+ps_taxa_rel_sig <- prune_taxa(taxa_sig, ps_taxa_rel)
+
+# Further subset the relative abundance phyloseq object to only include samples from time points "D4" and "D13"
+ps_taxa_rel_sig <- prune_samples(colnames(otu_table(ps_taxa_pse_sub)), ps_taxa_rel_sig)
+
+```
+
+## Volcano plot
+
+https://bioconductor_org/packages/devel/bioc/vignettes/EnhancedVolcano/inst/doc/EnhancedVolcano_html#introduction
+```{r}
+  # if (!requireNamespace('BiocManager', quietly = TRUE))
+  #   install_packages('BiocManager')
+  # 
+  # BiocManager::install('EnhancedVolcano')
+
+res_df <- as.data.frame(res)
+taxa_sig_df <- tax_clean[rownames(tax_clean) %in% rownames(res_df),]
+
+res_volcano <- merge(res_df, taxa_sig_df, by = "row.names")
+
+volcano_sed_4.13_order <- EnhancedVolcano(res_volcano, 
+                          lab = res_volcano$Order, 
+                          x = 'log2FoldChange', 
+                          y = "padj",
+                          title = "",
+                          subtitle = "D4 vs D13 in Sediments - Order",
+                          pointSize = 4.0,
+                          labSize = 3.0,
+                          colAlpha = 0.5,
+                          legendPosition = 'top',
+                          legendLabSize = 10,
+                          legendIconSize = 4.0,
+                          drawConnectors = TRUE,
+                          widthConnectors = 0.6,)
+
+volcano_sed_4.13_order
+ggsave(filename = here("output", "figures", "deseq_volcano_sed_4.13_order.png"), plot = volcano_sed_4.13_order, width = 6, height = 6, dpi = 300)
+ggsave(filename = here("output", "figures", "deseq_volcano_sed_4.13_order.pdf"), plot = volcano_sed_4.13_order, width = 6, height = 6, dpi = 300)
+
+```
