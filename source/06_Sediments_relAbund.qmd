@@ -182,10 +182,16 @@ combined_plot
 ```
 
 Run only once
-```{r}
+```{#r}
 # Save plots
 ggsave(file = here::here("output", "figures", "relAbund_phylum_16S_sediments.pdf"), combined_plot, width = 11, height = 8, units = "in", dpi = 300,bg = "white")
 ggsave(file = here::here("output", "figures", "relAbund_phylum_16S_sediments.eps"), combined_plot, width = 11, height = 8, units = "in", dpi = 300,bg = "white")
 #ggsave(file = here::here("output", "figures", "relAbund_phylum_16S.tiff"), combined_plot, width = 11, height = 8, units = "in", dpi = 300,bg = "white")
+```
+
+## Save RDS objects
+
+```{r}
+save(meta_sed, phylum_sed,genus_sed, file = here::here("RData", "Sediment_data.RData"))
 ```
 
