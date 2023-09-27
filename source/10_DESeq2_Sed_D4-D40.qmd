@@ -198,7 +198,7 @@ taxa_sig_df <- tax_clean[rownames(tax_clean) %in% rownames(res_df),]
 
 res_volcano <- merge(res_df, taxa_sig_df, by = "row.names")
 
-volcano_sed_4.20_order <- EnhancedVolcano(res_volcano, 
+volcano_sed_4.40_order <- EnhancedVolcano(res_volcano, 
                           lab = res_volcano$Order, 
                           x = 'log2FoldChange', 
                           y = "padj",
@@ -213,7 +213,7 @@ volcano_sed_4.20_order <- EnhancedVolcano(res_volcano,
                           drawConnectors = TRUE,
                           widthConnectors = 0.6,)
 
-volcano_sed_4.20_order
-ggsave(filename = here("output", "figures", "deseq_volcano_sed_4.20_order.png"), plot = volcano_sed_4.20_order, width = 6, height = 6, dpi = 300)
-ggsave(filename = here("output", "figures", "deseq_volcano_sed_4.20_order.pdf"), plot = volcano_sed_4.20_order, width = 6, height = 6, dpi = 300)
+volcano_sed_4.40_order
+ggsave(filename = here("output", "figures", "deseq_volcano_sed_4.40_order.png"), plot = volcano_sed_4.40_order, width = 6, height = 6, dpi = 300)
+ggsave(filename = here("output", "figures", "deseq_volcano_sed_4.40_order.pdf"), plot = volcano_sed_4.40_order, width = 6, height = 6, dpi = 300)
 ```
