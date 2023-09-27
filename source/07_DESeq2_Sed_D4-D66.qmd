@@ -302,7 +302,7 @@ ann_colors = list(
     Phylum = phylum_col
 )
 
-png(here("output", "figures","heatmap_D4-D40-on-sediments.png"),width=8,height=4,units="in",res=600)
+png(here("output", "figures","heatmap_D4-D66-on-sediments.png"),width=8,height=4,units="in",res=600)
 ComplexHeatmap::pheatmap(matrix, scale = "row", 
                          fontface_row = "italic",
                          show_colnames = FALSE,
