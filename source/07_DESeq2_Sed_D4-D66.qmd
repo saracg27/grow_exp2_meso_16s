@@ -6,27 +6,25 @@ format: html
 
 # -------------------------------------------------------
 
-# DESeq2 - time effect on sediments
+# Data wrangling
 
 # -------------------------------------------------------
 Use the genus dataset raw data
  
-## 16S ASV table
-
-### Load packages
+## Load packages
 ```{r}
 library(here)
 source(here("source", "libraries.R"))
 ```
 
-### Load data
+## Load data
 ```{r}
 #load(here("RData", "RelAbund_tables_RData"))
 load(here("RData", "Sediment_data.RData"))
 raw <- read.csv(file = here("data", "clean", "feature_table_filtered.tsv"), dec = ".", sep = "\t", header = T, row.names = 1, comment.char = "") #20078 objs in 299 vars
 ```
 
-### Keep only experimental samples (E2)
+## Keep only experimental samples (E2)
 ```{r}
 # Find columns with "E2" in their name
 e2_cols <- grep("E2", colnames(raw))
@@ -39,7 +37,7 @@ raw <- raw[, cols_to_keep] # 20078 and 284
 ```
 
 
-### Keep only ASVs from samples
+## Keep only ASVs from samples
 ASV present ONLY in negative controls will be excluded at this point
 ```{r}
 # Compute row sums excluding the 'taxonomy' column
@@ -92,6 +90,8 @@ taxonomy <- as.data.frame(raw$taxonomy, row.names = rownames(raw)) # get taxonom
 taxonomy <- as.data.frame(taxonomy[rownames(taxonomy) %in% rownames(raw_sed),], row.names = rownames(raw_sed))
 ```
 
+## Clean taxonomy
+
 Separate tax_raw into groups
 ```{#r}
 tax_raw_clean <- separate(taxonomy, taxonomy, into = c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species", "Strain"), sep = ";")
@@ -127,7 +127,7 @@ tax_clean_filled <- tax_clean |>
 ```
 
 
-# Clean taxonomy green genes format
+Clean taxonomy green genes format
 ```{r}
 
 colnames(taxonomy) <- c("taxonomy")
@@ -193,7 +193,13 @@ if (all(row.names(meta_sed) == colnames(raw_sed) )) {
 }
 ```
 
-# Create phyloseq object
+# -------------------------------------------------------
+
+# DESeq2 - Phyloseq
+
+# -------------------------------------------------------
+
+## Create phyloseq object
 
 ```{r}
 library(phyloseq)
@@ -205,12 +211,21 @@ sample <- sample_data(meta_sed)
 ps <- phyloseq(otu, tax, sample)
 ```
 
-# 
+# -------------------------------------------------------
+
+# DESeq2 - GENUS
+
+# -------------------------------------------------------
+
+
+## Agglom at genus
 ```{r}
 sample_data(ps)$Time <- as.factor(sample_data(ps)$Time) # factorize for DESeq2
 ps_taxa <- tax_glom(ps, taxrank = 'Genus', NArm = FALSE) # 1046
 ```
 
+
+## DESeq2 genus
 ```{r}
 # Subset the original phyloseq object 'ps_taxa' to only include samples from time points "D4" and "D66"
 ps_taxa_sub <- subset_samples(ps_taxa, Time %in% c("D4", "D66"))
@@ -251,7 +266,7 @@ ps_taxa_rel_sig <- prune_samples(colnames(otu_table(ps_taxa_pse_sub)), ps_taxa_r
 
 ```
 
-## Heatmap plot
+## Heatmap genus
 ```{r}
 # if (!require("BiocManager", quietly = TRUE))
 #     install.packages("BiocManager")
@@ -293,7 +308,7 @@ ComplexHeatmap::pheatmap(matrix, scale = "row",
 ```
 
 
-## Volcano plot
+## Volcano genus
 
 https://bioconductor_org/packages/devel/bioc/vignettes/EnhancedVolcano/inst/doc/EnhancedVolcano_html#introduction
 ```{r}
@@ -318,7 +333,11 @@ EnhancedVolcano(res_volcano,
 
 
 
+# -------------------------------------------------------
 
+# DESeq2 -  ORDER
+
+# -------------------------------------------------------
 
 
 
