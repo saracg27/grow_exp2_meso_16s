@@ -209,6 +209,11 @@ sample <- sample_data(meta_sed)
 
 # merge
 ps <- phyloseq(otu, tax, sample)
+sample_data(ps)$Time <- as.factor(sample_data(ps)$Time) # factorize for DESeq2
+```
+ ## Run only once
+```{#r}
+save(ps, tax_clean, file = here("RData", "ps.RData"))
 ```
 
 # -------------------------------------------------------
@@ -217,10 +222,8 @@ ps <- phyloseq(otu, tax, sample)
 
 # -------------------------------------------------------
 
-
 ## Agglom at genus
 ```{r}
-sample_data(ps)$Time <- as.factor(sample_data(ps)$Time) # factorize for DESeq2
 ps_taxa <- tax_glom(ps, taxrank = 'Genus', NArm = FALSE) # 1046
 ```
 
@@ -299,12 +302,17 @@ ann_colors = list(
     Phylum = phylum_col
 )
 
+png(here("output", "figures","heatmap_D4-D40-on-sediments.png"),width=8,height=4,units="in",res=600)
 ComplexHeatmap::pheatmap(matrix, scale = "row", 
+                         fontface_row = "italic",
+                         show_colnames = FALSE,
+                         fontsize = 8, 
+                         fontsize_row = 8,       # Font size for row names
+                         fontsize_col = 8, 
                          annotation_col = annotation_col, 
                          annotation_row = annotation_row, 
                          annotation_colors = ann_colors)
-# Save on landscape mode 7 * 5 inch
-
+dev.off()
 ```
 
 
@@ -384,47 +392,6 @@ ps_taxa_rel_sig <- prune_taxa(taxa_sig, ps_taxa_rel)
 
 # Further subset the relative abundance phyloseq object to only include samples from time points "D4" and "D66"
 ps_taxa_rel_sig <- prune_samples(colnames(otu_table(ps_taxa_pse_sub)), ps_taxa_rel_sig)
-
-```
-
-## Heatmap plot
-```{r}
-# if (!require("BiocManager", quietly = TRUE))
-#     install_packages("BiocManager")
-# 
-# BiocManager::install("ComplexHeatmap")
-library(ComplexHeatmap)
-
-matrix <- as.matrix(data.frame(otu_table(ps_taxa_rel_sig)))
-rownames(matrix) <- as.character(tax_table(ps_taxa_rel_sig)[, "Order"])
-metadata_sub <- data.frame(sample_data(ps_taxa_rel_sig))
-# Define the annotation color for columns and rows
-annotation_col = data.frame(
-    `Plant type` = as.factor(metadata_sub$Plant.type), 
-    Time = as.factor(metadata_sub$Time), 
-    check.names = FALSE
-)
-rownames(annotation_col) = rownames(metadata_sub)
-
-annotation_row = data.frame(
-    Phylum = as.factor(tax_table(ps_taxa_rel_sig)[, "Phylum"])
-)
-rownames(annotation_row) = rownames(matrix)
-
-# ann_color should be named vectors
-phylum_col = RColorBrewer::brewer.pal(length(levels(annotation_row$Phylum)), "Paired")
-names(phylum_col) = levels(annotation_row$Phylum)
-ann_colors = list(
-    `Plant type` = c(`no plant` = "red", `Scirpus` = "blue", `Triglochin` = "green"),
-    `Time` = c(D4 = "purple", D66 = "yellow"),
-    Phylum = phylum_col
-)
-
-ComplexHeatmap::pheatmap(matrix, scale = "row", 
-                         annotation_col = annotation_col, 
-                         annotation_row = annotation_row, 
-                         annotation_colors = ann_colors)
-# Save on landscape mode 7 * 5 inch
 
 ```
 
