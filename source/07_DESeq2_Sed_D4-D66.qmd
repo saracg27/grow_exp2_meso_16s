@@ -13,8 +13,16 @@ Use the genus dataset raw data
  
 ## 16S ASV table
 
-### Raw filtered counts
+### Load packages
 ```{r}
+library(here)
+source(here("source", "libraries.R"))
+```
+
+### Load data
+```{r}
+#load(here("RData", "RelAbund_tables_RData"))
+load(here("RData", "Sediment_data.RData"))
 raw <- read.csv(file = here("data", "clean", "feature_table_filtered.tsv"), dec = ".", sep = "\t", header = T, row.names = 1, comment.char = "") #20078 objs in 299 vars
 ```
 
@@ -27,7 +35,7 @@ taxonomy_col <- which(colnames(raw) == "taxonomy")
 # Combine the indices
 cols_to_keep <- c(e2_cols, taxonomy_col)
 # Subset the dataframe
-raw <- raw[, cols_to_keep]
+raw <- raw[, cols_to_keep] # 20078 and 284
 ```
 
 
@@ -38,7 +46,7 @@ ASV present ONLY in negative controls will be excluded at this point
 row_sums_without_taxonomy <- rowSums(raw[, sapply(raw, is.numeric)])
 
 # Subset the dataframe based on the condition
-raw <- raw[row_sums_without_taxonomy > 0, ]
+raw <- raw[row_sums_without_taxonomy > 0, ] # 20063 and 284
 ```
 
 
@@ -54,43 +62,38 @@ raw_libsize <- as.data.frame(colSums(raw[,1:ncol(raw)-1]))
 summary(raw_libsize)
 ```
 
-There is one library that is too small: 223.224MesoRh.4.1G.E2.16S.D66 with only 10 counts. The other samples.
- Min.   :   10                  
- 1st Qu.:20833                  
- Median :37976                  
- Mean   :37509                  
- 3rd Qu.:53254                  
- Max.   :99100  
+There is one library that is too small: 223_224MesoRh_4_1G_E2_16S_D66 with only 10 counts_ The other samples_
+ Min_   :   10                  
+ 1st Qu_:20850                  
+ Median :38555                  
+ Mean   :37614                  
+ 3rd Qu_:53453                  
+ Max_   :99100  
 
 Eliminate 223.224MesoRh.4.1G.E2.16S.D66 from raw and metadata
 
 ```{r}
 '223.224MesoRh.4.1G.E2.16S.D66' %in% colnames(raw)
 raw <- raw[, colnames(raw) != '223.224MesoRh.4.1G.E2.16S.D66']
-meta <- meta[rownames(meta) != '223.224MesoRh.4.1G.E2.16S.D66',]
+meta_sed <- meta_sed[rownames(meta_sed) != '223.224MesoRh.4.1G.E2.16S.D66',]
 ```
 
 tidy environment
 ```{r}
-rm(list = c("cols_to_keep", "e2_cols", "row_sums_without_taxonomy", "taxonomy_col"))
+rm(list = c("cols_to_keep", "e2_cols", "row_sums_without_taxonomy", "taxonomy_col", "raw_libsize"))
 ```
 
 ## Keep only SEDIMENTS
 ```{r}
 raw_sed <- raw[, colnames(raw) %in% rownames(meta_sed)]#Subset columns
 #raw_sed <- cbind(raw_sed, raw$taxonomy)
-raw_sed <- raw_sed[(rowSums(raw_sed) > 0) ,] # Keep only ASV with at leat 1 count. 
+raw_sed <- raw_sed[(rowSums(raw_sed) > 0) ,] # Keep only ASV with at leat 1 count_ 
 taxonomy <- as.data.frame(raw$taxonomy, row.names = rownames(raw)) # get taxonomy appart
 taxonomy <- as.data.frame(taxonomy[rownames(taxonomy) %in% rownames(raw_sed),], row.names = rownames(raw_sed))
 ```
 
-## Separate and clean new taxonomy
-```{r}
-colnames(taxonomy) <- c("taxonomy")
-```
-
-## Separate tax_raw into groups
-```{r}
+Separate tax_raw into groups
+```{#r}
 tax_raw_clean <- separate(taxonomy, taxonomy, into = c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species", "Strain"), sep = ";")
 tax_raw_clean <- tax_raw_clean[,-which(names(tax_raw_clean) %in% c("Strain"))]
 tax_raw_clean <- as.data.frame(tax_raw_clean)
@@ -103,9 +106,8 @@ levels(as.factor(tax_raw_clean$Genus)) # 882 genus
 str(tax_raw_clean)
 ```
 
-
-## Clean taxonomy names
-```{r}
+Clean taxonomy names
+```{#r shorter version to be applied to DRY up the process below}
 # eliminate the characters  -----
 pattern <- "[a-z]__"
 replacement <- ""
@@ -114,19 +116,68 @@ rm(pattern)
 rm(replacement)
 ```
 
-## Fill NAs with last available taxon rank
-```{r}
+Fill NAs with last available taxon rank
+```{#r old version}
 tax_clean_filled <- tax_clean |> 
    t() |> 
    as.data.frame() |> 
-   fill(everything(), .direction = "down") |> 
+   fill(everything(), _direction = "down") |> 
    t() |> 
    as.data.frame()
 ```
 
+
+# Clean taxonomy green genes format
+```{r}
+
+colnames(taxonomy) <- c("taxonomy")
+# clean the taxonomy, Greengenes format
+tax <- taxonomy |> 
+  select(taxonomy) |> 
+  separate(taxonomy, c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species"), "; ")
+
+tax_clean <- data.frame(row.names = row.names(tax),
+                        Kingdom = str_replace(tax[,1], "d__",""),
+                        Phylum = str_replace(tax[,2], "p__",""),
+                        Class = str_replace(tax[,3], "c__",""),
+                        Order = str_replace(tax[,4], "o__",""),
+                        Family = str_replace(tax[,5], "f__",""),
+                        Genus = str_replace(tax[,6], "g__",""),
+                        Species = str_replace(tax[,7], "s__",""),
+                        stringsAsFactors = FALSE)
+tax_clean$Species <- NULL
+tax_clean[is.na(tax_clean)] <- ""
+tax_clean[tax_clean == "__"] <- ""
+
+#Upon inspection, there are several "uncultured" located at different taxonomic ranges_ 
+tax_clean[tax_clean == "uncultured"] <- ""
+tax_clean[tax_clean == " "] <- ""
+
+for (i in 1:nrow(tax_clean)) {
+   if (tax_clean[i,2] == "") {
+    kingdom <- paste("Unclassified", tax_clean[i,1], sep = " ")
+    tax_clean[i, 2:6] <- kingdom
+  } else if (tax_clean[i,3] == "") {
+    phylum <- paste("Unclassified", tax_clean[i,2], sep = " ")
+    tax_clean[i, 3:6] <- phylum
+  } else if (tax_clean[i,4] == "") {
+    class <- paste("Unclassified", tax_clean[i,3], sep = " ")
+    tax_clean[i, 4:6] <- class
+  } else if (tax_clean[i,5] == "") {
+    order <- paste("Unclassified", tax_clean[i,4], sep = " ")
+    tax_clean[i, 5:6] <- order
+  } else if (tax_clean[i,6] == "") {
+    family <- paste("Unclassified", tax_clean[i,5], sep = " ")
+    tax_clean[i, 6:6] <- family
+  } 
+}
+```
+
+
+
 ## Sanity check for genus
 ```{r}
-if (all(row.names(tax_clean_filled) == rownames(raw_sed) )) {
+if (all(row.names(tax_clean) == rownames(raw_sed) )) {
   print("Sanity check ok")
 } else {
   print("ERROR: not all row names are the same")
@@ -147,7 +198,7 @@ if (all(row.names(meta_sed) == colnames(raw_sed) )) {
 ```{r}
 library(phyloseq)
 otu <- otu_table(as.matrix(raw_sed), taxa_are_rows = TRUE)
-tax <- tax_table(as.matrix(tax_clean_filled))
+tax <- tax_table(as.matrix(tax_clean))
 sample <- sample_data(meta_sed)
 
 # merge
@@ -157,19 +208,19 @@ ps <- phyloseq(otu, tax, sample)
 # 
 ```{r}
 sample_data(ps)$Time <- as.factor(sample_data(ps)$Time) # factorize for DESeq2
-ps.taxa <- tax_glom(ps, taxrank = 'Genus', NArm = FALSE)
+ps_taxa <- tax_glom(ps, taxrank = 'Genus', NArm = FALSE) # 1046
 ```
 
 ```{r}
-# Subset the original phyloseq object 'ps.taxa' to only include samples from time points "D4" and "D66"
-ps.taxa.sub <- subset_samples(ps.taxa, Time %in% c("D4", "D66"))
+# Subset the original phyloseq object 'ps_taxa' to only include samples from time points "D4" and "D66"
+ps_taxa_sub <- subset_samples(ps_taxa, Time %in% c("D4", "D66"))
 
 # Filter out features (OTUs or taxa) that have more than 90% zeros across all samples
 # This is done by checking the number of zeros in each row of the OTU table and comparing it to 90% of the total number of columns (samples)
-ps.taxa.pse.sub <- prune_taxa(rowSums(otu_table(ps.taxa.sub) == 0) < ncol(otu_table(ps.taxa.sub)) * 0.9, ps.taxa.sub)
+ps_taxa_pse_sub <- prune_taxa(rowSums(otu_table(ps_taxa_sub) == 0) < ncol(otu_table(ps_taxa_sub)) * 0_9, ps_taxa_sub) #612
 
 # Convert the filtered phyloseq object to a DESeq2 object, using 'Time' as the variable of interest
-ps_ds <- phyloseq_to_deseq2(ps.taxa.pse.sub, ~ Time)
+ps_ds <- phyloseq_to_deseq2(ps_taxa_pse_sub, ~ Time)
 
 # Estimate size factors for normalization using the "poscounts" method, which is useful when many genes have zeros in some samples
 ds <- estimateSizeFactors(ps_ds, type="poscounts")
@@ -177,56 +228,55 @@ ds <- estimateSizeFactors(ps_ds, type="poscounts")
 # Perform differential abundance analysis using the Wald test and a parametric fit
 ds <- DESeq(ds, test="Wald", fitType="parametric")
 
-# Set the significance threshold (alpha) to 0.05
-alpha = 0.05 
+# Set the significance threshold (alpha) to 0_05
+alpha = 0_05 
 
 # Retrieve the results of the differential abundance analysis
 res = results(ds, alpha=alpha)
 
 # Order the results by the adjusted p-values (padj) in ascending order
-res = res[order(res$padj, na.last=NA), ]
+res = res[order(res$padj, na_last=NA), ]
 
 # Extract the names (taxa) of the top 20 features with the lowest adjusted p-values
 taxa_sig = rownames(res[1:20, ])
-taxa_sig <- tax_tab
 
-# Convert the counts in the original phyloseq object 'ps.taxa' to relative abundances (percentages)
-ps.taxa.rel <- transform_sample_counts(ps, function(x) x/sum(x)*100)
+# Convert the counts in the original phyloseq object 'ps_taxa' to relative abundances (percentages)
+ps_taxa_rel <- transform_sample_counts(ps, function(x) x/sum(x)*100)
 
 # Subset the relative abundance phyloseq object to only include the significant taxa identified earlier
-ps.taxa.rel.sig <- prune_taxa(taxa_sig, ps.taxa.rel)
+ps_taxa_rel_sig <- prune_taxa(taxa_sig, ps_taxa_rel)
 
 # Further subset the relative abundance phyloseq object to only include samples from time points "D4" and "D66"
-ps.taxa.rel.sig <- prune_samples(colnames(otu_table(ps.taxa.pse.sub)), ps.taxa.rel.sig)
+ps_taxa_rel_sig <- prune_samples(colnames(otu_table(ps_taxa_pse_sub)), ps_taxa_rel_sig)
 
 ```
 
 ## Heatmap plot
 ```{r}
 # if (!require("BiocManager", quietly = TRUE))
-#     install.packages("BiocManager")
+#     install_packages("BiocManager")
 # 
 # BiocManager::install("ComplexHeatmap")
 library(ComplexHeatmap)
 
-matrix <- as.matrix(data.frame(otu_table(ps.taxa.rel.sig)))
-rownames(matrix) <- as.character(tax_table(ps.taxa.rel.sig)[, "Genus"])
-metadata_sub <- data.frame(sample_data(ps.taxa.rel.sig))
+matrix <- as.matrix(data.frame(otu_table(ps_taxa_rel_sig)))
+rownames(matrix) <- as.character(tax_table(ps_taxa_rel_sig)[, "Genus"])
+metadata_sub <- data.frame(sample_data(ps_taxa_rel_sig))
 # Define the annotation color for columns and rows
 annotation_col = data.frame(
-    `Plant type` = as.factor(metadata_sub$Plant.type), 
+    `Plant type` = as.factor(metadata_sub$Plant_type), 
     Time = as.factor(metadata_sub$Time), 
-    check.names = FALSE
+    check_names = FALSE
 )
 rownames(annotation_col) = rownames(metadata_sub)
 
 annotation_row = data.frame(
-    Phylum = as.factor(tax_table(ps.taxa.rel.sig)[, "Phylum"])
+    Phylum = as.factor(tax_table(ps_taxa_rel_sig)[, "Phylum"])
 )
 rownames(annotation_row) = rownames(matrix)
 
 # ann_color should be named vectors
-phylum_col = RColorBrewer::brewer.pal(length(levels(annotation_row$Phylum)), "Paired")
+phylum_col = RColorBrewer::brewer_pal(length(levels(annotation_row$Phylum)), "Paired")
 names(phylum_col) = levels(annotation_row$Phylum)
 ann_colors = list(
     `Plant type` = c(`no plant` = "red", `Scirpus` = "blue", `Triglochin` = "green"),
@@ -243,13 +293,27 @@ ComplexHeatmap::pheatmap(matrix, scale= "row",
 ```
 
 
-Volcano plot
+## Volcano plot
+
+https://bioconductor_org/packages/devel/bioc/vignettes/EnhancedVolcano/inst/doc/EnhancedVolcano_html#introduction
 ```{r}
   # if (!requireNamespace('BiocManager', quietly = TRUE))
-  #   install.packages('BiocManager')
+  #   install_packages('BiocManager')
   # 
   # BiocManager::install('EnhancedVolcano')
-  
+
+res_df <- as.data.frame(res)
+taxa_sig_df <- tax_clean[rownames(tax_clean) %in% rownames(res_df),]
 library(EnhancedVolcano)
+res_volcano <- merge(res_df, taxa_sig_df, by="row.names")
+EnhancedVolcano(res_volcano, 
+                lab = res_volcano$Genus, 
+                x = 'log2FoldChange', 
+                y = "padj",
+                title = "",
+                subtitle = "D4 vs D66 in Sediments")
 ```
+
+
+
 
