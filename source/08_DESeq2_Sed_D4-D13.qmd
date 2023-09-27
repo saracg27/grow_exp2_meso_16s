@@ -235,5 +235,4 @@ volcano_sed_4.13_order <- EnhancedVolcano(res_volcano,
 volcano_sed_4.13_order
 ggsave(filename = here("output", "figures", "deseq_volcano_sed_4.13_order.png"), plot = volcano_sed_4.13_order, width = 6, height = 6, dpi = 300)
 ggsave(filename = here("output", "figures", "deseq_volcano_sed_4.13_order.pdf"), plot = volcano_sed_4.13_order, width = 6, height = 6, dpi = 300)
-
 ```
