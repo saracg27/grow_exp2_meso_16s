@@ -30,7 +30,7 @@ ps_taxa_sub <- subset_samples(ps_taxa, Time %in% c("D40", "D66")) # 48 samples
 
 # Filter out features (OTUs or taxa) that have more than 90% zeros across all samples
 # This is done by checking the number of zeros in each row of the OTU table and comparing it to 90% of the total number of columns (samples)
-ps_taxa_pse_sub <- prune_taxa(rowSums(otu_table(ps_taxa_sub) == 0) < ncol(otu_table(ps_taxa_sub)) * 0.9, ps_taxa_sub) # 442
+ps_taxa_pse_sub <- prune_taxa(rowSums(otu_table(ps_taxa_sub) == 0) < ncol(otu_table(ps_taxa_sub)) * 0.9, ps_taxa_sub) # 632
 
 # Convert the filtered phyloseq object to a DESeq2 object, using 'Time' as the variable of interest
 ps_ds <- phyloseq_to_deseq2(ps_taxa_pse_sub, ~ Time)
@@ -61,11 +61,11 @@ ps_taxa_rel_sig <- prune_taxa(taxa_sig, ps_taxa_rel)
 
 # Further subset the relative abundance phyloseq object to only include samples from time points "D40" and "D66"
 ps_taxa_rel_sig <- prune_samples(colnames(otu_table(ps_taxa_pse_sub)), ps_taxa_rel_sig)
-
+colSums(ps_taxa_rel_sig@otu_table)
 ```
 
 ## Heatmap genus
-```{r}
+```{#r}
 # if (!require("BiocManager", quietly = TRUE))
 #     install.packages("BiocManager")
 # 
@@ -96,7 +96,7 @@ ann_colors = list(
     `Time` = c(D40 = "purple", D66 = "yellow"),
     Phylum = phylum_col
 )
-png(here("output", "figures","heatmap_D40-D66-on-sediments.png"),width=8,height=4,units="in",res=600)
+png(here("output", "figures","heatmap_D40-D66-on-sediments_1.png"),width=8,height=4,units="in",res=600)
 ComplexHeatmap::pheatmap(matrix, scale = "row", 
                          fontface_row = "italic",
                          show_colnames = FALSE,
@@ -107,6 +107,8 @@ ComplexHeatmap::pheatmap(matrix, scale = "row",
                          annotation_row = annotation_row, 
                          annotation_colors = ann_colors)
 dev.off()
+
+
 ```
 
 
@@ -128,7 +130,7 @@ volcano_sed_40.66_genus <- EnhancedVolcano(res_volcano,
                           x = 'log2FoldChange', 
                           y = "padj",
                           title = "",
-                          subtitle = "D40 vs D66 in Sediments",
+                          subtitle = "D40 vs D66 in Sediments - Genus",
                           pointSize = 4.0,
                           labSize = 3.0,
                           colAlpha = 0.5,
@@ -136,7 +138,8 @@ volcano_sed_40.66_genus <- EnhancedVolcano(res_volcano,
                           legendLabSize = 10,
                           legendIconSize = 4.0,
                           drawConnectors = TRUE,
-                          widthConnectors = 0.6,)
+                          widthConnectors = 0.6,
+                          max.overlaps = 15)
 
 volcano_sed_40.66_genus
 
@@ -145,7 +148,7 @@ ggsave(filename = here("output", "figures", "deseq_volcano_sed_40.66_genus.pdf")
 
 ```
 
-No genera were found to be differentially abundant between D66 and D40 using DESeq2.
+
 
 
 
@@ -169,7 +172,7 @@ ps_taxa_sub <- subset_samples(ps_taxa, Time %in% c("D40", "D66"))
 
 # Filter out features (OTUs or taxa) that have more than 90% zeros across all samples
 # This is done by checking the number of zeros in each row of the OTU table and comparing it to 90% of the total number of columns (samples)
-ps_taxa_pse_sub <- prune_taxa(rowSums(otu_table(ps_taxa_sub) == 0) < ncol(otu_table(ps_taxa_sub)) * 0.9, ps_taxa_sub) #153
+ps_taxa_pse_sub <- prune_taxa(rowSums(otu_table(ps_taxa_sub) == 0) < ncol(otu_table(ps_taxa_sub)) * 0.9, ps_taxa_sub) # 225
 
 # Convert the filtered phyloseq object to a DESeq2 object, using 'Time' as the variable of interest
 ps_ds <- phyloseq_to_deseq2(ps_taxa_pse_sub, ~ Time)
@@ -217,7 +220,7 @@ taxa_sig_df <- tax_clean[rownames(tax_clean) %in% rownames(res_df),]
 
 res_volcano <- merge(res_df, taxa_sig_df, by = "row.names")
 
-volcano_sed_4.13_order <- EnhancedVolcano(res_volcano, 
+volcano_sed_40.66_order <- EnhancedVolcano(res_volcano, 
                           lab = res_volcano$Order, 
                           x = 'log2FoldChange', 
                           y = "padj",
@@ -232,7 +235,7 @@ volcano_sed_4.13_order <- EnhancedVolcano(res_volcano,
                           drawConnectors = TRUE,
                           widthConnectors = 0.6,)
 
-volcano_sed_4.13_order
-ggsave(filename = here("output", "figures", "deseq_volcano_sed_4.13_order.png"), plot = volcano_sed_4.13_order, width = 6, height = 6, dpi = 300)
-ggsave(filename = here("output", "figures", "deseq_volcano_sed_4.13_order.pdf"), plot = volcano_sed_4.13_order, width = 6, height = 6, dpi = 300)
+volcano_sed_40.66_order
+ggsave(filename = here("output", "figures", "deseq_volcano_sed_40.66_order.png"), plot = volcano_sed_40.66_order, width = 6, height = 6, dpi = 300)
+ggsave(filename = here("output", "figures", "deseq_volcano_sed_40.66_order.pdf"), plot = volcano_sed_40.66_order, width = 6, height = 6, dpi = 300)
 ```
