@@ -224,9 +224,6 @@ colnames(abund) # there are empty spaces in column names
 colnames(abund) <- gsub(" ", "", colnames(abund)) # trim empty spaces
 ```
 
-
-
-
 ## Bind treatments and abundances
 ```{r}
 treat <- meta_sed
@@ -327,52 +324,6 @@ genus_long$Taxa <- factor(genus_long$Taxa,
 
 ```
 
-### Separate tax_raw into groups
-```{#r}
-tax_raw_clean <- separate(tax_raw, taxonomy, into = c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species", "Strain"), sep = ";")
-tax_raw_clean <- tax_raw_clean[,-which(names(tax_raw_clean) %in% c("Species", "Strain"))]
-tax_raw_clean <- as.data.frame(tax_raw_clean)
-levels(as.factor(tax_raw_clean$Domain)) # 2 Domain: Archaea and Bacteria, all ok
-levels(as.factor(tax_raw_clean$Phylum)) #  43 Phyla 
-levels(as.factor(tax_raw_clean$Class)) # 121 classes
-levels(as.factor(tax_raw_clean$Order)) # 296 orders
-levels(as.factor(tax_raw_clean$Family)) # 466 Families
-levels(as.factor(tax_raw_clean$Genus)) # 882 genus
-str(tax_raw_clean)
-```
-
-```{#r}
-taxonomy_clean <- as.data.frame(taxonomy[rownames(taxonomy) %in% rownames(rarefied_counts),])
-names(taxonomy_clean) <- c("Taxonomy")
-tax_clean <- as.data.frame(tax.clean[rownames(tax.clean) %in% rownames(rarefied_counts),])
-rm(list = c("tax.clean", "taxonomy", "rarefied"))
-rownames(taxonomy_clean) <- rownames(rarefied_counts)
-```
-
-### Clean taxonomy names
-```{#r}
-# eliminate the characters  -----
-pattern <- "[a-z]__"
-replacement <- ""
-tax_clean <- as.data.frame(apply(tax_raw_clean, 2, function(col) gsub(pattern, replacement, col)))
-rm(pattern)
-rm(replacement)
-
-```
-
-### Fill NAs with last available taxon rank
-```{#r}
-tax_clean_filled <- tax_clean |> 
-   t() |> 
-   as.data.frame() |> 
-   fill(everything(), .direction = "down") |> 
-   t() |> 
-   as.data.frame()
-#write.table(tax.clean, file = here::here("data", "clean", "clean_taxonomy.txt"),sep = "\t")
-#rm(list = c("raw_libsize", "tax_raw", "tax_clean", "tax_raw_clean", "pattern", "replacement", "otuids", "cols_to_keep"))
-```
-
-
 ## Create the lolipop chart
 ```{r}
 # Step 1: Calculate the mean values with ave()
@@ -383,11 +334,13 @@ genus_long$Taxa <- reorder(genus_long$Taxa, mean_values, FUN = mean)
 
 # Add small value to prevent inf error when log transforming
 genus_long$RelAbund <- genus_long$RelAbund + 1e-6
+genus_long$Plant.type <- factor(genus_long$Plant.type, levels = c("no plant", "Scirpus", "Triglochin"),
+                                labels = c("no plant", "*Scirpus*", "*Triglochin*") )
 
-
-high_contrast = c("#FF8C00","#440154", "#CD0000","#545361FF", "#009ACD") 
-
-
+#high_contrast = c("#FF8C00","#440154", "#CD0000","#545361FF", "#009ACD") 
+viridis::magma(7, alpha = 1) # extract colors from magma to match naphthenic acid figure PCA
+#"#000004FF" "#2D1160FF" "#721F81FF" "#B63679FF" "#F1605DFF" "#FEAF77FF" "#FCFDBFFF"
+high_contrast <- c("#000004FF", "#721F81FF" ,"#B63679FF" ,"#F1605DFF", "#FEAF77FF") 
 # Step 3: Create the plot
 p1 <- ggplot(data = genus_long, aes(y = Taxa, x = RelAbund, color = Time)) +
     geom_vline(xintercept = c(0.001, 0.01, 0.1, 0.4), color = "lightgrey", size = 0.1) +
@@ -403,26 +356,223 @@ p1 <- ggplot(data = genus_long, aes(y = Taxa, x = RelAbund, color = Time)) +
     axis.text.y = element_markdown(),
     legend.text = element_markdown(),
     legend.title = element_blank(),
-    #legend.position = "right",
+    legend.position = "bottom",
     legend.spacing = unit(0.1, "cm"),
-    legend.position = c(0.92, 0.15),
+    #legend.position = c(0.92, 0.15),
     legend.background = element_rect(color = "darkgrey", fill = "white"),
-    legend.margin = margin(t = -5, r = 3, b = 3),
-    strip.text.x = element_text(size = 12, face = "bold")
+    #legend.margin = margin(t = -5, r = 3, b = 3),
+    strip.text.x = element_markdown(size = 12),
+    strip.text.y = element_markdown(size = 12)
+    
   ) +
     
     scale_x_continuous(limits = c(NA, 1.5), 
                        breaks = c(0.001,0.01, 0.1, 0.4),
                        labels = c(".001", ".01", ".1", ".4")) +
-  facet_wrap(~ Temperature)
+  facet_grid(Temperature ~ Plant.type)
 
 p1
 
 # Save plots
-ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops.pdf"), p1, width = 7, height = 7, units = "in", dpi = 300,bg = "white")
-ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops.eps"), p1, width = 7, height = 7, units = "in", dpi = 300,bg = "white")
-
+ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops.pdf"), p1, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
+ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops.eps"), p1, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
 ```
 
 
+# -------------------------------------------------------
 
+# TOP 10 genera
+
+# -------------------------------------------------------
+## Remove low abundances
+
+```{r}
+abund <- as.data.frame(genus[, colMeans(genus) > 0.01]) # 11 genera with a relative abundance over 1%
+abund$Others = 1 - rowSums(abund)#Add an "Other" category
+colnames(abund) # there are empty spaces in column names
+colnames(abund) <- gsub(" ", "", colnames(abund)) # trim empty spaces
+```
+
+## Bind treatments and abundances
+```{r}
+treat <- meta_sed
+rownames(abund) == rownames(treat)
+abund_treat <- cbind(treat,abund)
+dim(abund_treat) # 120  16
+```
+
+## Gather in long format for ggplot
+
+```{r}
+long <- gather(abund_treat,Taxa,RelAbund,5:ncol(abund_treat)) #change the column index value to match the first column that contains a Taxa name and not a treatment
+head(long) # It looks ok!
+genus_long <- long
+```
+
+### Clean taxonomy values
+
+### Create tax_raw table for raw data
+
+
+## Separate tax_raw into groups
+```{r}
+genus_long <- separate(genus_long, Taxa , into = c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species"), sep = ";")
+genus_long <- genus_long[,-which(names(genus_long) %in% c("Species"))]
+genus_long <- as.data.frame(genus_long)
+levels(as.factor(genus_long$Domain)) # 2  Bacteria, others all ok
+levels(as.factor(genus_long$Phylum)) #  5 Phyla 
+levels(as.factor(genus_long$Class)) # 6 classes
+levels(as.factor(genus_long$Order)) # 8 orders
+levels(as.factor(genus_long$Family)) # 8 Families
+levels(as.factor(genus_long$Genus)) # 8 genus
+str(genus_long)
+```
+
+## Clean taxonomy names
+```{r}
+# eliminate the characters  -----
+pattern <- "[a-z]__"
+replacement <- ""
+genus_long <- as.data.frame(apply(genus_long, 2, function(col) gsub(pattern, replacement, col)))
+rm(pattern)
+rm(replacement)
+
+
+str(genus_long)
+```
+
+## Fill NAs with last available taxon rank
+```{r}
+genus_long <- genus_long |> 
+   t() |> 
+   as.data.frame() |> 
+   fill(everything(), .direction = "down") |> 
+   t() |> 
+   as.data.frame()
+#write.table(tax.clean, file = here::here("data", "clean", "clean_taxonomy.txt"),sep = "\t")
+#rm(list = c("raw_libsize", "tax_raw", "tax_clean", "tax_raw_clean", "pattern", "replacement", "otuids", "cols_to_keep"))
+str(genus_long)
+genus_long$RelAbund <- as.numeric(genus_long$RelAbund)
+```
+
+
+```{r}
+levels(as.factor(genus_long$Genus)) # there are uncultured bacteria, clean the name
+genus_long$Genus <- ifelse(genus_long$Genus == "uncultured", paste(genus_long$Family, "bacterium"), genus_long$Genus)
+levels(as.factor(genus_long$Genus)) 
+dim(genus_long) # 4440    11 OK
+genus_long$Genus <- factor(genus_long$Genus,
+                          levels = c( "Comamonadaceae", "Diplorickettsiaceae bacterium",  "Others",   "Pirellula",  "Pirellulaceae bacterium",  "Pseudolabrys",    "RB41",    "Segetibacter",   "Sphingomonas",     "Terrimonas",   "TK10",   "Xanthobacteraceae"),
+                          labels = c( "*Comamonadaceae*", "*Diplorickettsiaceae* bacterium",  "Others",   "*Pirellula*",  "*Pirellulaceae* bacterium",  "*Pseudolabrys*",    "*RB41*",    "*Segetibacter*",   "*Sphingomonas*",     "*Terrimonas*",   "*TK10*",   "*Xanthobacteraceae*"))
+
+```
+
+## Create the lolipop chart contrast plant type
+```{r}
+# Step 1: Calculate the mean values with ave()
+is.numeric(genus_long$RelAbund)
+mean_values <- ave(genus_long$RelAbund, genus_long$Genus, FUN = mean)
+
+# Reorder the levels based on mean values
+genus_long$Genus <- reorder(genus_long$Genus, mean_values, FUN = mean)
+
+# Add small value to prevent inf error when log transforming
+genus_long$RelAbund <- genus_long$RelAbund + 1e-6
+genus_long$Plant.type <- factor(genus_long$Plant.type, levels = c("no plant", "Scirpus", "Triglochin"),
+                                labels = c("no plant", "*Scirpus*", "*Triglochin*") )
+
+#high_contrast = c("#FF8C00","#440154", "#CD0000","#545361FF", "#009ACD") 
+viridis::magma(7, alpha = 1) # extract colors from magma to match naphthenic acid figure PCA
+#"#000004FF" "#2D1160FF" "#721F81FF" "#B63679FF" "#F1605DFF" "#FEAF77FF" "#FCFDBFFF"
+high_contrast <- c("#000004FF", "#B63679FF" , "#FEAF77FF") 
+# Step 3: Create the plot
+p1 <- ggplot(data = genus_long, aes(y = Genus, x = RelAbund, color = Plant.type)) +
+    geom_vline(xintercept = c(0.001, 0.01, 0.1, 0.4), color = "lightgrey", size = 0.1) +
+  stat_summary(fun.data = median_hilow, geom = "pointrange", fun.args = list(conf.int = 0.5),
+               position = position_dodge(width = 0.4),
+               linewidth = 0.25) +
+  coord_trans(x = "log10") +
+    ylab("Taxonomic group") + 
+    xlab("log10 Relative abundance") +
+    scale_color_manual(values = high_contrast) + 
+  theme_classic() +
+  theme(
+    axis.text.y = element_markdown(),
+    legend.text = element_markdown(),
+    legend.title = element_blank(),
+    legend.position = "bottom",
+    legend.spacing = unit(0.1, "cm"),
+    #legend.position = c(0.92, 0.15),
+    legend.background = element_rect(color = "darkgrey", fill = "white"),
+    #legend.margin = margin(t = -5, r = 3, b = 3),
+    strip.text.x = element_markdown(size = 12),
+    strip.text.y = element_markdown(size = 12)
+    
+  ) +
+    
+    scale_x_continuous(limits = c(NA, 1.5), 
+                       breaks = c(0.001,0.01, 0.1, 0.4),
+                       labels = c(".001", ".01", ".1", ".4")) +
+  facet_grid(Temperature ~ Time)
+
+p1
+
+# Save plots
+ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops_0.01top_plant_effect.pdf"), p1, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
+ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops0.01top_plant_effect.eps"), p1, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
+```
+
+## Create the lolipop chart contrast time
+```{r}
+# Step 1: Calculate the mean values with ave()
+is.numeric(genus_long$RelAbund)
+mean_values <- ave(genus_long$RelAbund, genus_long$Genus, FUN = mean)
+
+# Reorder the levels based on mean values
+genus_long$Genus <- reorder(genus_long$Genus, mean_values, FUN = mean)
+
+# Add small value to prevent inf error when log transforming
+genus_long$RelAbund <- genus_long$RelAbund + 1e-6
+genus_long$Plant.type <- factor(genus_long$Plant.type, levels = c("no plant", "Scirpus", "Triglochin"),
+                                labels = c("no plant", "*Scirpus*", "*Triglochin*") )
+
+#high_contrast = c("#FF8C00","#440154", "#CD0000","#545361FF", "#009ACD") 
+viridis::magma(7, alpha = 1) # extract colors from magma to match naphthenic acid figure PCA
+#"#000004FF" "#2D1160FF" "#721F81FF" "#B63679FF" "#F1605DFF" "#FEAF77FF" "#FCFDBFFF"
+high_contrast <- c("#000004FF", "#721F81FF" ,"#B63679FF" ,"#F1605DFF", "#FEAF77FF") 
+# Step 3: Create the plot
+p1 <- ggplot(data = genus_long, aes(y = Genus, x = RelAbund, color = Time)) +
+    geom_vline(xintercept = c(0.001, 0.01, 0.1, 0.4), color = "lightgrey", size = 0.1) +
+  stat_summary(fun.data = median_hilow, geom = "pointrange", fun.args = list(conf.int = 0.5),
+               position = position_dodge(width = 0.4),
+               linewidth = 0.25) +
+  coord_trans(x = "log10") +
+    ylab("Taxonomic group") + 
+    xlab("log10 Relative abundance") +
+    scale_color_manual(values = high_contrast) + 
+  theme_classic() +
+  theme(
+    axis.text.y = element_markdown(),
+    legend.text = element_markdown(),
+    legend.title = element_blank(),
+    legend.position = "bottom",
+    legend.spacing = unit(0.1, "cm"),
+    #legend.position = c(0.92, 0.15),
+    legend.background = element_rect(color = "darkgrey", fill = "white"),
+    #legend.margin = margin(t = -5, r = 3, b = 3),
+    strip.text.x = element_markdown(size = 12),
+    strip.text.y = element_markdown(size = 12)
+    
+  ) +
+    
+    scale_x_continuous(limits = c(NA, 1.5), 
+                       breaks = c(0.001,0.01, 0.1, 0.4),
+                       labels = c(".001", ".01", ".1", ".4")) +
+  facet_grid(Temperature ~ Plant.type )
+
+p1
+
+# Save plots
+ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops_0.01top_time_effect.pdf"), p1, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
+ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops0.01top_time_effect.eps"), p1, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
+```
