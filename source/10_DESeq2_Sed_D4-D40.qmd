@@ -110,7 +110,7 @@ https://bioconductor_org/packages/devel/bioc/vignettes/EnhancedVolcano/inst/doc/
 ```{r}
 res_df <- as.data.frame(res)
 taxa_sig_df <- tax_clean[rownames(tax_clean) %in% rownames(res_df),]
-library(EnhancedVolcano)
+#library(EnhancedVolcano)
 res_volcano <- merge(res_df, taxa_sig_df, by = "row.names")
 volcano_sed_4.40_genus <- EnhancedVolcano(res_volcano, 
                           lab = res_volcano$Genus, 
@@ -134,6 +134,36 @@ ggsave(filename = here("output", "figures", "deseq_volcano_sed_4.40_genus.pdf"),
 
 ```
 
+```{r}
+# load volcano plots
+combined_plot <- ggdraw() +
+  draw_plot(volcano_sed_4.13_genus, x = 0, y = 0.5, width = 0.45, height = 0.45) +
+  draw_plot(volcano_sed_4.20_genus, x = 0.5, y = 0.5, width = 0.45, height = 0.45) +
+  draw_plot(volcano_sed_4.40_genus, x = 0, y = 0, width = 0.45, height = 0.45) +      draw_plot(volcano_sed_4.66_genus, x = 0.5, y = 0, width = 0.45, height = 0.45) +
+  draw_label("A)", x = 0.02, y = 0.98, size = 17, fontface ="bold") +  
+  draw_label("B)", x = 0.48, y = 0.98, size = 17, fontface ="bold") +
+  draw_label("C)", x = 0.02, y = 0.48, size = 17, fontface ="bold") +  
+  draw_label("D)", x = 0.48, y = 0.48, size = 17, fontface ="bold") 
+combined_plot
+```
+
+
+```{r}
+plot(volcano_sed_4.13_genus)
+plot(volcano_sed_4.20_genus)
+plot(volcano_sed_4.40_genus)
+plot(volcano_sed_4.66_genus)
+summary(volcano_sed_4.66_genus)
+volcano_sed_4.13_genus <- volcano_sed_4.13_genus + ggtitle("A)")
+volcano_sed_4.20_genus <- volcano_sed_4.20_genus + ggtitle("B)")
+volcano_sed_4.40_genus <- volcano_sed_4.40_genus + ggtitle("C)")
+volcano_sed_4.66_genus <- volcano_sed_4.66_genus + ggtitle("D)")
+combi <- gridExtra::grid.arrange(volcano_sed_4.13_genus, volcano_sed_4.20_genus,
+             volcano_sed_4.40_genus, volcano_sed_4.66_genus,
+             ncol=2)
+
+
+```
 
 
 # -------------------------------------------------------
