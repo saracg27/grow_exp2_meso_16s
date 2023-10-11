@@ -1,0 +1,123 @@
+---
+title: "Microbiome marker comparisons"
+author: "Sara Correa Garcia"
+format: html
+---
+
+```{r}
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+    install.packages("BiocManager")
+}
+
+BiocManager::install("microbiomeMarker")
+```
+
+```{r}
+library(microbiomeMarker)
+```
+
+```{r}
+load(here("RData", "ps.RData"))
+```
+
+Run ALDEx2
+```{r}
+run_aldex(ps = ps,
+          group = 
+    )
+```
+
+Run DESeq2    
+```{r}
+run_deseq2(
+  ps,
+  group,
+  confounders = character(0),
+  contrast = NULL,
+  taxa_rank = "all",
+  norm = "RLE",
+  norm_para = list(),
+  transform = c("identity", "log10", "log10p"),
+  fitType = c("parametric", "local", "mean", "glmGamPoi"),
+  sfType = "poscounts",
+  betaPrior = FALSE,
+  modelMatrixType,
+  useT = FALSE,
+  minmu = ifelse(fitType == "glmGamPoi", 1e-06, 0.5),
+  p_adjust = c("none", "fdr", "bonferroni", "holm", "hochberg", "hommel", "BH", "BY"),
+  pvalue_cutoff = 0.05,
+  ...
+)
+```
+
+Run LEFSe LDA  :
+
+```{r}
+# a microbiomeMarker object, in which the slot of marker_table contains four variables:
+# feature, significantly different features.
+# enrich_group, the class of the differential features enriched.
+# lda, logarithmic LDA score (effect size)
+# pvalue, p value of kw test.
+
+
+my_tax_glom <- function(ps, level = "Order"){
+  cols <-  colnames(tax_table(ps))
+  remove_cols <- cols[seq(from = which(level == cols)+1, to = length(cols))]
+  prep <- tax_glom(ps, level) 
+  tax_table(prep) <- tax_table(prep) %>% data.frame %>% select(all_of(remove_cols)) %>% as.matrix 
+  return(prep)
+}
+
+
+mm_lefse <- my_tax_glom(ps, "Order") |> 
+ run_lefse(
+  #a phyloseq-class object, use taxonomy in a single string to get a cladogram
+  group = "Plant.type",# character, the column name to set the subgroup
+  #subgroup = "Temperature", # character, the column name to set the subgroup
+  #taxa_rank = "Order",  #character to specify taxonomic rank to perform differential analysis on. Should be one of phyloseq::rank_names(phyloseq), or "all" means to summarize the taxa by the top taxa ranks (summarize_taxa(ps, level = rank_names(ps)[1])), or "none" means perform differential analysis on the original taxa (taxa_names(phyloseq), e.g., OTU or ASV).
+  #transform = c("identity", "log10", "log10p"), #character, the methods used to transform the microbial abundance. See transform_abundances() for more details. The options include: identity, log10, log10p
+  #norm = "CPM", # methods used to normalize the microbial abundance data. See normalize() for more details. Options include: none, rarefy, TSS, TMM, RLE, CSS, CLR, CPM
+  #norm_para = list(), # named list. other arguments passed to specific normalization methods. Most users will not need to pass any additional arguments here.
+  kw_cutoff = 0.01, #numeric, p value cutoff of kw test, default 0.05
+  lda_cutoff = 3.5, # numeric, lda score cutoff, default 2
+  bootstrap_n = 30, # integer, the number of bootstrap iteration for LDA, default 30
+  bootstrap_fraction = 2/3, # numeric, the subsampling fraction value for each bootstrap iteration, default 2/3
+  wilcoxon_cutoff = 0.01, # numeric, p value cutoff of wilcoxon test, default 0.05
+  #multigrp_strat = FALSE, # logical, for multiple group tasks, whether the test is performed in a one-against one (more strict) or in a one-against all setting, default FALSE.
+  #strict = c("0", "1", "2"), # multiple testing options, 0 for no correction (default), 1 for independent comparisons, 2 for independent comparison.
+  #sample_min = 10, #integer, minimum number of samples per subclass for performing wilcoxon test, default 10
+  #only_same_subgrp = FALSE, #logical, whether perform the wilcoxon test only among the subgroups with the same name, default FALSE
+  #curv = FALSE #logical, whether perform the wilcoxon test using the Curtis's approach, defalt FALSE
+
+)
+plot_ef_bar(mm = mm_lefse)
+plot_ef_dot(mm_lefse) #bar and dot plot of effect size of microbiomeMarker data
+
+plot_abundance(mm_lefse, group = "Plant.type") #plot the abundances of markers
+
+clado <- plot_cladogram(mm_lefse, color = c("darkgreen", "red", "lightgrey"), only_marker = FALSE,) #plot cladogram of micobiomeMaker results
+
+ggsave(file = here("output", "figures", "cladograme_lefse_plant-type.eps"), plot = last_plot(), width = 15, height = 10, dpi = 300)
+
+```
+test launched at 3.15 - 1 min
+
+Compare methods
+```{r}
+comps <- compare_DA(ps,
+                    group = "Plant.type",
+                    taxa_rank = "none",
+                    methods = c("deseq2", "aldex", "metagenomeseq"))
+summary(comps)
+
+plot(<compareDA>) #Plotting DA comparing result
+```
+
+
+```{r}
+plot_ef_bar(mm_lefse) 
+ #ROC curve of microbiome marker from supervised learning methods
+
+
+```
+
