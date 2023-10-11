@@ -128,7 +128,7 @@ volcano_sed_4.13_genus <- EnhancedVolcano(res_volcano,
                           x = 'log2FoldChange', 
                           y = "padj",
                           title = "",
-                          subtitle = "D4 vs D13 in Sediments",
+                          subtitle = "D4 vs D13 in Sediments - Genus",
                           pointSize = 4.0,
                           labSize = 3.0,
                           colAlpha = 0.5,
@@ -142,7 +142,6 @@ volcano_sed_4.13_genus
 
 ggsave(filename = here("output", "figures", "deseq_volcano_sed_4.13_genus.png"), plot = volcano_sed_4.13_genus, width = 6, height = 6, dpi = 300)
 ggsave(filename = here("output", "figures", "deseq_volcano_sed_4.13_genus.pdf"), plot = volcano_sed_4.13_genus, width = 6, height = 6, dpi = 300)
-
 ```
 
 No genera were found to be differentially abundant between D13 and D4 using DESeq2.

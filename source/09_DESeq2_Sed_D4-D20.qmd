@@ -115,7 +115,7 @@ https://bioconductor_org/packages/devel/bioc/vignettes/EnhancedVolcano/inst/doc/
 
 res_df <- as.data.frame(res)
 taxa_sig_df <- tax_clean[rownames(tax_clean) %in% rownames(res_df),]
-library(EnhancedVolcano)
+#library(EnhancedVolcano)
 res_volcano <- merge(res_df, taxa_sig_df, by = "row.names")
 volcano_sed_4.20_genus <- EnhancedVolcano(res_volcano, 
                           lab = res_volcano$Genus, 
