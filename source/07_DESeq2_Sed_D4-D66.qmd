@@ -83,12 +83,46 @@ rm(list = c("cols_to_keep", "e2_cols", "row_sums_without_taxonomy", "taxonomy_co
 
 ## Keep only SEDIMENTS
 ```{r}
-raw_sed <- raw[, colnames(raw) %in% rownames(meta_sed)]#Subset columns
+raw_sed <- raw[, colnames(raw) %in% rownames(meta_sed)] #Subset columns
 #raw_sed <- cbind(raw_sed, raw$taxonomy)
-raw_sed <- raw_sed[(rowSums(raw_sed) > 0) ,] # Keep only ASV with at leat 1 count_ 
+raw_sed <- raw_sed[(rowSums(raw_sed) > 0) ,] # Keep only ASV with at leat 1 count_
+```
+
+Evaluate library size for samples and evaluate the effect of small library size in D4 samples
+```{#r}
+raw_sed_libsize <- as.data.frame(colSums(raw_sed[,1:ncol(raw_sed)]))
+summary(raw_sed_libsize) # evaluate library size: samples 25, 27, 30, 31 and 8 are too small. 
+meta_sed_4 <- meta_sed[meta_sed$Time == "D4",] # Subset D4 in meta
+d4 <- raw_sed[,colnames(raw_sed) %in% rownames(meta_sed_4)] # subset d 4 in raw_sed 188851 obs in 24 vars
+d4 <- d4[(rowSums(d4) > 0) ,] # 3735 obs in 24 vars, Keep only ASV with at least 1 count
+```
+
+
+#Create an ordination to see if the samples are clustering together with the other D4 samples
+```{#r}
+d4_t <- t(d4) # transpose
+d4_s <- d4_t[order(rownames(d4_t)),] # order
+rownames(d4_s) == rownames(meta_sed_4) # check names
+d4_rel <- d4_s/rowSums(d4_s) # calculate relative abundance
+rowSums(d4_rel)
+d4_h <- decostand(d4_s, "hellinger")
+d4_pca <- prcomp(d4_h, scale = TRUE)
+screeplot(d4_pca, npcs = 20, type = "lines", bstick = T)
+df <- iris[c(1, 2, 3, 4)]
+autoplot(prcomp(d4_h), scale = TRUE, shape = FALSE, label.size = 2)
+ggsave(filename = here("output", "figures", "d4_test_small_library_size_effect.eps"),
+       plot = last_plot(),
+       width = 7,
+       height = 5)
+```
+
+
+extract taxonomy
+```{r}
 taxonomy <- as.data.frame(raw$taxonomy, row.names = rownames(raw)) # get taxonomy appart
 taxonomy <- as.data.frame(taxonomy[rownames(taxonomy) %in% rownames(raw_sed),], row.names = rownames(raw_sed))
 ```
+
 
 ## Clean taxonomy
 
@@ -216,11 +250,32 @@ sample_data(ps)$Time <- as.factor(sample_data(ps)$Time) # factorize for DESeq2
 save(ps, tax_clean, file = here("RData", "ps.RData"))
 ```
 
+## Create phyloseq object wit taxonomy as a single string
+
+```{r}
+library(phyloseq)
+otu <- otu_table(as.matrix(raw_sed), taxa_are_rows = TRUE)
+tax <- tax_table(as.matrix(taxonomy))
+sample <- sample_data(meta_sed)
+
+# merge
+ps_string <- phyloseq(otu, tax, sample)
+sample_data(ps_string)$Time <- as.factor(sample_data(ps_string)$Time) # factorize for DESeq2
+```
+Run only once
+```{#r}
+save(ps_string, file = here("RData", "ps_string.RData"))
+```
+
+
 # -------------------------------------------------------
 
 # DESeq2 - GENUS
 
 # -------------------------------------------------------
+```{r}
+load(file = here::here("RData", "ps.RData"))
+```
 
 ## Agglom at genus
 ```{r}
@@ -327,14 +382,50 @@ https://bioconductor_org/packages/devel/bioc/vignettes/EnhancedVolcano/inst/doc/
 
 res_df <- as.data.frame(res)
 taxa_sig_df <- tax_clean[rownames(tax_clean) %in% rownames(res_df),]
-library(EnhancedVolcano)
+#library(EnhancedVolcano)
 res_volcano <- merge(res_df, taxa_sig_df, by = "row.names")
-EnhancedVolcano(res_volcano, 
-                lab = res_volcano$Genus, 
-                x = 'log2FoldChange', 
-                y = "padj",
-                title = "",
-                subtitle = "D4 vs D66 in Sediments")
+
+# Extract differentially abundant genera: 
+# cutoffs for log2FC: abs(log2FC) > 1 and p-adjust: -log10(padj) > 5) for padj = 0.00001
+
+# Convert p-values to -log10 scale
+res_volcano$neg_log10_pvalue <- -log10(res_volcano$padj)
+
+# Filter res_volcano based on cutoffs
+filtered_res_volcano <- res_volcano[(abs(res_volcano$log2FoldChange) > 1) & (res_volcano$neg_log10_pvalue > 5), ]
+
+# Create a new dataframe with the relevant columns
+result_genus_diff <- filtered_res_volcano[, c("Genus", "log2FoldChange", "neg_log10_pvalue")]
+result_genus_diff$Genus
+# View the resulting dataframe
+print(result_df)
+
+
+
+
+volcano_sed_4.66_genus <- EnhancedVolcano(res_volcano, 
+                          lab = res_volcano$Genus, 
+                          x = 'log2FoldChange', 
+                          y = "padj",
+                          title = "",
+                          subtitle = "D4 vs D66 in Sediments - Genus",
+                          pointSize = 4.0,
+                          labSize = 3.0,
+                          colAlpha = 0.5,
+                          legendPosition = 'top',
+                          legendLabSize = 10,
+                          legendIconSize = 4.0,
+                          drawConnectors = TRUE,
+                          widthConnectors = 0.6,
+                          max.overlaps = 20
+                          )
+
+volcano_sed_4.66_genus
+
+ggsave(filename = here("output", "figures", "deseq_volcano_sed_4.66_genus.png"), plot = volcano_sed_4.66_genus, width = 6, height = 6, dpi = 300)
+ggsave(filename = here("output", "figures", "deseq_volcano_sed_4.66_genus.pdf"), plot = volcano_sed_4.66_genus, width = 6, height = 6, dpi = 300)
+
+
 ```
 
 
