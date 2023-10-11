@@ -190,16 +190,16 @@ combined_plot
 ```
 
 Run only once
-```{#r}
+```{r}
 # Save plots
-ggsave(file = here::here("output", "figures", "relAbund_phylum_16S_sediments.pdf"), combined_plot, width = 11, height = 8, units = "in", dpi = 300,bg = "white")
-ggsave(file = here::here("output", "figures", "relAbund_phylum_16S_sediments.eps"), combined_plot, width = 11, height = 8, units = "in", dpi = 300,bg = "white")
-#ggsave(file = here::here("output", "figures", "relAbund_phylum_16S.tiff"), combined_plot, width = 11, height = 8, units = "in", dpi = 300,bg = "white")
+#ggsave(file = here::here("output", "figures", "relAbund_phylum_16S_sediments.pdf"), combined_plot, width = 11, height = 8, units = "in", dpi = 300,bg = "white")
+#ggsave(file = here::here("output", "figures", "relAbund_phylum_16S_sediments.eps"), combined_plot, width = 11, height = 8, units = "in", dpi = 300,bg = "white")
+#ggsave(file = here::here("output", "figures", "relAbund_phylum_16S_sediments.png"), combined_plot, width = 11, height = 8, units = "in", dpi = 300,bg = "white")
 ```
 
 ## Save RDS objects
 
-```{r}
+```{#r}
 save(meta_sed, phylum_sed,genus_sed, file = here::here("RData", "Sediment_data.RData"))
 ```
 
@@ -374,8 +374,9 @@ p1 <- ggplot(data = genus_long, aes(y = Taxa, x = RelAbund, color = Time)) +
 p1
 
 # Save plots
-ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops.pdf"), p1, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
-ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops.eps"), p1, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
+#ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops.pdf"), p1, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
+#ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops.eps"), p1, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
+ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops.png"), p1, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
 ```
 
 
@@ -480,7 +481,8 @@ genus_long$Genus <- reorder(genus_long$Genus, mean_values, FUN = mean)
 genus_long$RelAbund <- genus_long$RelAbund + 1e-6
 genus_long$Plant.type <- factor(genus_long$Plant.type, levels = c("no plant", "Scirpus", "Triglochin"),
                                 labels = c("no plant", "*Scirpus*", "*Triglochin*") )
-
+levels(as.factor(genus_long$Time))
+genus_long$Time <- factor(genus_long$Time, levels = c("D4", "D13", "D20", "D40", "D66"))
 #high_contrast = c("#FF8C00","#440154", "#CD0000","#545361FF", "#009ACD") 
 viridis::magma(7, alpha = 1) # extract colors from magma to match naphthenic acid figure PCA
 #"#000004FF" "#2D1160FF" "#721F81FF" "#B63679FF" "#F1605DFF" "#FEAF77FF" "#FCFDBFFF"
@@ -518,30 +520,31 @@ p1 <- ggplot(data = genus_long, aes(y = Genus, x = RelAbund, color = Plant.type)
 p1
 
 # Save plots
-ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops_0.01top_plant_effect.pdf"), p1, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
-ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops0.01top_plant_effect.eps"), p1, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
+ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops_0.01top_plant_effect.pdf"), p1, width = 9, height = 9, units = "in", dpi = 300,bg = "white")
+ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops0.01top_plant_effect.eps"), p1, width = 9, height = 9, units = "in", dpi = 300,bg = "white")
+ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops0.01top_plant_effect.png"), p1, width = 9, height = 9, units = "in", dpi = 300,bg = "white")
 ```
 
 ## Create the lolipop chart contrast time
 ```{r}
+
 # Step 1: Calculate the mean values with ave()
-is.numeric(genus_long$RelAbund)
-mean_values <- ave(genus_long$RelAbund, genus_long$Genus, FUN = mean)
+#is.numeric(genus_long$RelAbund)
+#mean_values <- ave(genus_long$RelAbund, genus_long$Genus, FUN = mean)
 
 # Reorder the levels based on mean values
-genus_long$Genus <- reorder(genus_long$Genus, mean_values, FUN = mean)
+#genus_long$Genus <- reorder(genus_long$Genus, mean_values, FUN = mean)
 
 # Add small value to prevent inf error when log transforming
-genus_long$RelAbund <- genus_long$RelAbund + 1e-6
-genus_long$Plant.type <- factor(genus_long$Plant.type, levels = c("no plant", "Scirpus", "Triglochin"),
-                                labels = c("no plant", "*Scirpus*", "*Triglochin*") )
+#genus_long$RelAbund <- genus_long$RelAbund + 1e-6
+#genus_long$Plant.type <- factor(genus_long$Plant.type, levels = c("no plant", "Scirpus", "Triglochin"), labels = c("no plant", "*Scirpus*", "*Triglochin*") )
 
 #high_contrast = c("#FF8C00","#440154", "#CD0000","#545361FF", "#009ACD") 
-viridis::magma(7, alpha = 1) # extract colors from magma to match naphthenic acid figure PCA
+#viridis::magma(7, alpha = 1) # extract colors from magma to match naphthenic acid figure PCA
 #"#000004FF" "#2D1160FF" "#721F81FF" "#B63679FF" "#F1605DFF" "#FEAF77FF" "#FCFDBFFF"
 high_contrast <- c("#000004FF", "#721F81FF" ,"#B63679FF" ,"#F1605DFF", "#FEAF77FF") 
 # Step 3: Create the plot
-p1 <- ggplot(data = genus_long, aes(y = Genus, x = RelAbund, color = Time)) +
+p2 <- ggplot(data = genus_long, aes(y = Genus, x = RelAbund, color = Time)) +
     geom_vline(xintercept = c(0.001, 0.01, 0.1, 0.4), color = "lightgrey", size = 0.1) +
   stat_summary(fun.data = median_hilow, geom = "pointrange", fun.args = list(conf.int = 0.5),
                position = position_dodge(width = 0.4),
@@ -570,9 +573,10 @@ p1 <- ggplot(data = genus_long, aes(y = Genus, x = RelAbund, color = Time)) +
                        labels = c(".001", ".01", ".1", ".4")) +
   facet_grid(Temperature ~ Plant.type )
 
-p1
+p2
 
 # Save plots
-ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops_0.01top_time_effect.pdf"), p1, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
-ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops0.01top_time_effect.eps"), p1, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
+ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops_0.01top_time_effect.pdf"), p2, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
+ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops0.01top_time_effect.eps"), p2, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
+ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops0.01top_time_effect.png"), p2, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
 ```
