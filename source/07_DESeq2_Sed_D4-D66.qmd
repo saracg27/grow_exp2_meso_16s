@@ -163,7 +163,6 @@ tax_clean_filled <- tax_clean |>
 
 Clean taxonomy green genes format
 ```{r}
-
 colnames(taxonomy) <- c("taxonomy")
 # clean the taxonomy, Greengenes format
 tax <- taxonomy |> 
