@@ -1,0 +1,300 @@
+---
+title: "RDA on total abundance of heteroatoms"
+author: "Sara Correa Garcia"
+format: html
+---
+# Libraries
+```{r}
+source(here::here("source", "libraries.R"))
+```
+
+
+# Get data
+```{r}
+load(here::here("RData", "Sediment_data.RData"))
+load(here::here("RData", "ps.RData"))
+heteroatoms <- readRDS(here::here("RData", "mapping_heteroatoms_totalAbund.rds"))
+otu <- as.data.frame(ps@otu_table)
+meta <- as.data.frame(ps@sam_data)
+tax <- as.data.frame(ps@tax_table)
+```
+
+# Wrangling
+### set rownames in heteroatoms
+```{r}
+heteroatoms <- as.data.frame(heteroatoms)
+rownames(heteroatoms) <- heteroatoms$SampleID
+rownames(heteroatoms) <- gsub("-", ".", rownames(heteroatoms))
+```
+
+### Erase repetitive columns
+```{r}
+heteroatoms$SampleID <- NULL
+heteroatoms$`File Name` <- NULL
+heteroatoms$Day <- as.factor(heteroatoms$Day)
+heteroatoms$Mesocosms.. <- NULL
+heteroatoms$Temp <- NULL
+heteroatoms$Greenhouse <- NULL
+heteroatoms$Sample.type <- NULL
+heteroatoms$Day_microbiome <- NULL
+str(heteroatoms)
+dim(heteroatoms) # should be 110 in 47 vars
+```
+
+### subset our data (120 samples) based on the samples present in heteroatoms (110)
+```{r}
+class(meta)
+meta <- as.data.frame(meta)
+meta_sub <- meta[rownames(meta) %in% rownames(heteroatoms),] 
+otu_sub <- otu[ ,colnames(otu) %in% rownames(meta_sub)]
+otu_sub <- otu_sub[rowSums(otu_sub) > 0, ]
+tax_sub <- tax[rownames(tax) %in% rownames(otu_sub),]
+#18851 - 18475 = 376 came from the samples in D40 that have been lost
+```
+
+# New PHYLOSEQ Object 
+
+Create a new phyloseq with the samples that were kept for the NA analyses
+```{r}
+library(phyloseq)
+otu <- otu_table(as.matrix(otu_sub), taxa_are_rows = TRUE)
+tax <- tax_table(as.matrix(tax_sub))
+sample <- sample_data(heteroatoms)
+colnames(sample)[colnames(sample) == "Day"] <- "Time"
+
+# merge: 
+ps <- phyloseq(otu, tax, sample)
+sample_data(ps)$Time <- as.factor(sample_data(ps)$Time) # factorize for DESeq2
+sample_data(ps)$Plant.type <- as.factor(sample_data(ps)$Plant.type)
+sample_data(ps)$Temperature <- as.factor(sample_data(ps)$Temperature)
+```
+
+## Agglom at genus
+```{r}
+ps_taxa <- tax_glom(ps, taxrank = 'Genus', NArm = FALSE) # 1037 instead 1046 after loosing 11 samples
+```
+
+## Extract tables agglom at genus to run RDA
+```{r}
+devtools::install_github("vmikk/metagMisc")
+library(metagMisc)
+ps_df <- phyloseq_to_df(ps_taxa) # error rror in phyloseq_to_df(ps_taxa) : 
+  # Error: Sample names in 'physeq' could not be automatically converted to the syntactically valid column names in data.frame (see 'make.names'). Consider renaming with 'sample_names'.
+sample_names(ps_taxa) <- paste0("z_", sample_names(ps_taxa)) # unfortunately R doesnt allow for columns to start by a number. 
+ps_df <- phyloseq_to_df(ps_taxa) 
+heteroatoms <- heteroatoms[rownames(heteroatoms) %in% rownames(meta_sub),] # ensure the same samples are in otu and meta
+# make row names in heteroatoms match column names in ps_df
+rownames(heteroatoms) <- paste0("z_", rownames(heteroatoms))
+
+# Get the taxonomy apart tax_g
+tax_g <- ps_df[,1:7]
+rownames(tax_g) <- tax_g$OTU
+tax_g$OTU <- NULL
+# Extract otu_g
+rownames(ps_df) <- ps_df$OTU
+otu_g <- ps_df[, sapply(ps_df, is.numeric)]
+
+# get meta_g
+meta_g <- heteroatoms
+
+# Check that names in match
+meta_g <- meta_g[order(row.names(meta_g)),]
+otu_g <- otu_g[, order(colnames(otu_g))]
+rownames(meta_g) == colnames(otu_g)
+otu_g <- t(otu_g)
+rownames(meta_g) == rownames(otu_g)
+```
+
+# Compute RDA
+
+## Compute the dissimilarity response matrix with vegan
+```{r}
+rel_otu <- decostand(otu_g, method = "total") # relative abundance
+apply(rel_otu, 1, sum) # Check. to 1
+
+# calculate Bray-Curtis distance among samples
+otu_g_bc <- vegdist(rel_otu, method = "bray")
+otu_g_bc_sqrt <- sqrt(vegdist(rel_otu, method = "bray")) #Eliminate negatives by sqrt transformation
+
+# calculate Robust Aitchison distance among samples
+otu_g_ait <- vegdist(otu_g, method = "robust.aitchison")
+```
+
+
+```{r}
+rda_res <- dbrda(otu_g_bc ~ ., 
+                 data = meta_g[,5:ncol(meta_g)],
+                 add = "lingoes")
+anova(rda_res, permutations = how(nperm = 999))
+rda1_summary <- summary(rda_res)
+rda1_summary
+print(rda_res)
+```
+
+
+```{r}
+set.seed(123)
+rda2 <- dbrda(otu_g_bc_sqrt ~ ., 
+                 data = meta_g[,5:ncol(meta_g)])
+anova(rda2, permutations = how(nperm = 999))
+summary(rda2)
+print(rda2)
+adjR2.tbrda <- RsquareAdj(rda2)$adj.r.squared #0.1274 adjusted R2 explained
+```
+
+Permutation test for dbrda under reduced model
+Permutation: free
+Number of permutations: 999
+
+Model: dbrda(formula = otu_g_bc_sqrt ~ N2O3 + NO3 + NO6 + O + O2 + O3 + O3S + O4 + O5 + O6 + N2 + N3 + S + N2O + OS + N3O4 + O2S + S2 + N2O2 + OS2 + N3O2 + N2OS3 + N2O10 + O7 + N3O3 + N2O11 + N2O3S + NOS + NO2 + O8 + HC + N2O9 + N3O2S + N3S + N2O4 + N2S + O2S4 + O2S2 + N2OS + N3OS + NO2S + O10, data = meta_g[, 5:ncol(meta_g)])
+
+         Df SumOfSqs      F Pr(>F)    
+Model    35   14.319 1.4507  0.001 ***
+Residual 73   20.587
+
+## Selection of heteroatom variables with ordi2step
+### compute models
+```{r}
+# Create simplest and most complex models
+rda0 <- dbrda(otu_g_bc_sqrt ~ 1, data = meta_g[,5:ncol(meta_g)])
+rdaall <- dbrda(otu_g_bc_sqrt ~ ., data = meta_g[,5:ncol(meta_g)]) # exact same as rda2
+```
+
+
+### perform ordistep
+```{r}
+sel_f <- ordiR2step(object = rda0,
+                    scope = rdaall,
+                    R2scope = adjR2.tbrda)
+
+#dbrda(formula = otu_g_bc_sqrt ~ O3S + N3OS + N3O2 + N2O2 + N2O10, data = meta_g[,5:ncol(meta_g)])
+sel_f$anova
+```
+
+# RDA on factors and NA levels
+## Selection of heteroatom variables with ordi2step
+### compute models
+```{r}
+# Create simplest and most complex models
+rda0_1 <- dbrda(otu_g_bc_sqrt ~ 1, data = meta_g[,1:4])
+rdaall_1 <- dbrda(otu_g_bc_sqrt ~ Plant.type + `NAFCs (mg/L)` + Temperature + Day, data = meta_g[,1:4]) # exact same as rda2
+
+anova(rdaall_1, permutations = how(nperm = 999))
+summary(rdaall_1)
+print(rdaall_1)
+adjR2.tbrda1 <- RsquareAdj(rdaall_1)$adj.r.squared #0.1807 adjusted R2 explained
+
+rdaall_na <- dbrda(otu_g_bc_sqrt ~ `NAFCs (mg/L)`, data = meta_g[,1:4])
+anova(rdaall_na, permutations = how(nperm = 999))
+summary(rdaall_1)
+
+```
+
+
+### perform ordistep
+```{r}
+sel_f1 <- ordiR2step(object = rda0_1,
+                    scope = rdaall_1,
+                    R2scope = adjR2.tbrda1)
+sel_f1$anova
+ordiplot(sel_f1, display = c('sites', 'bp'),type = "points",)
+```
+
+
+# RDA on ALL variables
+## Selection of heteroatom variables with ordi2step
+### compute models
+```{r}
+# Create simplest and most complex models
+rda0_full <- dbrda(otu_g_bc_sqrt ~ 1, data = meta_g)
+rdaall_full <- dbrda(otu_g_bc_sqrt ~ ., data = meta_g) # exact same as rda2
+
+anova(rdaall_full, permutations = how(nperm = 999))
+summary(rdaall_full)
+print(rdaall_full)
+adjR2.tbrdafull <- RsquareAdj(rdaall_full)$adj.r.squared #0.2290 adjusted R2 explained
+```
+
+
+### perform ordistep
+```{r}
+sel_full <- ordiR2step(object = rda0_full,
+                    scope = rdaall_full,
+                    R2scope = adjR2.tbrdafull)
+sel_full$anova
+ordiplot(sel_full, display = c('sites', 'bp'),type = "points",)
+sel_full$call
+
+sel_full_both <- ordistep(object = rda0_full,
+                    scope = rdaall_full, permutations = 999)
+sel_full$anova
+ordiplot(sel_full_both, display = c('sites', 'bp'),type = "points")
+sel_full$call
+
+```
+
+# VARIATION PARTITIONNING
+
+If we partition the variance in treatments (day, plant.type), NA concentration, and heteroatoms, how well can we explain the microbial community composition?
+
+
+## Set Microbial community
+```{r}
+otu_hell <- sqrt(rel_otu)
+```
+
+## Set heteroatoms
+```{r}
+atoms <- meta_g[,5:ncol(meta_g)]
+## Standardize
+no_std_atoms <- atoms
+atoms <- scale(atoms)
+
+```
+```
+
+## Set NA concentration
+```{r}
+na <- meta_g[,4]
+```
+
+## Set treatments
+```{r}
+treat <- meta_g[,1:3]
+```
+
+## Varpart
+```{r}
+varpart1 <- varpart(otu_g, atoms, na, treat, transfo = 'hellinger', scale = F)
+summary(varpart1)
+varpart1
+showvarparts(3, bg=2:4)
+plot(varpart1, bg=2:4, cutoff = -Inf)
+```
+
+Warning messages:
+1: collinearity detected: redundant variable(s)  between tables X1, X3
+results are probably incorrect: remove redundant variable(s) and repeat the analysis 
+2: collinearity detected: redundant variable(s)  between tables X1, X2, X3
+results are probably incorrect: remove redundant variable(s) and repeat the analysis 
+
+We need to check for multicollinearity and redo the analysis.
+```{r}
+# Keep only the variables that were retained for the paper
+atoms_sel <- c("O", "O2", "O3", "O4", "O5", "O6", "O7", "S", "OS", "O2S", "O3S", "N2O3", "NO6", "N2", "N2O3S", "N2S", "O2S2")
+atoms_reduced <- atoms[,colnames(atoms) %in% atoms_sel]
+
+# We look at the pairwise correlation among ALL the explanation variables
+library(GGally)
+corr_meta_red <- ggpairs(atoms_reduced)
+ggsave(here::here("output", "figures", "heteroatoms-selection_mapping-file_autocorrelation.png"), corr_meta_red, width = 50,  height = 50, units = "in", limitsize = FALSE)
+
+
+
+
+# We look at the pairwise correlation among ALL the explanation variables
+corr_meta <- ggpairs(meta_g[,4:ncol(meta_g)])
+ggsave(here::here("output", "figures", "heteroatoms_mapping-file_autocorrelation.png"), corr_meta, width = 50,  height = 50, units = "in", limitsize = FALSE)
+```
+
+
