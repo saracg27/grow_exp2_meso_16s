@@ -72,7 +72,7 @@ Eliminate 223.224MesoRh.4.1G.E2.16S.D66 from raw and metadata
 
 ```{r}
 '223.224MesoRh.4.1G.E2.16S.D66' %in% colnames(raw)
-raw <- raw[, colnames(raw) != '223.224MesoRh.4.1G.E2.16S.D66']
+raw <- raw[, colnames(raw) != '223.224MesoRh.4.1G.E2.16S.D66'] # 20063 283
 meta_sed <- meta_sed[rownames(meta_sed) != '223.224MesoRh.4.1G.E2.16S.D66',]
 ```
 
@@ -86,6 +86,7 @@ rm(list = c("cols_to_keep", "e2_cols", "row_sums_without_taxonomy", "taxonomy_co
 raw_sed <- raw[, colnames(raw) %in% rownames(meta_sed)] #Subset columns
 #raw_sed <- cbind(raw_sed, raw$taxonomy)
 raw_sed <- raw_sed[(rowSums(raw_sed) > 0) ,] # Keep only ASV with at leat 1 count_
+dim(raw_sed) #18851   120
 ```
 
 Evaluate library size for samples and evaluate the effect of small library size in D4 samples
@@ -272,6 +273,7 @@ save(ps_string, file = here("RData", "ps_string.RData"))
 # DESeq2 - GENUS
 
 # -------------------------------------------------------
+Load next chunk if running this script from here
 ```{r}
 load(file = here::here("RData", "ps.RData"))
 ```
@@ -356,7 +358,7 @@ ann_colors = list(
     Phylum = phylum_col
 )
 
-png(here("output", "figures","heatmap_D4-D66-on-sediments.png"),width=8,height=4,units="in",res=600)
+#png(here("output", "figures","heatmap_D4-D66-on-sediments.png"),width=8,height=4,units="in",res=600)
 ComplexHeatmap::pheatmap(matrix, scale = "row", 
                          fontface_row = "italic",
                          show_colnames = FALSE,
@@ -366,7 +368,7 @@ ComplexHeatmap::pheatmap(matrix, scale = "row",
                          annotation_col = annotation_col, 
                          annotation_row = annotation_row, 
                          annotation_colors = ann_colors)
-dev.off()
+#dev.off()
 ```
 
 
@@ -396,11 +398,6 @@ filtered_res_volcano <- res_volcano[(abs(res_volcano$log2FoldChange) > 1) & (res
 # Create a new dataframe with the relevant columns
 result_genus_diff <- filtered_res_volcano[, c("Genus", "log2FoldChange", "neg_log10_pvalue")]
 result_genus_diff$Genus
-# View the resulting dataframe
-print(result_df)
-
-
-
 
 volcano_sed_4.66_genus <- EnhancedVolcano(res_volcano, 
                           lab = res_volcano$Genus, 
@@ -424,6 +421,29 @@ volcano_sed_4.66_genus
 ggsave(filename = here("output", "figures", "deseq_volcano_sed_4.66_genus.png"), plot = volcano_sed_4.66_genus, width = 6, height = 6, dpi = 300)
 ggsave(filename = here("output", "figures", "deseq_volcano_sed_4.66_genus.pdf"), plot = volcano_sed_4.66_genus, width = 6, height = 6, dpi = 300)
 
+
+volcano_sed_0.62_genus <- EnhancedVolcano(res_volcano, 
+                          lab = res_volcano$Genus, 
+                          x = 'log2FoldChange', 
+                          y = "padj",
+                          title = "",
+                          subtitle = "D0 vs D62 in Sediments - Genus",
+                          pointSize = 4.0,
+                          labSize = 3.0,
+                          colAlpha = 0.5,
+                          legendPosition = 'top',
+                          legendLabSize = 10,
+                          legendIconSize = 4.0,
+                          drawConnectors = TRUE,
+                          widthConnectors = 0.6,
+                          max.overlaps = 20
+                          )
+
+volcano_sed_0.62_genus
+
+saveRDS(volcano_sed_0.62_genus, file = here("RData", "deseq2_volcano_sed_0.62_genus.rds"))
+ggsave(filename = here("output", "figures", "deseq_volcano_sed_0.62_genus.png"), plot = volcano_sed_0.62_genus, width = 6, height = 6, dpi = 300)
+ggsave(filename = here("output", "figures", "deseq_volcano_sed_0.62_genus.pdf"), plot = volcano_sed_0.62_genus, width = 6, height = 6, dpi = 300)
 
 ```
 
