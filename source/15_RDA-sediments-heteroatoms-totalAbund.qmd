@@ -12,10 +12,10 @@ editor:
 ```{r}
 #devtools::install_github("vmikk/metagMisc")
 source(here::here("source", "libraries.R"))
-(dplyr)
-(phyloseq)
-(metagMisc)
-(corrplot)
+library(dplyr)
+library(phyloseq)
+library(metagMisc)
+library(corrplot)
 ```
 
 # Get data
@@ -459,19 +459,26 @@ dim(centroids) # 8 2
 rownames(centroids) <- c("0", "10", "16", "35", "62", "no plant", "Scirpus", "Triglochin")
 ```
 
-
+## Reset variables
 ```{r}
-
 high_contrast <- c("#000004FF", "#721F81FF" ,"#B63679FF" ,"#F1605DFF", "#FEAF77FF") 
 sites$Plant.type <- factor(sites$Plant.type, levels = c("no plant", "Scirpus", "Triglochin"),
                                 labels = c("no plant", "*Scirpus*", "*Triglochin*"))
 
 names(sites)[names(sites) == 'Plant.type'] <- 'Conditions'
+```
 
-rda.biplot <- ggplot(sites, aes(x = dbRDA1, y = dbRDA2)) +
-    geom_point(aes(shape = Conditions),
-               fill = Day,
-               size = 3) +  # , color = "grey"
+
+## plot the biplot
+
+```{r}
+rda.biplot <- ggplot(data = sites,
+                                 aes(x = dbRDA1, y = dbRDA2)) + 
+    geom_point(aes(fill = factor(sites$Day),
+                   shape = sites$Conditions),
+               size = 4, colour = "grey40") +
+    scale_fill_manual(values = c("#000004FF", "#721F81FF" ,"#B63679FF" ,"#F1605DFF", "#FEAF77FF")) + 
+    scale_shape_manual(values = c(21,22,23),name = "Conditions") +
     geom_hline(yintercept=0, linetype="dotted") +
     geom_vline(xintercept=0, linetype="dotted") +
     coord_fixed() +
@@ -481,19 +488,21 @@ rda.biplot <- ggplot(sites, aes(x = dbRDA1, y = dbRDA2)) +
                  arrow = arrow(length = unit(0.1, "cm"))) + 
     geom_text(data = biplot, 
               aes(x = dbRDA1 * 2, y = dbRDA2 * 2,label = rownames(biplot),
-                hjust = 0.5 * (1 - sign(dbRDA1)), 
-                vjust = 0.5 * (1 - sign(dbRDA2))), 
+                  hjust = 0.5 * (1 - sign(dbRDA1)), 
+                  vjust = 0.5 * (1 - sign(dbRDA2))), 
               color = "black", size = 4, parse = TRUE) +
-    scale_fill_manual(values = high_contrast) + 
-    scale_shape_manual(values = c(21, 22, 23)) + 
     theme_classic() +
-   xlim(-1.2, 2.2) +
-  theme(legend.text = element_markdown(), 
-        legend.position = "right") 
-
-
-    
+    xlim(-1.1, 2.2) +
+    theme(panel.background = element_blank(),
+          legend.position = "right",
+          legend.text = element_markdown(size = 10),
+          axis.title = element_text(size = 10)) + 
+    guides(fill = guide_legend(override.aes=list(shape = 21), title = "Day"),
+           shape = guide_legend(override.aes=list(fill = "grey40"))) 
 rda.biplot
-
 ggsave(filename = here("output", "figures", "rda_selected_vars_bray-curtis.eps"), plot = rda.biplot, height = 5, width = 5)
 ```
+
+
+
+
