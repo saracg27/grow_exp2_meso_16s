@@ -93,6 +93,7 @@ ps_taxa <- tax_glom(ps, taxrank = 'Order', NArm = FALSE) # 963 instead 1046 afte
 
 ## DESeq2 genus
 ```{r}
+set.seed(123)
 # Subset the original phyloseq object 'ps_taxa' to only include samples from time points "D4" and "D66"
 ps_taxa_sub <- subset_samples(ps_taxa, Time %in% c("0", "62"))
 
@@ -245,10 +246,10 @@ Many of these groups were previously related to soil organic carbon content in a
 high_correlation_threshold <- 0.7
 
 # reduce size of corr matrix
-melt_corr <- reshape2::melt(corr_values)
+melt_corr <- reshape2::melt(corr_values) #1089
 
 # Identify correlation pairs with high correlation values
-correlation_pairs <- melt_corr[which(melt_corr$value > high_correlation_threshold & melt_corr$value < 1),] 
+correlation_pairs <- melt_corr[which(melt_corr$value > high_correlation_threshold & melt_corr$value < 1),] # 138
 
 
 # Create a unique identifier for each pair
@@ -259,7 +260,7 @@ correlation_pairs_filtered <- correlation_pairs %>%
 
 # Filter out duplicate pairs based on the unique identifier
 unique_data <- correlation_pairs_filtered %>%
-  distinct(pair_id, .keep_all = TRUE)
+  distinct(pair_id, .keep_all = TRUE) #69
 
 # Remove the pair_id column if no longer needed
 unique_data <- unique_data %>%
@@ -288,6 +289,7 @@ adjR2.tbrda1 <- RsquareAdj(rdaall_1)$adj.r.squared #0.3054 adjusted R2 explained
 ### perform ordistep
 
 ```{r}
+set.seed(123)
 otu_g <- as.data.frame(otu_g)
 sel_f1 <- ordistep(object = rda0_1,
                     scope = rdaall_1,
@@ -296,13 +298,17 @@ sel_f1$anova
 anova(sel_f1, by = "term")
 
 set.seed(123)
-rda_select_min <- rda(atoms ~ Actinomarinales + OM190  , data = otu_g) # 
+rda_select_min <- rda(atoms ~ Actinomarinales  + OM190, data = otu_g) # 
 anova.cca(rda_select_min, permutations = how(nperm = 999), by = "term")
 anova.cca(rda_select_min, permutations = how(nperm = 999))
 summary(rda_select_min)
 print(rda_select_min)
 adjR2.tbrda1 <- RsquareAdj(rda_select_min)$adj.r.squared #0.1144 adjusted R2 explained
 smry <- summary(rda_select_min)
+capture.output(print(rda_select_min), file = here("output", "tables", "RDA_atoms-explained-by-actinomarinales.txt"))
+capture.output(anova.cca(rda_select_min, permutations = how(nperm = 999)), file = here("output", "tables", "RDA_atoms-explained-by-actinomarinales_ANOVA.txt"))
+capture.output(anova.cca(rda_select_min, permutations = how(nperm = 999), by = "term"), file = here("output", "tables", "RDA_atoms-explained-by-actinomarinales_ANOVAbyTerm.txt"))
+capture.output(RsquareAdj(rda_select_min)$adj.r.squared, file = here("output", "tables", "RDA_atoms-explained-by-actinomarinales_adj_Rsq.txt"))
 ```
 
 Number of permutations: 999
@@ -331,23 +337,14 @@ And the variance explained by these two orders was significant (F = 4.0373,  p <
 ## Extract coordinates
 ```{r}
 biplot <- data.frame(smry$biplot[,1:2])
-dim(biplot) # 3 2
-rownames(biplot) <- c("Actinomarinales", "OM190", "Uncl. Actinobacteria")
+dim(biplot) # 2 2
+rownames(biplot) <- c("italic(Actinomarinales)", "italic(OM190)")
 
 sites <- data.frame(smry$sites[,1:2])
 dim(sites) # 48   2
 # merge metadata to sites
 if (all(rownames(sites) == rownames(meta_g))) { 
     sites <- cbind(sites, meta_g[,1:4])
-} else {
-        print("diff row names")
-    }
-
-constraints <- data.frame(smry$constraints[,1:2])
-dim(constraints) # 48 2
-# merge metadata to constrains
-if (all(rownames(constraints) == rownames(meta_g))) { 
-    constraints <- cbind(constraints, meta_g[,2:3])
 } else {
         print("diff row names")
     }
@@ -367,6 +364,7 @@ names(sites)[names(sites) == 'Plant.type'] <- 'Conditions'
 ## plot the biplot
 
 ```{r}
+
 rda.biplot <- ggplot(data = sites, aes(x = RDA1, y = RDA2)) + 
     geom_point(aes(fill = factor(sites$Day),
                    shape = sites$Conditions),
@@ -384,18 +382,102 @@ rda.biplot <- ggplot(data = sites, aes(x = RDA1, y = RDA2)) +
               aes(x = RDA1 * 1, y = RDA2 * 1,label = rownames(biplot),
                   hjust = 0.5 * (1 - sign(RDA1)), 
                   vjust = 0.5 * (1 - sign(RDA2))), 
-              color = "black", size = 4) +
+              color = "black", size = 4, parse = TRUE) +
     theme_classic() +
-    xlim(-3, 3.3) +
+    xlim(-4, 3.5) +
+    ylim(-2, 3) +
     theme(panel.background = element_blank(),
-          legend.position = "bottom",
+          legend.position = "right",
           legend.text = element_markdown(size = 10),
           axis.title = element_text(size = 10)) + 
     guides(fill = guide_legend(override.aes=list(shape = 21), title = "Day"),
            shape = guide_legend(override.aes=list(fill = "grey40"))) 
 rda.biplot
-ggsave(filename = here("output", "figures", "rda_order_vars_.eps"), plot = rda.biplot, height = 10, width = 10)
+ggsave(filename = here("output", "figures", "rda_order_vars_.eps"), plot = rda.biplot, height = 5, width = 7)
 ```
+
+
+## Warm plot
+```{r}
+warm <- sites[sites$Temperature == "warm",]
+cold <- sites[sites$Temperature == "cold",]
+rda.biplot.warm <- ggplot(data = warm, aes(x = RDA1, y = RDA2)) + 
+    geom_point(aes(fill = factor(warm$Day),
+                   shape = warm$Conditions),
+               size = 4, colour = "grey40") +
+    scale_fill_manual(values = c("#000004FF",  "#FEAF77FF")) + 
+    scale_shape_manual(values = c(21,22,23),name = "Conditions") +
+    geom_hline(yintercept=0, linetype="dotted") +
+    geom_vline(xintercept=0, linetype="dotted") +
+    coord_fixed() +
+    geom_segment(data = biplot, 
+                 aes(x = 0, xend = RDA1 * 1, y = 0, yend = RDA2 * 1), 
+                 color = "black", 
+                 arrow = arrow(length = unit(0.1, "cm"))) + 
+    geom_text(data = biplot, 
+              aes(x = RDA1 * 1, y = RDA2 * 1,label = rownames(biplot),
+                  hjust = 0.5 * (1 - sign(RDA1)), 
+                  vjust = 0.5 * (1 - sign(RDA2))), 
+              color = "black", size = 4, parse = TRUE) +
+    theme_classic() +
+    xlim(-4, 4) +
+    ylim(-2, 3) +
+  labs(title = "B) Warm")+
+    theme(panel.background = element_blank(),
+          legend.position = "right",
+          title = element_text(size = 12, face = "bold"),
+          legend.text = element_markdown(size = 10),
+          legend.title = element_text(size = 10),
+          axis.title = element_text(size = 10)) + 
+    guides(fill = guide_legend(override.aes=list(shape = 21), title = "Day"),
+           shape = guide_legend(override.aes=list(fill = "grey40"))) 
+rda.biplot.warm
+ggsave(filename = here("output", "figures", "rda_order_vars_warm.eps"), plot = rda.biplot.warm, height = 5, width = 7)
+```
+
+# Cold plot
+```{r}
+cold <- sites[sites$Temperature == "cold",]
+rda.biplot.cold <- ggplot(data = cold, aes(x = RDA1, y = RDA2)) + 
+    geom_point(aes(fill = factor(cold$Day),
+                   shape = cold$Conditions),
+               size = 4, colour = "grey40") +
+    scale_fill_manual(values = c("#000004FF",  "#FEAF77FF")) + 
+    scale_shape_manual(values = c(21,22,23),name = "Conditions") +
+    geom_hline(yintercept=0, linetype="dotted") +
+    geom_vline(xintercept=0, linetype="dotted") +
+    coord_fixed() +
+    geom_segment(data = biplot, 
+                 aes(x = 0, xend = RDA1 * 1, y = 0, yend = RDA2 * 1), 
+                 color = "black", 
+                 arrow = arrow(length = unit(0.1, "cm"))) + 
+    geom_text(data = biplot, 
+              aes(x = RDA1 * 1, y = RDA2 * 1,label = rownames(biplot),
+                  hjust = 0.5 * (1 - sign(RDA1)), 
+                  vjust = 0.5 * (1 - sign(RDA2))), 
+              color = "black", size = 4, parse = TRUE) +
+    theme_classic() +
+    xlim(-4, 4) +
+    ylim(-2, 3) +
+  labs(title = "A) Cold")+
+    theme(panel.background = element_blank(),
+          legend.position = "right",
+          title = element_text(size = 12, face = "bold"),
+          legend.text = element_markdown(size = 10),
+          legend.title = element_text(size = 10),
+          axis.title = element_text(size = 10)) + 
+    guides(fill = guide_legend(override.aes=list(shape = 21), title = "Day"),
+           shape = guide_legend(override.aes=list(fill = "grey40"))) 
+rda.biplot.cold
+ggsave(filename = here("output", "figures", "rda_order_vars_cold.eps"), plot = rda.biplot, height = 5, width = 7)
+```
+
+```{r}
+library(ggpubr)
+p <- ggarrange(rda.biplot.cold, rda.biplot.warm, common.legend = TRUE, legend = "right", nrow = 2)
+ggsave(filename = here("output", "figures", "rda_order_vars_divided.eps"), plot = p, height = 6, width = 6.5)
+```
+
 
 
 # -------------------------------------------
