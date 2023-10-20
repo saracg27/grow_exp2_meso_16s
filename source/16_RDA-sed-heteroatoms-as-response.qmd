@@ -1,0 +1,410 @@
+---
+title: "16_RDA-sed-heteroatoms-as-response"
+author: "Sara Correa Garcia"
+format: html
+---
+
+# Libraries
+
+```{r}
+#devtools::install_github("vmikk/metagMisc")
+source(here::here("source", "libraries.R"))
+library(dplyr)
+library(phyloseq)
+library(metagMisc)
+library(corrplot)
+```
+
+# Get data
+
+```{r}
+load(here::here("RData", "Sediment_data.RData"))
+load(here::here("RData", "ps.RData"))
+heteroatoms <- readRDS(here::here("RData", "mapping_heteroatoms_totalAbund.rds"))
+otu <- as.data.frame(ps@otu_table)
+meta <- as.data.frame(ps@sam_data)
+tax <- as.data.frame(ps@tax_table)
+```
+
+# Wrangling
+
+### Set rownames in heteroatoms
+
+```{r}
+heteroatoms <- as.data.frame(heteroatoms)
+rownames(heteroatoms) <- heteroatoms$SampleID
+rownames(heteroatoms) <- gsub("-", ".", rownames(heteroatoms))
+dim(heteroatoms) # There are 110 samples and 53 variables
+
+```
+
+### Subset heteroatoms 0.62, erase, recode, standardize variables
+
+```{r}
+heteroatoms$Day <- as.factor(heteroatoms$Day)
+atoms.062 <- heteroatoms[heteroatoms$Day == "0" | heteroatoms$Day == "62",]
+
+heteroatoms_z <- atoms.062 |> 
+    select(-c("SampleID", "File Name", "Mesocosms..",
+           "Greenhouse", "Sample.type", "Day_microbiome")) |> 
+    mutate_if(~!is.numeric(.), as.factor) |> 
+    mutate_if(is.numeric, scale)    # standardize
+    
+heteroatoms_z |> 
+    summarise_if(is.numeric, list(mean = ~round(mean(.)), std = ~sd(.))) # Check it work
+
+dim(heteroatoms_z) # should be 48 47
+```
+
+### subset genomic data (120 samples) based on the samples present in heteroatoms_z (110)
+
+```{r}
+class(meta)
+meta <- as.data.frame(meta)
+meta_sub <- heteroatoms_z[,!sapply(heteroatoms_z, is.numeric)] 
+otu_sub <- otu[ ,colnames(otu) %in% rownames(meta_sub)] 
+otu_sub <- otu_sub[rowSums(otu_sub) > 0, ] # 15186 in 48 samples
+tax_sub <- tax[rownames(tax) %in% rownames(otu_sub),]
+dim(meta_sub) #48   4
+dim(otu_sub) #15186 in 48 samples
+meta_sub <- meta_sub[rownames(meta_sub) %in% colnames(otu_sub),]
+```
+
+## New PHYLOSEQ Object to agglom at phyla
+
+Create a new phyloseq with the samples that were kept for the NA
+analyses
+
+```{r}
+otu <- otu_table(as.matrix(otu_sub), taxa_are_rows = TRUE)
+tax <- tax_table(as.matrix(tax_sub))
+sample <- sample_data(meta_sub)
+colnames(sample)[colnames(sample) == "Day"] <- "Time"
+rm(ps)
+# merge: 
+ps <- phyloseq(otu, tax, sample)
+```
+
+## Agglom at genus
+
+```{r}
+ps_taxa <- tax_glom(ps, taxrank = 'Order', NArm = FALSE) # 963 instead 1046 after loosing 11 samples
+```
+
+## DESeq2 genus
+```{r}
+# Subset the original phyloseq object 'ps_taxa' to only include samples from time points "D4" and "D66"
+ps_taxa_sub <- subset_samples(ps_taxa, Time %in% c("0", "62"))
+
+# Filter out features (OTUs or taxa) that have more than 90% zeros across all samples
+# This is done by checking the number of zeros in each row of the OTU table and comparing it to 90% of the total number of columns (samples)
+ps_taxa_pse_sub <- prune_taxa(rowSums(otu_table(ps_taxa_sub) == 0) < ncol(otu_table(ps_taxa_sub)) * 0.9, ps_taxa_sub) #223
+
+# Convert the filtered phyloseq object to a DESeq2 object, using 'Time' as the variable of interest
+ps_ds <- phyloseq_to_deseq2(ps_taxa_pse_sub, ~ Time)
+
+# Estimate size factors for normalization using the "poscounts" method, which is useful when many genes have zeros in some samples
+ds <- estimateSizeFactors(ps_ds, type = "poscounts")
+
+# Perform differential abundance analysis using the Wald test and a parametric fit
+ds <- DESeq(ds, test = "Wald", fitType = "parametric")
+
+# Set the significance threshold (alpha) to 0_05
+alpha <- 0.05 
+
+# Retrieve the results of the differential abundance analysis
+res <- results(ds, alpha = alpha)
+
+# Order the results by the adjusted p-values (padj) in ascending order
+res <- res[order(res$padj, na.last = NA), ]
+res_df <- as.data.frame(res)
+res_sign <- res_df[res_df$padj < 0.00001 & res_df$log2FoldChange > 2,] # 33 orders with p value smaller than 10-5 (-log10 > 5, like in volcano plot)
+taxa_sig_df <- tax_sub[rownames(tax_sub) %in% rownames(res_sign),1:4]
+
+# Extract the names (taxa) of the features with the lowest adjusted p-values
+taxa_sig <- rownames(res_sign)
+
+# Convert the counts in the original phyloseq object 'ps_taxa' to relative abundances (percentages)
+ps_taxa_rel <- transform_sample_counts(ps, function(x) x/sum(x)*100)
+colSums(ps_taxa_rel@otu_table) # Sanity Check
+# Subset the relative abundance phyloseq object to only include the significant taxa identified earlier
+ps_taxa_rel_sig <- prune_taxa(taxa_sig, ps_taxa_rel)
+```
+
+
+
+## Extract agglomerated tables at genus to run RDA
+Change col names, R doesn't allow for columns to start by a number. Avoids error in next line of code: Sample names in 'physeq' could not be automatically converted to the syntactically valid column names in data.frame (see 'make.names')
+```{r}
+sample_names(ps_taxa_rel_sig) <- paste0("x_", sample_names(ps_taxa_rel_sig)) 
+ps_taxa_df <- phyloseq_to_df(ps_taxa_rel_sig) 
+unique(ps_taxa_df$Kingdom) #"Bacteria" "Archaea" 
+unique(ps_taxa_df$Phylum) # 14 phyla
+unique(ps_taxa_df$Class) # 26
+unique(ps_taxa_df$Order) # 33
+
+heteroatoms_z <- heteroatoms_z[rownames(heteroatoms_z) %in% rownames(meta_sub),] # ensure the same samples are in otu and meta
+# make row names in heteroatoms match column names in ps_taxa_df
+rownames(heteroatoms_z) <- paste0("x_", rownames(heteroatoms_z))
+rownames(heteroatoms) <- paste0("x_", rownames(heteroatoms))
+# Get the taxonomy apart tax_g
+tax_g <- ps_taxa_df[,1:7]
+rownames(tax_g) <- tax_g$OTU
+tax_g$OTU <- NULL
+
+# Extract otu_g
+rownames(ps_taxa_df) <- ps_taxa_df$OTU
+otu_g <- ps_taxa_df[, sapply(ps_taxa_df, is.numeric)] # 242 in 48
+
+# get meta_g
+meta_g <- heteroatoms_z
+
+# Check that names in match
+meta_g <- meta_g[order(row.names(meta_g)),]
+
+otu_g <- otu_g[, order(colnames(otu_g))]
+rownames(meta_g) == colnames(otu_g)
+otu_g <- t(otu_g)
+rownames(meta_g) == rownames(otu_g)
+```
+
+Clean environment out of variables that are not needed anymore before moving into the next part of the analyses
+```{r}
+rm(list = c("genus_sed", "meta", "meta_sed", "phylum_sed", "tax_clean"))
+```
+
+
+
+
+
+If we partition the variance in treatments (day, temperature,
+plant.type), NA concentration, and heteroatoms, how well can we explain
+the microbial community composition?
+
+## Set heteroatoms
+
+```{r}
+atoms <- meta_g[,6:ncol(meta_g)]
+```
+
+## Set NA concentration
+
+```{r}
+na <- meta_g[,5]
+```
+
+## Set treatments
+
+```{r}
+treat <- meta_g[,1:4]
+```
+
+### Check for autocorrelation
+
+```{r}
+colnames(otu_g) == rownames(tax_g) # first, check that asv names match
+colnames(otu_g) <- tax_g$Order # then simplify names in otu_g to display in correlation
+
+# We look at the pairwise correlation among ALL the explanation variables
+corr_values <- round(cor(otu_g, method = "spearman"), 2) # Calculate correlation
+
+# png(filename = here("output", "figures", "correlation-order-level.png"))
+pdf(file = here("output", "figures", "correlation-order-level.pdf"),height = 8)
+plot_cor <- corrplot(corr_values,
+                     method = "circle",
+                     type = "lower",
+                     insig = "blank",
+                     number.cex = 0.6,
+                     order = "hclust",
+                     addrect = 2,
+                     diag = FALSE,
+                     cl.ratio = 0.2, # justify iwdth of legend
+                       tl.cex = 0.7,
+                       tl.col = "black",
+                       tl.srt = 45,
+                       col = COL2('PuOr', n = 10),
+                       title = "Spearman correlation between Order abundance",
+                     mar=c(0,0,2,0))
+dev.off()
+```
+
+The result show that 15 order groups are highly autocorrelated:
+- Rokubacteriales: Methylomirabilota phylum, potential methanotrophs
+- SO85: Chloroflexi, Dehalococcoidia
+- Paenibacillales: Bacilli
+- Ardenticatenales: Chloroflexi, Anaerolineae: abundant in anaerobic reactors (methanogenic reactors) in wastewater reactors and solid waste water treatment (https://www.frontiersin.org/articles/10.3389/fmicb.2020.603234/full)
+- Kineosporiales: Actinobacteria class
+- Pyrinomonadales: Acidobacteriota Blastocatellia
+- MBNT15: Uncultured bacteria of the candidate phylum MBNT15, distantly related to Desulfobacterota, have been identified in a broad range of mostly organic-rich aquatic environments (https://www.frontiersin.org/articles/10.3389/fmicb.2022.951761/full)
+- Micromonosporales: Actinomycetota: Micromonosporaceae strains have been isolated from diverse habitats including soil, sediments, fresh and marine water, rhizosphere, and plant tissues. Many species degrade chitin, cellulose, lignin, and pectin, and these microorganisms play an important role in the turnover of organic plant material. In addition, many strains produce useful secondary metabolites and enzymes. They have important applications in industry, biotechnology, and agriculture. (https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?mode=Tree&id=85008&lvl=3&keep=1&srchmode=1&unlock) (https://link.springer.com/referenceworkentry/10.1007/978-3-642-30138-4_196)
+- Solirubrobacterales: Actinomycetota. Have been shown to be relatively highly abundant in disturbed environments with low/ reduced carbon nutrient availability (https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0040338)
+- Actinomarinales: subclass of exclusively marine Actinobacteria (https://journals.asm.org/doi/10.1128/msystems.01041-20)
+- MB-A2-108: soil Actinobacteriota
+- P2-11E: Uncultured Chloroflexi order:   Chloroflexi are facultative anaerobic bacteria that include autotrophic, heterotrophic, and mixotrophic taxa [52, 53]. It has been reported that Chloroflexi has adapted to grow in conditions of low nutrient concentrations, which may explain their enrichment in the SS samples (https://biolres.biomedcentral.com/articles/10.1186/s40659-023-00445-2#Sec10)
+- Bacillales
+- PLTA13: Gammaproteobacteria previously found in environments such as basaltic laba tube caves in Canary Islands (Gonzalez-Pimentel, 2021 PeerJ),  and in Swedish mines of rare earth elements (https://academic.oup.com/femsec/article/96/11/fiaa169/5894917)
+- 11-24: Acidobacteriota Blastocatellia
+
+Many of these groups were previously related to soil organic carbon content in afforestation management techniques (https://www.frontiersin.org/articles/10.3389/fmicb.2022.901126/full)
+
+## Identify and select variables to retain (e.g., based on high correlation threshold)
+```{r}
+high_correlation_threshold <- 0.7
+
+# reduce size of corr matrix
+melt_corr <- reshape2::melt(corr_values)
+
+# Identify correlation pairs with high correlation values
+correlation_pairs <- melt_corr[which(melt_corr$value > high_correlation_threshold & melt_corr$value < 1),] 
+
+
+# Create a unique identifier for each pair
+correlation_pairs_filtered <- correlation_pairs %>%
+  rowwise() %>%
+  mutate(pair_id = paste(sort(c(Var1, Var2)), collapse = "-")) %>%
+  ungroup()
+
+# Filter out duplicate pairs based on the unique identifier
+unique_data <- correlation_pairs_filtered %>%
+  distinct(pair_id, .keep_all = TRUE)
+
+# Remove the pair_id column if no longer needed
+unique_data <- unique_data %>%
+  select(-pair_id)
+
+unique(unique_data$Var1) # 
+unique(unique_data$Var2) # 
+
+```
+
+# RDA
+
+## Selection of variables with ordi2step
+
+### compute models
+
+```{r}
+# Create simplest and most complex models
+rda0_1 <- rda(atoms ~ 1, data = otu_g)
+rdaall_1 <- rda(atoms ~ ., data = as.data.frame(otu_g)) # exact same as rda2
+
+adjR2.tbrda1 <- RsquareAdj(rdaall_1)$adj.r.squared #0.3054 adjusted R2 explained
+
+```
+
+### perform ordistep
+
+```{r}
+otu_g <- as.data.frame(otu_g)
+sel_f1 <- ordistep(object = rda0_1,
+                    scope = rdaall_1,
+                    R2scope = adjR2.tbrda1)
+sel_f1$anova
+anova(sel_f1, by = "term")
+
+set.seed(123)
+rda_select_min <- rda(atoms ~ Actinomarinales + OM190  , data = otu_g) # 
+anova.cca(rda_select_min, permutations = how(nperm = 999), by = "term")
+anova.cca(rda_select_min, permutations = how(nperm = 999))
+summary(rda_select_min)
+print(rda_select_min)
+adjR2.tbrda1 <- RsquareAdj(rda_select_min)$adj.r.squared #0.1144 adjusted R2 explained
+smry <- summary(rda_select_min)
+```
+
+Number of permutations: 999
+
+Model: rda(formula = atoms ~ Actinomarinales + OM190, data = otu_g)
+         Df Variance      F Pr(>F)    
+Model     2     6.39 4.0373  0.001 ***
+Residual 45    35.61                  
+
+
+Model: rda(formula = atoms ~ Actinomarinales + OM190, data = otu_g)
+                Df Variance      F Pr(>F)    
+Actinomarinales  1    4.936 6.2375  0.001 ***
+OM190            1    1.454 1.8371  0.098 .  
+Residual        45   35.610                  
+
+
+
+We performed an RDA to explain the contribution of microbial taxa on the heteroatom composition. For this, we selected samples from times 0 and 62, where we identified significantly differentially abundant clades. In order to model the effect of microbes (117 orders in these two timepoints) on a heteroatom composition (a response table of 42 features) we preselected the orders to be tested, an included only the order that had a DESeq2 Log2FoldChange value of more than 2, and a pvalue of 10e-5 (0.00001) to include only the taxa that were significantly contributing to the differentiation of the two time points. This yielded 33 total explanatory variables (orders normalized at relative abundance). We then proceeded to select variables following the ordistep() function. With the results from the ordistep function and the visual inspection of the Spearman correlation results, we selected initially 3 orders to include in our RDA: Actinomarinales, OM190 and Unclassified Actinobacteria. The inspection with anova.cca() revealed that the later order was not significantly contributed, so we eliminated it from the final model.  Members of the order Actinomarinales had the strongest effect, whereas OM190 had a minor contribution on NAFC heteroatom structure. The adjusted proportion  explained by the relative abundance of these two orders was 11.45% of the total variance in heteroatom composition. The model was: 
+formula = atoms ~ Actinomarinales + OM190
+And the variance explained by these two orders was significant (F = 4.0373,  p < 0.001, df = 2).    
+
+
+# Create GGPLOT RDA for all retained variables with ggplot
+
+## Extract coordinates
+```{r}
+biplot <- data.frame(smry$biplot[,1:2])
+dim(biplot) # 3 2
+rownames(biplot) <- c("Actinomarinales", "OM190", "Uncl. Actinobacteria")
+
+sites <- data.frame(smry$sites[,1:2])
+dim(sites) # 48   2
+# merge metadata to sites
+if (all(rownames(sites) == rownames(meta_g))) { 
+    sites <- cbind(sites, meta_g[,1:4])
+} else {
+        print("diff row names")
+    }
+
+constraints <- data.frame(smry$constraints[,1:2])
+dim(constraints) # 48 2
+# merge metadata to constrains
+if (all(rownames(constraints) == rownames(meta_g))) { 
+    constraints <- cbind(constraints, meta_g[,2:3])
+} else {
+        print("diff row names")
+    }
+
+```
+
+## Reset variables
+```{r}
+high_contrast <- c("#000004FF", "#721F81FF" ,"#B63679FF" ,"#F1605DFF", "#FEAF77FF") 
+sites$Plant.type <- factor(sites$Plant.type, levels = c("no plant", "Scirpus", "Triglochin"),
+                                labels = c("no plant", "*Scirpus*", "*Triglochin*"))
+
+names(sites)[names(sites) == 'Plant.type'] <- 'Conditions'
+```
+
+
+## plot the biplot
+
+```{r}
+rda.biplot <- ggplot(data = sites, aes(x = RDA1, y = RDA2)) + 
+    geom_point(aes(fill = factor(sites$Day),
+                   shape = sites$Conditions),
+               size = 4, colour = "grey40") +
+    scale_fill_manual(values = c("#000004FF",  "#FEAF77FF")) + 
+    scale_shape_manual(values = c(21,22,23),name = "Conditions") +
+    geom_hline(yintercept=0, linetype="dotted") +
+    geom_vline(xintercept=0, linetype="dotted") +
+    coord_fixed() +
+    geom_segment(data = biplot, 
+                 aes(x = 0, xend = RDA1 * 1, y = 0, yend = RDA2 * 1), 
+                 color = "black", 
+                 arrow = arrow(length = unit(0.1, "cm"))) + 
+    geom_text(data = biplot, 
+              aes(x = RDA1 * 1, y = RDA2 * 1,label = rownames(biplot),
+                  hjust = 0.5 * (1 - sign(RDA1)), 
+                  vjust = 0.5 * (1 - sign(RDA2))), 
+              color = "black", size = 4) +
+    theme_classic() +
+    xlim(-3, 3.3) +
+    theme(panel.background = element_blank(),
+          legend.position = "bottom",
+          legend.text = element_markdown(size = 10),
+          axis.title = element_text(size = 10)) + 
+    guides(fill = guide_legend(override.aes=list(shape = 21), title = "Day"),
+           shape = guide_legend(override.aes=list(fill = "grey40"))) 
+rda.biplot
+ggsave(filename = here("output", "figures", "rda_order_vars_.eps"), plot = rda.biplot, height = 10, width = 10)
+```
+
+
+# -------------------------------------------
+
+# END OF SCRIPT
