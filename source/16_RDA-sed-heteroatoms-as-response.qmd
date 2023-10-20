@@ -174,13 +174,6 @@ rm(list = c("genus_sed", "meta", "meta_sed", "phylum_sed", "tax_clean"))
 ```
 
 
-
-
-
-If we partition the variance in treatments (day, temperature,
-plant.type), NA concentration, and heteroatoms, how well can we explain
-the microbial community composition?
-
 ## Set heteroatoms
 
 ```{r}
