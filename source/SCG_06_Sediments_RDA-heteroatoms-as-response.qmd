@@ -202,10 +202,12 @@ otu_g <- t(otu_g)
 rownames(meta_g) == rownames(otu_g)
 ```
 
+
+
 Clean environment out of variables that are not needed anymore before
 moving into the next part of the analyses
 
-```{r}
+```{#r}
 rm(list = c("genus_sed", "meta", "meta_sed", "phylum_sed", "tax_clean"))
 ```
 
@@ -496,12 +498,12 @@ Aitchison did not retained any other group.
 ```{r}
 set.seed(123)
 rda_select_hell <- rda(atoms ~ Actinomarinales + Micromonosporales,
-                      data = otu_rclr) # 
+                      data = otu_hell) # 
 anova.cca(rda_select_hell, permutations = how(nperm = 999), by = "term")
 anova.cca(rda_select_hell, permutations = how(nperm = 999))
 summary(rda_select_hell)
 #print(rda_select_hell)
-adjR2.rda.clr <- RsquareAdj(rda_select_hell)$adj.r.squared 
+adjR2.rda.hell <- RsquareAdj(rda_select_hell)$adj.r.squared 
 # 0.2117 explained by Actinomarinales and 
 #Micromonosporales with std atoms and robust.aitch norm comm data.
 smry <- summary(rda_select_hell)
@@ -524,10 +526,10 @@ smry <- summary(rda_select_min)
 ```
 
 ```{r include=FALSE}
-# capture.output(print(rda_select_min), file = here("output", "tables", "RDA_atoms-explained-by-actinomarinales_robust.aitch.txt"))
-# capture.output(anova.cca(rda_select_min, permutations = how(nperm = 999)), file = here("output", "tables", "RDA_atoms-explained-by-actinomarinales_ANOVA_robust.aitch.txt"))
-# capture.output(anova.cca(rda_select_min, permutations = how(nperm = 999), by = "term"), file = here("output", "tables", "RDA_atoms-explained-by-actinomarinales_ANOVAbyTerm_robust.aitch.txt"))
-# capture.output(RsquareAdj(rda_select_min)$adj.r.squared, file = here("output", "tables", "RDA_atoms-explained-by-actinomarinales_adj_Rsq-robust.aitch.txt"))
+# capture.output(print(rda_select_hell), file = here("output", "tables", "RDA_atoms-explained-by-actinomarinales_hellinger.txt"))
+# capture.output(anova.cca(rda_select_hell, permutations = how(nperm = 999)), file = here("output", "tables", "RDA_atoms-explained-by-actinomarinales_ANOVA_hellinger.txt"))
+# capture.output(anova.cca(rda_select_hell, permutations = how(nperm = 999), by = "term"), file = here("output", "tables", "RDA_atoms-explained-by-actinomarinales_ANOVAbyTerm_hellinger.txt"))
+# capture.output(RsquareAdj(rda_select_hell)$adj.r.squared, file = here("output", "tables", "RDA_atoms-explained-by-actinomarinales_adj_Rsq-hellinger.txt"))
 ```
 
 We performed an RDA to explain the contribution of microbial taxa on the
@@ -742,7 +744,7 @@ rda.biplot.cold
 
 ```
 
-```{r, include=FALSE}
+```{#r, include=FALSE}
 ggsave(filename = here("output", "figures", "rda_order_vars_cold_robust.aitch.eps"), plot = rda.biplot, height = 5, width = 7)
 ```
 
@@ -757,9 +759,134 @@ p
 
 ```
 
-```{r, include=FALSE}
+```{#r, include=FALSE}
 ggsave(filename = here("output", "figures", "rda_order_vars_divided_robust.aitch.eps"), plot = p, height = 6, width = 6.5)
 ```
+
+# Relative abundance of *Actinomarinales* and *Micromonosporales* bacteria at time 0 and 62 in the mesocosms
+### Gather data for relAbund
+```{r}
+dim(otu_sub) # raw counts 15186    48
+otu_sub <- as.data.frame(otu_sub)
+#colnames(otu_sub) <- paste0("x_", colnames(otu_sub))
+otu_t <- t(otu_sub)
+otu_rel <- otu_t / rowSums(otu_t)
+rowSums(otu_rel)
+dim(meta_g) # 48 47
+tax_sub <- as.data.frame(tax_sub)
+dim(tax_sub) #15186     6
+tax_actinos <- tax_sub[tax_sub$Order == "Actinomarinales" | 
+                         tax_sub$Order == "Micromonosporales",]
+unique(tax_actinos$Genus)
+```
+
+There were 18851 ASVs in D0 and D62. Out of those, 81 belonged to orders Actinomarinales or Micromonosporales. These were subsequently classified in 9 different genera: Actinoplanes, Luedemannella, Dactylosporangium, Micromonospora, Allocatelliglobosispora, Rhizocola, Virgisporangium and unclassified Microsporaceae bacterium and unclassified Actinomarinales bacterium. 
+
+
+### Subset otu_rel based on 81 interesting asv
+```{r}
+otu_actinos <- otu_rel[, colnames(otu_rel) %in% rownames(tax_actinos)] # 48 81
+# bind treatment and abundance
+otu_actinos <- t(otu_actinos)
+str(otu_actinos)
+str(tax_actinos)
+tax_actinos <- tax_actinos[sort(rownames(tax_actinos)),]
+otu_actinos <- otu_actinos[sort(rownames(otu_actinos)),]
+rownames(tax_actinos) == rownames(otu_actinos)
+colnames(otu_actinos) <- paste0("x_", colnames(otu_actinos))
+rownames(meta_sub) <- paste0("x_", rownames(meta_sub))
+meta_sub <- meta_sub[sort(rownames(meta_sub)),]
+colnames(otu_actinos) == rownames(meta_sub)
+# Agglom otu_actinos at genus level
+
+otu_actinos <- otu_table(as.matrix(otu_actinos), taxa_are_rows = TRUE)
+tax_actinos <- tax_table(as.matrix(tax_actinos))
+sample <- sample_data(meta_sub)
+colnames(sample)[colnames(sample) == "Day"] <- "Time"
+
+# merge: 
+ps_actinos <- phyloseq(otu = otu_actinos, tax = tax_actinos, sample = sample)
+ps_actinos_g <- tax_glom(ps_actinos, taxrank = 'Genus', NArm = FALSE) 
+# 9 in 48 samples
+
+ps_actinos_df <- phyloseq_to_df(ps_actinos_g) 
+rownames(ps_actinos_df) <- ps_actinos_df$Genus
+otu_actinos <- ps_actinos_df[,-(1:7)] # 9 48
+otu_actinos <- t(otu_actinos)
+rownames(otu_actinos) == rownames(meta_sub)
+abund_treat <- cbind(meta_sub, otu_actinos)
+dim(abund_treat) # 48, 13
+
+```
+
+
+## Gather in long format for ggplot
+
+```{r}
+long <- gather(abund_treat,Taxa,RelAbund,5:ncol(abund_treat)) #change the column index value to match the first column that contains a Taxa name and not a treatment
+head(long) # It looks ok!
+genus_long <- long
+```
+
+### Italicize genera names
+```{r}
+colnames(genus_long)[colnames(genus_long) == "Day"] <- "Time"
+genus_long$Taxa <- paste("*", genus_long$Taxa, "*", sep = "")
+genus_long$Plant.type <- factor(genus_long$Plant.type,
+                                levels = c("no plant", "Scirpus", "Triglochin"),
+                                labels = c("no plant", "*Scirpus*", "*Triglochin*"))
+```
+
+## Create the lolipop chart
+```{r}
+# Step 1: Calculate the mean values with ave()
+mean_values <- ave(genus_long$RelAbund, genus_long$Time, genus_long$Taxa, FUN = mean)
+
+# Reorder the levels based on mean values
+genus_long$Taxa <- reorder(genus_long$Taxa, mean_values, FUN = mean)
+
+# Add small value to prevent inf error when log transforming
+genus_long$RelAbund <- genus_long$RelAbund + 1e-6
+
+high_contrast <- c("#000004FF", "#FEAF77FF","#721F81FF" ,"#B63679FF" ,"#F1605DFF" ) 
+# Step 3: Create the plot
+p1 <- ggplot(data = genus_long, aes(y = Taxa, x = RelAbund, color = Time)) +
+    geom_vline(xintercept = c(0.001, 0.01, 0.1, 0.4), color = "lightgrey", size = 0.1) +
+  stat_summary(fun.data = median_hilow, geom = "pointrange", fun.args = list(conf.int = 0.5),
+               position = position_dodge(width = 0.4),
+               linewidth = 0.25) +
+  coord_trans(x = "log10") +
+    ylab("Taxonomic group") + 
+    xlab("log10 Relative abundance") +
+    scale_color_manual(values = high_contrast) + 
+  theme_classic() +
+  theme(
+    axis.text.y = element_markdown(),
+    legend.text = element_markdown(),
+    legend.title = element_blank(),
+    legend.position = "bottom",
+    legend.spacing = unit(0.1, "cm"),
+    #legend.position = c(0.92, 0.15),
+    legend.background = element_rect(color = "darkgrey", fill = "white"),
+    #legend.margin = margin(t = -5, r = 3, b = 3),
+    strip.text.x = element_markdown(size = 12),
+    strip.text.y = element_markdown(size = 12)
+    
+  ) +
+    
+    scale_x_continuous(limits = c(NA, 1.5), 
+                       breaks = c(0.001,0.01, 0.1, 0.4),
+                       labels = c(".001", ".01", ".1", ".4")) +
+  facet_grid(Temperature ~ Plant.type)
+
+p1
+
+# Save plots
+ggsave(file = here::here("output", "figures", "relAbund_Actinos_genus_16S_sediments_pops.pdf"), p1, width = 6, height = 5, units = "in", dpi = 300,bg = "white")
+ggsave(file = here::here("output", "figures", "relAbund_Actinos_genus_16S_sediments_pops.eps"), p1, width = 6, height = 5, units = "in", dpi = 300,bg = "white")
+ggsave(file = here::here("output", "figures", "relAbund_Actinos_genus_16S_sediments_pops.png"), p1, width = 6, height = 5, units = "in", dpi = 300,bg = "white")
+```
+
 
 # -------------------------------------------
 
