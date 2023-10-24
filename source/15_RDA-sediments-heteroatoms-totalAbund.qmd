@@ -119,7 +119,7 @@ meta_g <- meta_g[order(row.names(meta_g)),]
 otu_g <- otu_g[, order(colnames(otu_g))]
 rownames(meta_g) == colnames(otu_g)
 otu_g <- t(otu_g)
-meta_g <- meta_g[rownames(meta_g) %in% rownames(otu_g)]
+#meta_g <- meta_g[rownames(meta_g) %in% rownames(otu_g)]
 rownames(meta_g) == rownames(otu_g)
 ```
 
@@ -196,7 +196,7 @@ str(atoms_reduced)
 # We look at the pairwise correlation among ALL the explanation variables
 corr_values <- round(cor(atoms_reduced, method = "spearman"), 2) # Calculate correlation
 
-png(filename = here("output", "figures", "heteroatoms-selection_heatmap_totalabund.png"))
+pdf(file = here("output", "figures", "heteroatoms-selection_heatmap_totalabund.pdf"))
 plot_cor <- corrplot(corr_values,
                      method = "circle",
                      type = "lower",
@@ -271,6 +271,7 @@ ones not highly correlated.
 # Keep only the variables that were retained for RDA
 atoms_sel1 <- c("O", "O2", "O6",  "NO6", "N2", "N2O3S", "N2S", "O2S2")
 atoms_reduced2 <- heteroatoms[,colnames(heteroatoms) %in% atoms_sel1]
+atoms_reduced2 <- atoms_reduced2[rownames(atoms_reduced2) %in% rownames(otu_g),]
 any(is.na(atoms_reduced2))
 dim(atoms_reduced2) # 110   8
 ```
@@ -280,7 +281,7 @@ Now, check multicolinearity again:
 # We look at the pairwise correlation among ALL the explanation variables
 corr_values2 <- round(cor(atoms_reduced2, method = "spearman"), 2) # Calculate correlation
 
-png(filename = here("output", "figures", "heteroatoms-selection_heatmap_totalabund2.png"))
+pdf(file = here("output", "figures", "heteroatoms-selection_heatmap_totalabund2.pdf"))
 plot_cor2 <- corrplot(corr_values2,
                      method = "circle",
                      type = "lower",
@@ -303,7 +304,6 @@ dev.off()
 ## Varpart with atoms_reduced2
 
 ```{r}
-atoms_reduced2 <- atoms_reduced2[rownames(atoms_reduced2) %in% rownames(otu_g),]
 varpart2 <- varpart(otu_g, atoms_reduced2, na, treat, transfo = 'hellinger', scale = F, permutations = 999)
 summary(varpart2)
 varpart2
@@ -344,12 +344,12 @@ print(rda_res)
 
 ```{r}
 set.seed(123)
-rda2 <- dbrda(otu_g_bc_sqrt ~ ., 
+rda2 <- dbrda(otu_hell_dist ~ ., 
                  data = atoms_reduced2)
 anova(rda2, permutations = how(nperm = 999))
 summary(rda2)
 print(rda2)
-adjR2.tbrda <- RsquareAdj(rda2)$adj.r.squared #0.0217 adjusted R2 explained
+adjR2.tbrda <- RsquareAdj(rda2)$adj.r.squared #0.0262 adjusted R2 explained
 ```
 
 # RDA on factors and NA levels
@@ -360,17 +360,17 @@ adjR2.tbrda <- RsquareAdj(rda2)$adj.r.squared #0.0217 adjusted R2 explained
 
 ```{r}
 # Create simplest and most complex models
-rda0_1 <- dbrda(otu_g_bc_sqrt ~ 1, data = meta_g[,1:4])
-rdaall_1 <- dbrda(otu_g_bc_sqrt ~ Plant.type + `NAFCs (mg/L)` + Temperature + Day, data = meta_g[,1:4]) # exact same as rda2
+rda0_1 <- dbrda(otu_hell_dist ~ 1, data = meta_g[,1:4])
+rdaall_1 <- dbrda(otu_hell_dist ~ Plant.type + `NAFCs (mg/L)` + Temperature, data = meta_g[,1:4]) # exact same as rda2
 
 anova(rdaall_1, permutations = how(nperm = 999))
 summary(rdaall_1)
 print(rdaall_1)
-adjR2.tbrda1 <- RsquareAdj(rdaall_1)$adj.r.squared #0.1807 adjusted R2 explained
+adjR2.tbrda1 <- RsquareAdj(rdaall_1)$adj.r.squared #0.1099 adjusted R2 explained
 
-rdaall_na <- dbrda(otu_g_bc_sqrt ~ `NAFCs (mg/L)`, data = meta_g[,1:4])
-anova(rdaall_na, permutations = how(nperm = 999))
-summary(rdaall_1)
+rdaall_na <- dbrda(otu_hell_dist ~ `NAFCs (mg/L)`, data = meta_g[,1:4])
+anova(rdaall_na, permutations = how(nperm = 999)) # Not significant on its own
+
 
 ```
 
@@ -404,8 +404,8 @@ meta_select <- cbind(meta_g$Day, meta_g$Temperature, meta_g$Plant.type, atoms_re
 names(meta_select) <- c("Day", "Temperature", "Plant.type", "NO6", "O", "O2", "O6", "N2", "N2O3S", "N2S", "O2S2")
 
 # Create simplest and most complex models
-rda0_full <- dbrda(otu_g_bc_sqrt ~ 1, data = meta_select)
-rdaall_full <- dbrda(otu_g_bc_sqrt ~ ., data = meta_select) # exact same as rda2
+rda0_full <- dbrda(otu_hell_dist ~ 1, data = meta_select)
+rdaall_full <- dbrda(otu_hell_dist ~ ., data = meta_select) # exact same as rda2
 anova(rdaall_full, permutations = how(nperm = 999))
 print(rdaall_full)
 adjR2.tbrdafull <- RsquareAdj(rdaall_full)$adj.r.squared #0.1873 adjusted R2 explained
@@ -417,14 +417,15 @@ sel_full <- ordiR2step(object = rda0_full,
                     R2scope = adjR2.tbrdafull)
 sel_full$anova
 sel_full$call
-adjR2.tbrdaselected <- RsquareAdj(sel_full)$adj.r.squared #0.1873 adjusted R2 explained
+adjR2.tbrdaselected <- RsquareAdj(sel_full)$adj.r.squared #0.2723 adjusted R2 explained
 
 
 # Perform RDA with selected variables
-rda_select <- dbrda(formula = otu_g_bc_sqrt ~ Day + Plant.type, data = meta_select)
+rda_select <- dbrda(formula = otu_hell_dist ~ Day + Plant.type, data = meta_select)
 anova(rda_select, permutations = how(nperm = 999),by = "term")
 print(rda_select)
-adjR2.tbrda_select <- RsquareAdj(rda_select)$adj.r.squared #0.1798 adjusted R2 explained
+adjR2.tbrda_select <- RsquareAdj(rda_select)$adj.r.squared #0.2723 adjusted R2 explained
+
 smry <- summary(rda_select)
 ```
 
@@ -445,14 +446,6 @@ if (all(rownames(sites) == rownames(meta_g))) {
         print("diff row names")
     }
 
-constraints <- data.frame(smry$constraints[,1:2])
-dim(constraints) # 109 2
-# merge metadata to constrains
-if (all(rownames(constraints) == rownames(meta_g))) { 
-    constraints <- cbind(constraints, meta_g[,2:3])
-} else {
-        print("diff row names")
-    }
 
 centroids <- data.frame(smry$centroids[,1:2])
 dim(centroids) # 8 2
@@ -493,6 +486,8 @@ rda.biplot <- ggplot(data = sites,
               color = "black", size = 4, parse = TRUE) +
     theme_classic() +
     xlim(-1.1, 2.2) +
+    xlab("dbRDA1 = 17.8% ") +
+    ylab("dbRDA1 = 8.57% ") +
     theme(panel.background = element_blank(),
           legend.position = "right",
           legend.text = element_markdown(size = 10),
