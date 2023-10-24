@@ -55,6 +55,9 @@ abund <- as.data.frame(phylum[, colMeans(phylum) > 0.01]) # 7
 abund$Others = 1 - rowSums(abund)#Add an "Other" category
 colnames(abund) # there are empty spaces in column names
 colnames(abund) <- gsub(" ", "", colnames(abund)) # trim empty spaces
+colnames(abund)[colnames(abund) == "Actinobacteriota"] <- "Actinomycetota"
+colnames(abund)[colnames(abund) == "Firmicutes"] <- "Bacillota"
+colnames(abund)[colnames(abund) == "Chloroflexi"] <- "Chloroflexota"
 ```
 
 Only 10 phyla had a relative abundance higher than 1%: Acidobacteriota, Actinobacteriota, Bacteroidota, Chloroflexi, Cyanobacteria, Deinococcota, Firmicutes, Planctomycetota, Alphaproteobacteria and Gammaproteobacteria. 
@@ -98,7 +101,7 @@ pal3 <- c("#F2D696","#BDFFF0","#F59C9B","#71ACD6","#7B9E81","#CDC0B0","#968EC2",
 ## Create the stack bar chart
 ## Warmen plot
 ```{r}
-phylum_long$Time <- factor(x = phylum_long$Time, levels = c("D4", "D13", "D20", "D40", "D66"), labels = c("4", "13", "20", "40", "66"))
+phylum_long$Time <- factor(x = phylum_long$Time, levels = c("D4", "D13", "D20", "D40", "D66"), labels = c("0", "10", "16", "35", "62"))
 
 warm <- droplevels(phylum_long[phylum_long$Temperature == "warm",])
 warm$Taxa <- fct_relevel(warm$Taxa, "Alphaproteobacteria", after = 0L)
@@ -125,7 +128,7 @@ stack_phylum_warm <- ggplot(warm, aes(fill = Taxa, y = RelAbund, x = Time)) +
   scale_y_continuous(limits = c(0,1), expand = c(0,0)) 
   #scale_x_discrete(name = "Time in days since OSPW introduction")
 
-#stack_phylum_warm
+stack_phylum_warm
 ```
 
 ## Cold plot
@@ -280,7 +283,7 @@ pal3 <- c("#F2D696","#F59C9B","#71ACD6","#7B9E81","#CDC0B0","#968EC2","#B2D2E8",
 # Create the stack bar charts for combined figure
 ## d4 plot
 ```{r}
-genus_long$Time <- factor(x = genus_long$Time, levels = c("D4", "D13", "D20", "D40", "D66"), labels = c("4", "13", "20", "40", "66"))
+genus_long$Time <- factor(x = genus_long$Time, levels = c("D4", "D13", "D20", "D40", "D66"), labels = c("0", "10", "16", "35", "62"))
 genus_long$treatment <- factor(paste(genus_long$Plant.type, genus_long$Sample.type, sep = " "))
 genus_long$treatment <- factor(genus_long$treatment, 
                                levels = c("no plant Sd","Scirpus Sd","Triglochin Sd","Scirpus Rz","Triglochin Rz","Scirpus Rt","Triglochin Rt"))
