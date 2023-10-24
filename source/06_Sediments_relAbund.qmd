@@ -60,6 +60,9 @@ abund <- as.data.frame(phylum[, colMeans(phylum) > 0.01]) # 10
 abund$Others = 1 - rowSums(abund)#Add an "Other" category
 colnames(abund) # there are empty spaces in column names
 colnames(abund) <- gsub(" ", "", colnames(abund)) # trim empty spaces
+colnames(abund)[colnames(abund) == "Actinobacteriota"] <- "Actinomycetota"
+colnames(abund)[colnames(abund) == "Firmicutes"] <- "Bacillota"
+colnames(abund)[colnames(abund) == "Chloroflexi"] <- "Chloroflexota"
 ```
 
 Only 10 phyla had a relative abundance higher than 1%: Acidobacteriota, Actinobacteriota, Bacteroidota, Chloroflexi, Cyanobacteria, Deinococcota, Firmicutes, Planctomycetota, Alphaproteobacteria and Gammaproteobacteria. 
@@ -103,7 +106,7 @@ pal3 <- c("#F2D696","#BDFFF0","#F59C9B","#71ACD6","#7B9E81","#CDC0B0","#968EC2",
 ## Create the stack bar chart
 ## Warmen plot
 ```{r}
-phylum_long$Time <- factor(x = phylum_long$Time, levels = c("D4", "D13", "D20", "D40", "D66"), labels = c("4", "13", "20", "40", "66"))
+phylum_long$Time <- factor(x = phylum_long$Time, levels = c("D4", "D13", "D20", "D40", "D66"), labels = c("0", "10", "16", "35", "62"))
 
 warm <- droplevels(phylum_long[phylum_long$Temperature == "warm",])
 warm$Taxa <- fct_relevel(warm$Taxa, "Alphaproteobacteria", after = 0L)
@@ -192,9 +195,9 @@ combined_plot
 Run only once
 ```{r}
 # Save plots
-#ggsave(file = here::here("output", "figures", "relAbund_phylum_16S_sediments.pdf"), combined_plot, width = 11, height = 8, units = "in", dpi = 300,bg = "white")
-#ggsave(file = here::here("output", "figures", "relAbund_phylum_16S_sediments.eps"), combined_plot, width = 11, height = 8, units = "in", dpi = 300,bg = "white")
-#ggsave(file = here::here("output", "figures", "relAbund_phylum_16S_sediments.png"), combined_plot, width = 11, height = 8, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_phylum_16S_sediments.pdf"), combined_plot, width = 11, height = 8, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_phylum_16S_sediments.eps"), combined_plot, width = 11, height = 8, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_phylum_16S_sediments.png"), combined_plot, width = 11, height = 8, units = "in", dpi = 300,bg = "white")
 ```
 
 ## Save RDS objects
