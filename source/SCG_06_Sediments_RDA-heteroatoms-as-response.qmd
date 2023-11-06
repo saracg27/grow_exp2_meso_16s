@@ -684,7 +684,7 @@ rda.biplot.warm <- ggplot(data = warm, aes(x = RDA1, y = RDA2)) +
   labs(title = "B) Warm")+
     theme(panel.background = element_blank(),
           legend.position = "right",
-          title = element_text(size = 12, face = "bold"),
+          title = element_text(size = 10, face = "bold"),
           legend.text = element_markdown(size = 10),
           legend.title = element_text(size = 10),
           axis.title = element_text(size = 10)) + 
@@ -734,7 +734,7 @@ rda.biplot.cold <- ggplot(data = cold, aes(x = RDA1, y = RDA2)) +
   labs(title = "A) Cold")+
     theme(panel.background = element_blank(),
           legend.position = "right",
-          title = element_text(size = 12, face = "bold"),
+          title = element_text(size = 10, face = "bold"),
           legend.text = element_markdown(size = 10),
           legend.title = element_text(size = 10),
           axis.title = element_text(size = 10)) + 
@@ -753,14 +753,14 @@ library(ggpubr)
 p <- ggarrange(rda.biplot.cold, 
                rda.biplot.warm, 
                common.legend = TRUE, 
-               legend = "right", 
+               legend = "bottom", 
                nrow = 2)
 p
 
 ```
 
 ```{#r, include=FALSE}
-ggsave(filename = here("output", "figures", "rda_order_vars_divided_robust.aitch.eps"), plot = p, height = 6, width = 6.5)
+ggsave(filename = here("output", "figures", "rda_order_vars_divided_p.eps"), plot = p, height = 6, width = 6.5)
 ```
 
 # Relative abundance of *Actinomarinales* and *Micromonosporales* bacteria at time 0 and 62 in the mesocosms
@@ -787,6 +787,7 @@ There were 18851 ASVs in D0 and D62. Out of those, 81 belonged to orders Actinom
 ```{r}
 otu_actinos <- otu_rel[, colnames(otu_rel) %in% rownames(tax_actinos)] # 48 81
 # bind treatment and abundance
+
 otu_actinos <- t(otu_actinos)
 str(otu_actinos)
 str(tax_actinos)
@@ -858,22 +859,23 @@ p1 <- ggplot(data = genus_long, aes(y = Taxa, x = RelAbund, color = Time)) +
   coord_trans(x = "log10") +
     ylab("Taxonomic group") + 
     xlab("log10 Relative abundance") +
+    labs(title = "C) Relative abundance (Genus)")+
     scale_color_manual(values = high_contrast) + 
   theme_classic() +
   theme(
     axis.text.y = element_markdown(),
+    axis.text.x = element_text(size = 7),
     legend.text = element_markdown(),
-    legend.title = element_blank(),
-    legend.position = "bottom",
+    title = element_text(size = 10, face = "bold"),
+    legend.position = "none",
     legend.spacing = unit(0.1, "cm"),
     #legend.position = c(0.92, 0.15),
     legend.background = element_rect(color = "darkgrey", fill = "white"),
     #legend.margin = margin(t = -5, r = 3, b = 3),
-    strip.text.x = element_markdown(size = 12),
-    strip.text.y = element_markdown(size = 12)
+    strip.text.x = element_markdown(size = 9),
+    strip.text.y = element_markdown(size = 9)
     
   ) +
-    
     scale_x_continuous(limits = c(NA, 1.5), 
                        breaks = c(0.001,0.01, 0.1, 0.4),
                        labels = c(".001", ".01", ".1", ".4")) +
@@ -882,12 +884,24 @@ p1 <- ggplot(data = genus_long, aes(y = Taxa, x = RelAbund, color = Time)) +
 p1
 
 # Save plots
-ggsave(file = here::here("output", "figures", "relAbund_Actinos_genus_16S_sediments_pops.pdf"), p1, width = 6, height = 5, units = "in", dpi = 300,bg = "white")
-ggsave(file = here::here("output", "figures", "relAbund_Actinos_genus_16S_sediments_pops.eps"), p1, width = 6, height = 5, units = "in", dpi = 300,bg = "white")
-ggsave(file = here::here("output", "figures", "relAbund_Actinos_genus_16S_sediments_pops.png"), p1, width = 6, height = 5, units = "in", dpi = 300,bg = "white")
+#ggsave(file = here::here("output", "figures", "relAbund_Actinos_genus_16S_sediments_pops.pdf"), p1, width = 6, height = 5, units = "in", dpi = 300,bg = "white")
+#ggsave(file = here::here("output", "figures", "relAbund_Actinos_genus_16S_sediments_pops.eps"), p1, width = 6, height = 5, units = "in", dpi = 300,bg = "white")
+#ggsave(file = here::here("output", "figures", "relAbund_Actinos_genus_16S_sediments_pops.png"), p1, width = 6, height = 5, units = "in", dpi = 300,bg = "white")
+```
+
+
+```{r}
+combined_plot <- ggarrange(p, p1, ncol = 2)
+ggsave(file = here::here("output", "figures", "test.png"), combined_plot, width =11, height = 7, units = "in", dpi = 150,bg = "white")
+ggsave(file = here::here("output", "figures", "test.eps"), combined_plot, width = 11, height = 7, units = "in", dpi = 72,bg = "white")
 ```
 
 
 # -------------------------------------------
 
 # END OF SCRIPT
+
+```{r}
+save.image(here("RData", "SCG_06_sediments_RDA.RData"))
+```
+
