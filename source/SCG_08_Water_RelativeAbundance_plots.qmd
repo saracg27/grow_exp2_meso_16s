@@ -454,13 +454,11 @@ ggsave(file = here::here("output", "figures", "relAbund_phylum_18S_waters.png"),
 ## Remove low abundances
 
 ```{r}
-genus <- genus_w
-dim(genus) # 120 2389
-colsums_genus <- as.data.frame(colSums(genus_w))
-sum(colsums_genus$`colSums(genus_w)` == 0) # 62 genera have a relative abundance of 0 in water  samples
-genus <- genus_w[, colSums(genus_w) != 0] # drop genera that are not present in water samples
-dim(genus) # 120 2327
-abund <- as.data.frame(genus[, colMeans(genus) > 0.005]) # 36 genera with a relative abundance over 0.5%
+genus <- genus_sorted
+dim(genus) # 140 191
+colsums_genus <- as.data.frame(colSums(genus_sorted))
+sum(colsums_genus$`colSums(genus_w)` == 0) # 0 genera have a relative abundance of 0 in water  samples
+abund <- as.data.frame(genus[, colMeans(genus) > 0.005]) # 19 genera with a relative abundance over 0.5%
 abund$Others = 1 - rowSums(abund)#Add an "Other" category
 colnames(abund) # there are empty spaces in column names
 colnames(abund) <- gsub(" ", "", colnames(abund)) # trim empty spaces
@@ -468,10 +466,10 @@ colnames(abund) <- gsub(" ", "", colnames(abund)) # trim empty spaces
 
 ## Bind treatments and abundances
 ```{r}
-treat <- meta_w
+treat <- meta_sorted
 rownames(abund) == rownames(treat)
 abund_treat = cbind(treat,abund)
-dim(abund_treat) # 120  41
+dim(abund_treat) # 140 24
 ```
 
 ## Gather in long format for ggplot
@@ -488,81 +486,33 @@ genus_long <- long
 
 ```{r}
 dim(genus_long) # 4440    6 OK
+str(genus_long)
+genus_long$Taxa <- as.factor(genus_long$Taxa)
 genus_long$Taxa <- factor(genus_long$Taxa,
-                          levels = c( "d__Bacteria;p__Proteobacteria;c__Alphaproteobacteria;o__Caulobacterales;f__Caulobacteraceae;g__uncultured",                              
- "d__Bacteria;p__Myxococcota;c__Polyangia;o__Polyangiales;f__Polyangiaceae;g__Pajaroellobacter",                                           
-"d__Bacteria;p__Proteobacteria;c__Alphaproteobacteria;o__Rhizobiales;f__Xanthobacteraceae;g__uncultured",                                 
-"d__Bacteria;p__Bacteroidota;c__Bacteroidia;o__Cytophagales;f__Microscillaceae;g__uncultured",                                            
-"d__Bacteria;p__Planctomycetota;c__Planctomycetes;o__Isosphaerales;f__Isosphaeraceae;g__Aquisphaera",                                     
-"d__Bacteria;p__Actinobacteriota;c__Acidimicrobiia;o__IMCC26256;f__IMCC26256;g__IMCC26256",                                               
-"d__Bacteria;p__Verrucomicrobiota;c__Verrucomicrobiae;o__Opitutales;f__Opitutaceae",                                                      
-"d__Bacteria;p__Bacteroidota;c__Bacteroidia;o__Chitinophagales;f__Chitinophagaceae;g__Niastella;s__uncultured_bacterium",                 
-"d__Bacteria;p__Proteobacteria;c__Alphaproteobacteria;o__Rhizobiales;f__Devosiaceae",                                                     
-"d__Bacteria;p__Actinobacteriota;c__Acidimicrobiia;o__Microtrichales;f__Iamiaceae;g__Iamia;s__uncultured_Acidimicrobiia",                 
-"d__Bacteria;p__Acidobacteriota;c__Vicinamibacteria;o__Vicinamibacterales;f__Vicinamibacteraceae;g__Vicinamibacteraceae",                 
-"d__Bacteria;p__Proteobacteria;c__Alphaproteobacteria;o__Caulobacterales;f__Caulobacteraceae;g__Phenylobacterium",                        
-"d__Bacteria;p__Bacteroidota;c__Bacteroidia;o__Cytophagales;f__Spirosomaceae;g__Runella;s__Runella_sp.",                                  
-"d__Bacteria;p__Planctomycetota;c__Planctomycetes;o__Gemmatales;f__Gemmataceae;g__uncultured",                                            
-"d__Bacteria;p__Acidobacteriota;c__Vicinamibacteria;o__Vicinamibacterales;f__Vicinamibacteraceae;g__uncultured",                          
-"d__Bacteria;p__Proteobacteria;c__Gammaproteobacteria;o__Burkholderiales;f__Oxalobacteraceae",                                            
-"d__Bacteria;p__Bacteroidota;c__Bacteroidia;o__Flavobacteriales;f__Flavobacteriaceae;g__Flavobacterium" ,                                 
-"d__Bacteria;p__Actinobacteriota;c__Actinobacteria;o__Propionibacteriales;f__Nocardioidaceae;g__Nocardioides" ,                           
-"d__Bacteria;p__Proteobacteria;c__Alphaproteobacteria;o__Sphingomonadales;f__Sphingomonadaceae",                                          
-"d__Bacteria;p__Proteobacteria;c__Alphaproteobacteria;o__Rhizobiales;f__Devosiaceae;g__Devosia",                                          
-"d__Bacteria;p__Planctomycetota;c__Planctomycetes;o__Pirellulales;f__Pirellulaceae;g__Pir4_lineage",                                      
-"d__Bacteria;p__Proteobacteria;c__Alphaproteobacteria;o__Rhizobiales;f__Rhizobiaceae",                                                    
-"d__Bacteria;p__Planctomycetota;c__Planctomycetes;o__Isosphaerales;f__Isosphaeraceae",                                                    
-"d__Bacteria;p__Nitrospirota;c__Nitrospiria;o__Nitrospirales;f__Nitrospiraceae;g__Nitrospira;s__uncultured_Green",                        
-"d__Bacteria;p__Proteobacteria;c__Gammaproteobacteria;o__Acidithiobacillales;f__Acidithiobacillaceae;g__Acidithiobacillus",               
-"d__Bacteria;p__Proteobacteria;c__Gammaproteobacteria;o__Burkholderiales;f__Comamonadaceae",                                              
-"d__Bacteria;p__Bacteroidota;c__Bacteroidia;o__Chitinophagales;f__Chitinophagaceae;g__Terrimonas",                                        
-"d__Bacteria;p__Proteobacteria;c__Alphaproteobacteria;o__Rhizobiales;f__Xanthobacteraceae",                                               
-"d__Bacteria;p__Planctomycetota;c__Planctomycetes;o__Pirellulales;f__Pirellulaceae;g__uncultured",                                        
-"d__Bacteria;p__Planctomycetota;c__Planctomycetes;o__Pirellulales;f__Pirellulaceae;g__Pirellula",                                         
-"d__Bacteria;p__Bacteroidota;c__Bacteroidia;o__Chitinophagales;f__Chitinophagaceae;g__Segetibacter",                                      
-"d__Bacteria;p__Proteobacteria;c__Gammaproteobacteria;o__Diplorickettsiales;f__Diplorickettsiaceae;g__uncultured;s__uncultured_bacterium",
-"d__Bacteria;p__Proteobacteria;c__Alphaproteobacteria;o__Rhizobiales;f__Xanthobacteraceae;g__Pseudolabrys"  ,                             
-"d__Bacteria;p__Proteobacteria;c__Alphaproteobacteria;o__Sphingomonadales;f__Sphingomonadaceae;g__Sphingomonas"         ,                 
-"d__Bacteria;p__Chloroflexi;c__TK10;o__TK10;f__TK10;g__TK10"  ,                                                                           
-"d__Bacteria;p__Acidobacteriota;c__Blastocatellia;o__Pyrinomonadales;f__Pyrinomonadaceae;g__RB41",                                        
-"Others"),
-            labels = c("*Caulobacteraceae*",                              
- "*Pajaroellobacter*",                                           
-"*Xanthobacteraceae*",                                 
-"*Microscillaceae*",                                            
-"*Aquisphaera*",                                     
-"*IMCC26256*",                                               
-"*Opitutaceae*",                                                      
-"*Niastella*",                 
-"*Devosiaceae*",                                                     
-"*Acidimicrobiia*",                 
-"*Vicinamibacteraceae*",                 
-"*Phenylobacterium*",                        
-"*Runella*",                                  
-"*Gemmataceae*",                                            
-"*Vicinamibacteraceae*",                          
-"*Oxalobacteraceae*",                                            
-"*Flavobacterium*" ,                                 
-"*Nocardioides*" ,                           
-"*Sphingomonadaceae*",                                          
-"*Devosia*",                                          
-"*Pir4*",                                      
-"*Rhizobiaceae*",                                                    
-"*Isosphaeraceae*",                                                    
-"*Nitrospira*",                        
-"*Acidithiobacillus*",               
-"*Comamonadaceae*",                                              
-"*Terrimonas*",                                        
-"*Xanthobacteraceae*",                                               
-"*Pirellulaceae*",                                        
-"*Pirellula*",                                         
-"*Segetibacter*",                                      
-"*Diplorickettsiaceae*",
-"*Pseudolabrys*",                             
-"*Sphingomonas*",                 
-"*TK10*",                                     
-"*RB41*",                                        
-"Others"))
+                          levels = c("Chlamydomonas", 
+                                     "Chlorococcum",
+                                     "Chlorophyceae", "Choanocystis",
+                                     "Chromulinales","Eukaryota",
+                                     "Freshwater_Choanoflagellates_1", 
+                                     "Heterophrys", "Hypotrichia",
+                                     "LKM11", "Mychonastes",
+                                     "Ochromonas", "Others", 
+                                     "Picochlorum", "Plectus", 
+                                     "Ploimida", "Poterioochromonas",
+                                     "Spumella", "Spumella-like",
+                                     "Trebouxiophyceae"),
+                          labels = c("*Chlamydomonas*", 
+                                     "*Chlorococcum*",
+                                     "*Chlorophyceae*", "*Choanocystis*",
+                                     "*Chromulinales*","*Eukaryota*",
+                                     "*Choanoflagellates 1*", 
+                                     "*Heterophrys*", "*Hypotrichia*",
+                                     "*LKM11*", "*Mychonastes*",
+                                     "*Ochromonas*", "Others", 
+                                     "*Picochlorum*", "*Plectus*", 
+                                     "*Ploimida*", "*Poterioochromonas*",
+                                     "*Spumella*", "*Spumella* - like",
+                                     "*Trebouxiophyceae*"))
 
 ```
 
@@ -576,16 +526,15 @@ genus_long$Taxa <- reorder(genus_long$Taxa, mean_values, FUN = mean)
 
 # Add small value to prevent inf error when log transforming
 genus_long$RelAbund <- genus_long$RelAbund + 1e-6
-genus_long$Plant.type <- factor(genus_long$Plant.type, levels = c("no plant", "Scirpus", "Triglochin"),
-                                labels = c("no plant", "*Scirpus*", "*Triglochin*") )
+#genus_long$Sample_type <- factor(genus_long$Sample_type, levels = c("no_plant", "Scirpus", "Triglochin"),labels = c("no plant", "*Scirpus*", "*Triglochin*") )
 
 #high_contrast = c("#FF8C00","#440154", "#CD0000","#545361FF", "#009ACD") 
 viridis::magma(7, alpha = 1) # extract colors from magma to match naphthenic acid figure PCA
 #"#000004FF" "#2D1160FF" "#721F81FF" "#B63679FF" "#F1605DFF" "#FEAF77FF" "#FCFDBFFF"
-high_contrast <- c("#000004FF", "#721F81FF" ,"#B63679FF" ,"#F1605DFF", "#FEAF77FF") 
+high_contrast <- c("#000004FF", "#721F81FF" ,"#B63679FF" ,"#F1605DFF", "#FEAF77FF", "#FCFDBFFF") 
 # Step 3: Create the plot
 p1 <- ggplot(data = genus_long, aes(y = Taxa, x = RelAbund, color = Time)) +
-    geom_vline(xintercept = c(0.001, 0.01, 0.1, 0.4), color = "lightgrey", size = 0.1) +
+    geom_vline(xintercept = c(0.001, 0.01, 0.1, 0.4), color = "lightgrey", linewidth = 0.1) +
   stat_summary(fun.data = median_hilow, geom = "pointrange", fun.args = list(conf.int = 0.5),
                position = position_dodge(width = 0.4),
                linewidth = 0.25) +
@@ -611,14 +560,14 @@ p1 <- ggplot(data = genus_long, aes(y = Taxa, x = RelAbund, color = Time)) +
     scale_x_continuous(limits = c(NA, 1.5), 
                        breaks = c(0.001,0.01, 0.1, 0.4),
                        labels = c(".001", ".01", ".1", ".4")) +
-  facet_grid(Temperature ~ Plant.type)
+  facet_grid(Temperature ~ Sample_type)
 
 p1
 
 # Save plots
 #ggsave(file = here::here("output", "figures", "relAbund_genus_16S_waters_pops.pdf"), p1, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
 #ggsave(file = here::here("output", "figures", "relAbund_genus_16S_waters_pops.eps"), p1, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
-ggsave(file = here::here("output", "figures", "relAbund_genus_16S_waters_pops.png"), p1, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_genus_18S_waters_pops.png"), p1, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
 ```
 
 
@@ -630,7 +579,7 @@ ggsave(file = here::here("output", "figures", "relAbund_genus_16S_waters_pops.pn
 ## Remove low abundances
 
 ```{r}
-abund <- as.data.frame(genus[, colMeans(genus) > 0.01]) # 11 genera with a relative abundance over 1%
+abund <- as.data.frame(genus[, colMeans(genus) > 0.01]) # 12 genera with a relative abundance over 1%
 abund$Others = 1 - rowSums(abund)#Add an "Other" category
 colnames(abund) # there are empty spaces in column names
 colnames(abund) <- gsub(" ", "", colnames(abund)) # trim empty spaces
@@ -638,10 +587,10 @@ colnames(abund) <- gsub(" ", "", colnames(abund)) # trim empty spaces
 
 ## Bind treatments and abundances
 ```{r}
-treat <- meta_w
+treat <- meta_sorted
 rownames(abund) == rownames(treat)
 abund_treat <- cbind(treat,abund)
-dim(abund_treat) # 120  16
+dim(abund_treat) # 140 17
 ```
 
 ## Gather in long format for ggplot
@@ -654,139 +603,63 @@ genus_long <- long
 
 ### Clean taxonomy values
 
-### Create tax_raw table for raw data
-
-
-## Separate tax_raw into groups
 ```{r}
-genus_long <- separate(genus_long, Taxa , into = c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species"), sep = ";")
-genus_long <- genus_long[,-which(names(genus_long) %in% c("Species"))]
-genus_long <- as.data.frame(genus_long)
-levels(as.factor(genus_long$Domain)) # 2  Bacteria, others all ok
-levels(as.factor(genus_long$Phylum)) #  5 Phyla 
-levels(as.factor(genus_long$Class)) # 6 classes
-levels(as.factor(genus_long$Order)) # 8 orders
-levels(as.factor(genus_long$Family)) # 8 Families
-levels(as.factor(genus_long$Genus)) # 8 genus
-str(genus_long)
-```
-
-## Clean taxonomy names
-```{r}
-# eliminate the characters  -----
-pattern <- "[a-z]__"
-replacement <- ""
-genus_long <- as.data.frame(apply(genus_long, 2, function(col) gsub(pattern, replacement, col)))
-rm(pattern)
-rm(replacement)
-
+levels(as.factor(genus_long$Taxa)) 
+dim(genus_long) # 1820 6 OK
 
 str(genus_long)
-```
+genus_long$Taxa <- as.factor(genus_long$Taxa)
+genus_long$Taxa <- factor(genus_long$Taxa,
+                          levels = c("Chlorococcum",
+                                     "Chlorophyceae", 
+                                     "Eukaryota",
+                                     "Heterophrys", 
+                                     "LKM11", 
+                                     "Mychonastes",
+                                     "Others", 
+                                     "Picochlorum", 
+                                     "Plectus", 
+                                     "Ploimida", 
+                                     "Poterioochromonas",
+                                     "Spumella-like",
+                                     "Trebouxiophyceae"),
+                          labels = c("*Chlorococcum*",
+                                     "*Chlorophyceae*", 
+                                     "*Eukaryota*",
+                                     "*Heterophrys*", 
+                                     "*LKM11*", 
+                                     "*Mychonastes*",
+                                     "Others", 
+                                     "*Picochlorum*",
+                                     "*Plectus*", 
+                                     "*Ploimida*",
+                                     "*Poterioochromonas*",
+                                     "*Spumella* - like",
+                                     "*Trebouxiophyceae*"))
 
-## Fill NAs with last available taxon rank
-```{r}
-genus_long <- genus_long |> 
-   t() |> 
-   as.data.frame() |> 
-   fill(everything(), .direction = "down") |> 
-   t() |> 
-   as.data.frame()
-#write.table(tax.clean, file = here::here("data", "clean", "clean_taxonomy.txt"),sep = "\t")
-#rm(list = c("raw_libsize", "tax_raw", "tax_clean", "tax_raw_clean", "pattern", "replacement", "otuids", "cols_to_keep"))
-str(genus_long)
-genus_long$RelAbund <- as.numeric(genus_long$RelAbund)
-```
-
-
-```{r}
-levels(as.factor(genus_long$Genus)) # there are uncultured bacteria, clean the name
-genus_long$Genus <- ifelse(genus_long$Genus == "uncultured", paste(genus_long$Family, "bacterium"), genus_long$Genus)
-levels(as.factor(genus_long$Genus)) 
-dim(genus_long) # 4440    11 OK
-genus_long$Genus <- factor(genus_long$Genus,
-                          levels = c( "Comamonadaceae", "Diplorickettsiaceae bacterium",  "Others",   "Pirellula",  "Pirellulaceae bacterium",  "Pseudolabrys",    "RB41",    "Segetibacter",   "Sphingomonas",     "Terrimonas",   "TK10",   "Xanthobacteraceae"),
-                          labels = c( "*Comamonadaceae*", "*Diplorickettsiaceae* bacterium",  "Others",   "*Pirellula*",  "*Pirellulaceae* bacterium",  "*Pseudolabrys*",    "*RB41*",    "*Segetibacter*",   "*Sphingomonas*",     "*Terrimonas*",   "*TK10*",   "*Xanthobacteraceae*"))
-
-```
-
-## Create the lolipop chart contrast plant type
-```{r}
-# Step 1: Calculate the mean values with ave()
-is.numeric(genus_long$RelAbund)
-mean_values <- ave(genus_long$RelAbund, genus_long$Genus, FUN = mean)
-
-# Reorder the levels baw on mean values
-genus_long$Genus <- reorder(genus_long$Genus, mean_values, FUN = mean)
-
-# Add small value to prevent inf error when log transforming
-genus_long$RelAbund <- genus_long$RelAbund + 1e-6
-genus_long$Plant.type <- factor(genus_long$Plant.type, levels = c("no plant", "Scirpus", "Triglochin"),
-                                labels = c("no plant", "*Scirpus*", "*Triglochin*") )
-levels(as.factor(genus_long$Time))
-genus_long$Time <- factor(genus_long$Time, levels = c("D4", "D13", "D20", "D40", "D66"))
-#high_contrast = c("#FF8C00","#440154", "#CD0000","#545361FF", "#009ACD") 
-viridis::magma(7, alpha = 1) # extract colors from magma to match naphthenic acid figure PCA
-#"#000004FF" "#2D1160FF" "#721F81FF" "#B63679FF" "#F1605DFF" "#FEAF77FF" "#FCFDBFFF"
-high_contrast <- c("#000004FF", "#B63679FF" , "#FEAF77FF") 
-# Step 3: Create the plot
-p1 <- ggplot(data = genus_long, aes(y = Genus, x = RelAbund, color = Plant.type)) +
-    geom_vline(xintercept = c(0.001, 0.01, 0.1, 0.4), color = "lightgrey", size = 0.1) +
-  stat_summary(fun.data = median_hilow, geom = "pointrange", fun.args = list(conf.int = 0.5),
-               position = position_dodge(width = 0.4),
-               linewidth = 0.25) +
-  coord_trans(x = "log10") +
-    ylab("Taxonomic group") + 
-    xlab("log10 Relative abundance") +
-    scale_color_manual(values = high_contrast) + 
-  theme_classic() +
-  theme(
-    axis.text.y = element_markdown(),
-    legend.text = element_markdown(),
-    legend.title = element_blank(),
-    legend.position = "bottom",
-    legend.spacing = unit(0.1, "cm"),
-    #legend.position = c(0.92, 0.15),
-    legend.background = element_rect(color = "darkgrey", fill = "white"),
-    #legend.margin = margin(t = -5, r = 3, b = 3),
-    strip.text.x = element_markdown(size = 12),
-    strip.text.y = element_markdown(size = 12)
-    
-  ) +
-    
-    scale_x_continuous(limits = c(NA, 1.5), 
-                       breaks = c(0.001,0.01, 0.1, 0.4),
-                       labels = c(".001", ".01", ".1", ".4")) +
-  facet_grid(Temperature ~ Time)
-
-p1
-
-# Save plots
-ggsave(file = here::here("output", "figures", "relAbund_genus_16S_waters_pops_0.01top_plant_effect.pdf"), p1, width = 9, height = 9, units = "in", dpi = 300,bg = "white")
-ggsave(file = here::here("output", "figures", "relAbund_genus_16S_waters_pops0.01top_plant_effect.eps"), p1, width = 9, height = 9, units = "in", dpi = 300,bg = "white")
-ggsave(file = here::here("output", "figures", "relAbund_genus_16S_waters_pops0.01top_plant_effect.png"), p1, width = 9, height = 9, units = "in", dpi = 300,bg = "white")
 ```
 
 ## Create the lolipop chart contrast time
 ```{r}
 
 # Step 1: Calculate the mean values with ave()
-#is.numeric(genus_long$RelAbund)
-#mean_values <- ave(genus_long$RelAbund, genus_long$Genus, FUN = mean)
+is.numeric(genus_long$RelAbund)
+mean_values <- ave(genus_long$RelAbund, genus_long$Taxa, FUN = mean)
 
 # Reorder the levels baw on mean values
-#genus_long$Genus <- reorder(genus_long$Genus, mean_values, FUN = mean)
+genus_long$Taxa <- reorder(genus_long$Taxa, mean_values, FUN = mean)
 
 # Add small value to prevent inf error when log transforming
-#genus_long$RelAbund <- genus_long$RelAbund + 1e-6
-#genus_long$Plant.type <- factor(genus_long$Plant.type, levels = c("no plant", "Scirpus", "Triglochin"), labels = c("no plant", "*Scirpus*", "*Triglochin*") )
+genus_long$RelAbund <- genus_long$RelAbund + 1e-6
+#genus_long$Sample_type <- factor(genus_long$Sample_type, levels = c("No_plant", "Scirpus", "Triglochin"), labels = c("no plant", "*Scirpus*", "*Triglochin*") )
 
-#high_contrast = c("#FF8C00","#440154", "#CD0000","#545361FF", "#009ACD") 
+
 #viridis::magma(7, alpha = 1) # extract colors from magma to match naphthenic acid figure PCA
 #"#000004FF" "#2D1160FF" "#721F81FF" "#B63679FF" "#F1605DFF" "#FEAF77FF" "#FCFDBFFF"
-high_contrast <- c("#000004FF", "#721F81FF" ,"#B63679FF" ,"#F1605DFF", "#FEAF77FF") 
+#high_contrast <- c("#000004FF", "#721F81FF" ,"#B63679FF" ,"#F1605DFF", "#FEAF77FF") 
+high_contrast <- c("#000004FF", "#2D1160FF" ,"#721F81FF","#B63679FF", "#F1605DFF" ,"#FEAF77FF" ,"#FCFDBFFF") 
 # Step 3: Create the plot
-p2 <- ggplot(data = genus_long, aes(y = Genus, x = RelAbund, color = Time)) +
+p2 <- ggplot(data = genus_long, aes(y = Taxa, x = RelAbund, color = Time)) +
     geom_vline(xintercept = c(0.001, 0.01, 0.1, 0.4), color = "lightgrey", size = 0.1) +
   stat_summary(fun.data = median_hilow, geom = "pointrange", fun.args = list(conf.int = 0.5),
                position = position_dodge(width = 0.4),
@@ -813,12 +686,162 @@ p2 <- ggplot(data = genus_long, aes(y = Genus, x = RelAbund, color = Time)) +
     scale_x_continuous(limits = c(NA, 1.5), 
                        breaks = c(0.001,0.01, 0.1, 0.4),
                        labels = c(".001", ".01", ".1", ".4")) +
-  facet_grid(Temperature ~ Plant.type )
+  facet_grid(Temperature ~ Sample_type )
 
 p2
 
 # Save plots
-ggsave(file = here::here("output", "figures", "relAbund_genus_16S_waters_pops_0.01top_time_effect.pdf"), p2, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
-ggsave(file = here::here("output", "figures", "relAbund_genus_16S_waters_pops0.01top_time_effect.eps"), p2, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
-ggsave(file = here::here("output", "figures", "relAbund_genus_16S_waters_pops0.01top_time_effect.png"), p2, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
+ggsave(file = here::here("output", "figures", "relAbund_genus_18S_waters_pops_0.01top_time_effect.pdf"), p2, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
+ggsave(file = here::here("output", "figures", "relAbund_genus_18S_waters_pops0.01top_time_effect.eps"), p2, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
+ggsave(file = here::here("output", "figures", "relAbund_genus_18S_waters_pops0.01top_time_effect.png"), p2, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
 ```
+
+
+# -------------------------------------------------------
+
+# STACKED BARS GENUS
+
+# -------------------------------------------------------
+
+
+## Color palette
+
+```{r}
+pal3 <- c("#F2D696","#BDFFF0","#F59C9B","#71ACD6","#7B9E81","#CDC0B0","#968EC2","#B2D2E8","#F7C6EC", "#C7DBC5","#C1CDCD", "#721F81FF","#B63679FF")
+```
+
+## Create the stack bar chart
+
+## Recode 18S samples: 
+```{r}
+genus_long$Taxa <- factor(genus_long$Taxa,
+                          levels = c("*Chlorococcum*",
+                                     "*Chlorophyceae*", 
+                                     "*Eukaryota*",
+                                     "*Heterophrys*", 
+                                     "*LKM11*", 
+                                     "*Mychonastes*",
+                                     "Others", 
+                                     "*Picochlorum*",
+                                     "*Plectus*", 
+                                     "*Ploimida*",
+                                     "*Poterioochromonas*",
+                                     "*Spumella* - like",
+                                     "*Trebouxiophyceae*"),
+                          labels =  c("Chlorococcum",
+                                     "Chlorophyceae", 
+                                     "Eukaryota",
+                                     "Heterophrys", 
+                                     "LKM11", 
+                                     "Mychonastes",
+                                     "Others", 
+                                     "Picochlorum", 
+                                     "Plectus", 
+                                     "Ploimida", 
+                                     "Poterioochromonas",
+                                     "Spumella-like",
+                                     "Trebouxiophyceae"))
+```
+
+## Warm plot
+```{r}
+## Relevel groups to put the largest group at the bottom, and the second largest at the top
+genus_long$Taxa <- fct_relevel(genus_long$Taxa, "Chlorophyceae", after = 0L)
+genus_long$Taxa <- fct_relevel(genus_long$Taxa, "Trebouxiophyceae", after = Inf)
+genus_long$Time <- factor(x = genus_long$Time, levels = c("D0", "D10", "D16", "D35","D62","D78"), labels = c("0", "10", "16", "35", "62", "78"))
+
+warm <- droplevels(genus_long[genus_long$Temp == "warm",])
+
+
+stack_genus_warm <- ggplot(warm, aes(fill = Taxa, y = RelAbund, x = Time)) + 
+  geom_bar(stat = "identity", position = "fill") +
+  labs( y = "Relative abundance",
+        title = "20\u00B0C day / 10\u00B0C night") + 
+  theme_minimal() +
+  theme(#strip.text.x = element_text(face = "bold.italic", size = 16),
+        strip.text.x = element_markdown(size = 16, face = "bold"),
+        axis.text.x = element_text(size = 12, angle = 360, hjust = 0.5, face = "bold"),
+        axis.text.y = element_text(size = 12, face = "bold"),
+        plot.title = element_text(face = "bold", size = 16),
+        legend.title = element_text(size = 14, color = "black", face = "bold"),
+        legend.text = element_markdown(size = 10),
+        #legend.text = element_text(size = 10, face ="bold", color ="black"),
+        axis.title.y = element_text(size = 16, face = "bold"),
+        axis.title.x = element_blank(),
+        legend.position = "none",
+        rect = element_rect(fill = "white")) +
+  scale_fill_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 12))) +
+  scale_color_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 12))) +
+  facet_grid(.~ Sample_type,  scales = "free_x", space = "free_x") + 
+  scale_y_continuous(limits = c(0,1), expand = c(0,0)) 
+  #scale_x_discrete(name = "Time in days since OSPW introduction")
+
+stack_genus_warm
+```
+
+## Cold plot
+```{r}
+cold <- droplevels(genus_long[genus_long$Temp == "cold",])
+
+stack_genus_cold <- ggplot(cold, aes(fill = Taxa, y = RelAbund, x = Time)) + 
+  geom_bar(stat = "identity", position = "fill") +
+  labs( y = "Relative abundance",
+        title = "10\u00B0C day / 5\u00B0C night") + 
+  theme_minimal() +
+  theme(#strip.text.x = element_text(face = "bold.italic", size = 16),
+        strip.text.x = element_markdown(size = 16, face = "bold"),
+        axis.text.x = element_text(size = 12, angle = 360, hjust = 0.5, face = "bold"),
+        axis.text.y = element_text(size = 12, face = "bold"),
+        plot.title = element_text(face = "bold", size = 16),
+        legend.title = element_text(size = 14, color = "black", face = "bold"),
+        #legend.text = element_text(size = 10, face ="bold", color ="black"),
+        legend.text = element_markdown(size = 10),
+        legend.position = "none",
+        axis.title = element_text(size = 16, face = "bold"),
+        rect = element_rect(fill = "white")) +
+  scale_fill_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 12))) +
+  scale_color_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 12))) +
+  facet_grid(.~ Sample_type,  scales = "free_x", space = "free_x") + 
+  scale_y_continuous(limits = c(0,1), expand = c(0,0)) +
+  scale_x_discrete(name = "Time in days since OSPW introduction")
+
+stack_genus_cold
+#Get legend
+```
+
+## Legend
+```{r}
+legend <- get_legend(ggplot(cold, aes(fill = Taxa, y = RelAbund, x = Time)) + 
+  geom_bar(stat = "identity", position = "fill") + 
+      scale_fill_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 12))) +
+  scale_color_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 12))) +
+  theme(strip.text.x = element_text(face = "bold.italic", size = 16),
+        axis.text.x = element_text(size = 12, angle = 360, hjust = 0.5, face = "bold"),
+        axis.text.y = element_text(size = 12, face = "bold"),
+        plot.title = element_text(face = "bold", size = 16),
+        legend.title = element_text(size = 14, color = "black", face = "bold"),
+        legend.text = element_text(size = 10, face ="bold", color ="black"),
+        axis.title = element_text(size = 16, face = "bold"),
+        rect = element_rect(fill = "white")))
+legend
+```
+
+## Combine plots
+```{r}
+combined_plot <- ggdraw() +
+  draw_plot(stack_genus_warm, x = 0, y = 0.5, width = 0.8, height = 0.5) +
+  draw_plot(stack_genus_cold, x = 0, y = 0, width = 0.8, height = 0.5) +
+  draw_plot(legend, x = 0.75, y = 0.25, width = 0.3, height = 0.5) +
+  draw_label("A)", x = 0.02, y = 0.98, size = 17, fontface ="bold") +  
+  draw_label("B)", x = 0.02, y = 0.48, size = 17, fontface ="bold") 
+combined_plot
+```
+
+Run only once
+```{#r}
+#Save plots
+ggsave(file = here::here("output", "figures", "relAbund_genus_18S_waters.pdf"), combined_plot, width = 11, height = 8, units = "in", dpi = 300,bg = "white")
+ggsave(file = here::here("output", "figures", "relAbund_genus_18S_waters.eps"), combined_plot, width = 11, height = 8, units = "in", dpi = 300,bg = "white")
+ggsave(file = here::here("output", "figures", "relAbund_genus_18S_waters.png"), combined_plot, width = 11, height = 8, units = "in", dpi = 300,bg = "white")
+```
+
