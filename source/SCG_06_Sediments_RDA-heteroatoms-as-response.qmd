@@ -61,9 +61,62 @@ heteroatoms_z <- atoms.062 |>
 # Check it work
 heteroatoms_z |> 
     summarise_if(is.numeric, list(mean = ~round(mean(.)), std = ~sd(.))) 
+heteroatoms_t <- t(heteroatoms[,12:ncol(heteroatoms)])
 
+heteroatoms_rel <- apply(heteroatoms_t, 2, function(x) x/sum(x)) # samples are cols, species are rows
+colSums(heteroatoms_rel)
+heteroatoms_rel <- t(heteroatoms_rel) # back to sp as cols
+dim(heteroatoms_rel) # 110  42
 dim(heteroatoms_z) # should be 48 47
 ```
+
+### Create stacked bar chart for heteroatom species
+```{r}
+pal3 <- c("#F2D696","#BDFFF0","#F59C9B","#71ACD6","#7B9E81","#CDC0B0","#968EC2","#B2D2E8","#F7C6EC", "#C7DBC5","#C1CDCD", "#000004FF", "#721F81FF" ,"#B63679FF" ,"#F1605DFF", "#FEAF77FF", "darkgrey", "darkblue")
+abund <- c("O", "O2", "O3", "O4", "O5", "O6", "O7", "S", "OS", "O2S",
+                "O3S", "N2O3", "NO6", "N2", "N2O3S", "N2S", "O2S2")
+heteroatoms_abund <- as.data.frame(heteroatoms_rel[, colnames(heteroatoms_rel) %in% abund])
+heteroatoms_abund$Others = 1 - rowSums(heteroatoms_abund)
+rowSums(heteroatoms_abund) # sanity check
+# keep treaments
+treat <- heteroatoms[,c("Plant.type", "Temperature", "Day")]
+rownames(heteroatoms_abund) == rownames(treat)
+abund_treat <- cbind(treat, heteroatoms_abund) 
+dim(abund_treat) # 110 21
+
+# gather long format
+long <- gather(abund_treat,atom,RelAbund,4:ncol(abund_treat)) #change the column index value to match the first column that contains a Taxa name and not a treatment
+head(long) # It looks ok!
+long$atom <- fct_relevel(long$atom, "O2", after = 0L)
+long$atom <- factor(long$atom, 
+                    levels = c("O", "O2", "O3", "O4", "O5", "O6", "O7", "S", "OS", "O2S",
+                "O3S", "N2O3", "NO6", "N2", "N2O3S", "N2S", "O2S2"))
+stack_atoms <- ggplot(long, aes(fill = atom, y = RelAbund, x = as.factor(Day))) + 
+  geom_bar(stat = "identity", position = "fill") +
+  labs( y = "Relative abundance") +
+        #title = "20\u00B0C day / 10\u00B0C night") + 
+  theme_minimal() +
+  theme(strip.text.x = element_text(face = "bold.italic", size = 16),
+        axis.text.x = element_text(size = 12, angle = 360, hjust = 0.5, face = "bold"),
+        axis.text.y = element_text(size = 12, face = "bold"),
+        plot.title = element_text(face = "bold", size = 16),
+        legend.title = element_text(size = 14, color = "black", face = "bold"),
+        legend.text = element_text(size = 10, face ="bold", color ="black"),
+        axis.title.y = element_text(size = 16, face = "bold"),
+        axis.title.x = element_blank(),
+        legend.position = "right",
+        rect = element_rect(fill = "white")) +
+  scale_fill_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 12))) +
+  scale_color_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 12))) +
+  facet_wrap(~Plant.type+Temperature, nrow = 1) + 
+  scale_y_continuous(limits = c(0,1), expand = c(0,0)) +
+  facet_wrap(Plant.type~Temperature)
+  #scale_x_discrete(name = "Time in days since OSPW introduction")
+
+stack_atoms
+ggsave(filename = here("output", "figures", "stack_atoms.pdf"), stack_atoms, height = 5, width = 7)
+```
+
 
 ### Subset genomic data (120 samples) based on the samples present in heteroatoms_z (110)
 
