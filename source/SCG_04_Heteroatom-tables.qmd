@@ -211,7 +211,10 @@ DDExp2_Heteroatom_wide_totalAbund <- pivot_wider(DDExp2_Heteroatom_Summary2,
                                                values_fill = 0)
 
 result_total <- full_join(Exp2_quan, DDExp2_Heteroatom_wide_totalAbund, by = "SampleID")
+```
 
+
+```{#r}
 saveRDS(DDExp2_Heteroatom_Summary2, "DDExp2_Heteroatom_Summary2.rds")
 saveRDS(result_total, "mapping_heteroatoms_totalAbund.rds")
 saveRDS(DDExp2_Heteroatom_wide_totalAbund, "heteroatom_species_env_totalAbund.rds")
@@ -227,8 +230,79 @@ DDExp2_Heteroatom_wide_percentAbund <- pivot_wider(DDExp2_Heteroatom_Summary2,
                                                values_fill = 0)
 
 result_percent <- full_join(Exp2_quan, DDExp2_Heteroatom_wide_percentAbund, by = "SampleID")
+```
 
+
+```{#r}
 saveRDS(result_percent, "mapping_heteroatoms_percentAbund.rds")
 saveRDS(DDExp2_Heteroatom_wide_percentAbund, "heteroatom_species_env_percentAbund.rds")
 ```
+
+```{r}
+boxplot <- ggplot(data = result_total, 
+                  aes(x = as.factor(Day), y = O2, fill = as.factor(Day)), 
+                  ) +
+  geom_boxplot() +
+  scale_fill_manual(values = c("#000004FF", "#721F81FF" ,"#B63679FF" ,"#F1605DFF", "#FEAF77FF")) +
+  facet_wrap(~Plant.type+Temperature, nrow = 1) +
+  theme(
+    legend.position = "none"
+  )
+boxplot
+```
+
+```{r}
+library(ggtext)
+result_total$Plant.type <- factor(result_total$Plant.type, levels = c("no plant", "Scirpus", "Triglochin"),
+                                labels = c("no plant", "*Scirpus*", "*Triglochin*"))
+boxplot_NA <- ggplot(data = result_total, 
+                  aes(x = as.factor(Day), y = `NAFCs (mg/L)`, fill = as.factor(Day), color= as.factor(Day) ), 
+                  ) +
+  geom_boxplot(alpha = 0.8) +
+  scale_fill_manual(values = c("#000004FF", "#721F81FF" ,"#B63679FF" ,"#F1605DFF", "#FEAF77FF")) +
+  scale_color_manual(values = c("#000004FF", "#721F81FF" ,"#B63679FF" ,"#F1605DFF", "#FEAF77FF")) +
+  xlab("Day") +
+  theme(
+    axis.line = element_line(colour = "black", linewidth = 0.5),
+    axis.title = element_text(face = "bold", size = 8),
+    axis.text = element_text(face = "bold", size = 7),
+    strip.background = element_rect(fill = "white", color = "white"),
+    strip.text = element_markdown(linewidth = 10, face = "bold", size = 8),
+    panel.background = element_blank(),
+    panel.border = element_rect(color = "black", fill = NA, size = .3), 
+    legend.position = "none"
+    
+  ) +
+  facet_grid(Temperature~Plant.type,)
+
+boxplot_NA
+ggsave(here::here("output", "figures", "NA.png"), boxplot_NA, width = 3.5, height = 3.5, dpi = 300, units = "in")
+```
+
+# Relative abundance O2
+```{r}
+boxplot_O2S <- ggplot(data = result_percent, 
+                  aes(x = as.factor(Day), y = O2S, fill = as.factor(Day), color= as.factor(Day) ), 
+                  ) +
+  geom_boxplot(alpha = 0.8) +
+  scale_fill_manual(values = c("#000004FF", "#721F81FF" ,"#B63679FF" ,"#F1605DFF", "#FEAF77FF")) +
+  scale_color_manual(values = c("#000004FF", "#721F81FF" ,"#B63679FF" ,"#F1605DFF", "#FEAF77FF")) +
+  xlab("Day") +
+  theme(
+    axis.line = element_line(colour = "black", linewidth = 0.5),
+    axis.title = element_text(face = "bold", size = 8),
+    axis.text = element_text(face = "bold", size = 7),
+    strip.background = element_rect(fill = "white", color = "white"),
+    strip.text = element_markdown(linewidth = 10, face = "bold", size = 8),
+    panel.background = element_blank(),
+    panel.border = element_rect(color = "black", fill = NA, size = .3), 
+    legend.position = "none"
+    
+  ) +
+  facet_grid(Temperature~Plant.type,)
+
+boxplot_O2S
+ggsave(here::here("output", "figures", "02.png"), boxplot_o2, width = 3.5, height = 3.5, dpi = 300, units = "in")
+```
+
 
