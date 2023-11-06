@@ -35,6 +35,14 @@ metadata <- as(sample_data(ps_rclr), "data.frame") # Export data
 Permanova.rclr<-adonis2(rclr_dist_matrix~Sample_type*Time*Temperature,
                         data = metadata,
                         permutations = 999)
+Permanova.rclr
+
+#Permanova.rclr<-adonis2(rclr_dist_matrix~Time*Sample_type*Temperature,
+#                        data = metadata,
+#                        permutations = 999)
+#Permanova.rclr
+# Putting Time factor first gives similar results 
+
 
 # Save Permanova resutls in csv file
 write.table(Permanova.rclr,row.names=T,sep=";",here("Results","Tables","Water_RCLR_Permanova.csv"))
@@ -141,6 +149,15 @@ metadata <- as(sample_data(ps_hell), "data.frame") # Export data
 Permanova.hell<-adonis2(hell_dist_matrix~Sample_type*Time*Temperature,
                         data = metadata,
                         permutations = 999)
+Permanova.hell
+
+# Permanova.hell<-adonis2(hell_dist_matrix~Time*Sample_type*Temperature,
+#                         data = metadata,
+#                         permutations = 999)
+# Permanova.hell
+# Putting Time factor first gives similar results apart from the F value 
+# which is is higher for the first factor in the permanova
+# (but the difference is small)
 
 write.table(Permanova.hell,row.names=T,sep=";",here("Results","Tables","Water_Hellinger_Permanova.csv"))
 
@@ -149,7 +166,7 @@ ord_hell <- phyloseq::ordinate(ps_hell, "RDA", distance = "euclidean")
 
 ## Sample type  
 
-# Allows to nicely anotate R2 and pvalue with geom_label_npc()
+# Allows to nicely annotate R2 and pvalue with geom_label_npc()
 df.annotations <- data.frame(
   label = paste(paste0("~italic(R)^{2} == ", round(Permanova.hell$R2[1],3)),"~~",
                 paste0("~italic(p) == ",round(Permanova.hell$`Pr(>F)`[1],3))))
@@ -222,7 +239,7 @@ Hell_ord_STxTime$layers<- Hell_ord_STxTime$layers[-1]
 
 ggarrange(Hell_ord_stype,Hell_ord_temp,Hell_ord_time,Hell_ord_STxTime,labels="AUTO",legend = "bottom")
 ggsave(here("Results","Figures","Water_Hell_Ordination.pdf"),device='pdf',height = 7.5, width = 10.5)
-ggsave(here("Results","Figures","Water_Hell_Ordination.pdf"),device='png',height = 7.5, width = 10.5)
+ggsave(here("Results","Figures","Water_Hell_Ordination.png"),device='png',height = 7.5, width = 10.5)
 
 
 
@@ -236,6 +253,16 @@ metadata <- as(sample_data(ps), "data.frame") # Export data
 Permanova.bc<-adonis2(bc_dist_matrix~Sample_type*Time*Temperature,
                         data = metadata,
                         permutations = 999)
+Permanova.bc
+
+# Permanova.bc<-adonis2(bc_dist_matrix~Time*Sample_type*Temperature,
+#                       data = metadata,
+#                       permutations = 999)
+# Permanova.bc
+
+# Putting Time factor first gives similar results apart from the F value 
+# which is is higher for the first factor in the permanova
+# (but the difference is small)
 
 write.table(Permanova.bc,row.names=T,sep=";",here("Results","Tables","Water_Bray_Curtis_Permanova.csv"))
 
@@ -320,6 +347,6 @@ BC_ord_STxTime$layers<- BC_ord_STxTime$layers[-1]
 
 ggarrange(BC_ord_stype,BC_ord_temp,BC_ord_time,BC_ord_STxTime,labels="AUTO",legend = "bottom")
 ggsave(here("Results","Figures","Water_BC_ordination.pdf"),device='pdf',height = 7.5, width = 10.5)
-ggsave(here("Results","Figures","Water_BC_ordination.pdf"),device='png',height = 7.5, width = 10.5)
+ggsave(here("Results","Figures","Water_BC_ordination.png"),device='png',height = 7.5, width = 10.5)
 
 
