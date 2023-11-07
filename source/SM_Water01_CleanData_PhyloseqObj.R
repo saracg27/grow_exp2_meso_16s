@@ -61,7 +61,7 @@ levels(meta$Time) <- list(D0="D-0", D10="D8", D16 = "D15", D35= "D34", D62='D61'
 
 ASV <- otu_table(ab_table, taxa_are_rows = TRUE)
 SDAT <- sample_data(meta)
-TAX <- tax_table(as.matrix(taxo_split_clean))
+TAX <- tax_table(as.matrix(tax_clean_filled))
 
 ps_intermediate<- merge_phyloseq(ASV,SDAT,TAX)
 ps_intermediate # 850 taxa in 141 samples
