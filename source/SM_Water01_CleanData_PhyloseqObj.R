@@ -30,6 +30,16 @@ taxo_split_clean <- mutate(taxo_split_clean, across(where(is.character), str_rem
 # Empty string to NA
 taxo_split_clean[taxo_split_clean == ''] <- NA
 
+
+## Fill NAs with last available taxon rank
+tax_clean_filled <- taxo_split_clean |> 
+    t() |> 
+    as.data.frame() |> 
+    fill(everything(), .direction = "down") |> 
+    t() |> 
+    as.data.frame()
+
+
 ###.... Metadata ####
 meta.raw <- read.csv(file = here("Data/Water","metadata.tsv"), dec = ".", header = T, row.names = 1, sep = "\t", comment.char = "") #load
 str(meta.raw)
