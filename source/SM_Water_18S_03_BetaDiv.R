@@ -10,7 +10,7 @@ library(mctoolsr)
 library(microbiome)
 #### Data ####
 
-load(here("Rdata","ps_water_obj.Rdata"))
+load(here("Rdata","ps_18S_water_obj.RData"))
 
 ###______#####
 ### BETA DIV ####

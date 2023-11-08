@@ -6,7 +6,7 @@ library(reshape2)
 ##### Load data #### 
 
 ## ....Abundance table ####
-ab_table_raw <- read.csv(file = here("Data/Water","Mesocosm_Water_18S_oct2023.ASV_table_norarefaction_dnNA.tsv"), dec = ".", sep = "\t", header = T, row.names = 1, comment.char = "") #20078 objs in 299 vars
+ab_table_raw <- read.csv(file = here("Data/Water/18S","Mesocosm_Water_18S_oct2023.ASV_table_norarefaction_dnNA.tsv"), dec = ".", sep = "\t", header = T, row.names = 1, comment.char = "") #20078 objs in 299 vars
 
 ab_table <- ab_table_raw[,!names(ab_table_raw) %in% c("taxonomy")]# Remove sequence and taxonomy columns to keep only ab. data 
 names(ab_table)
@@ -41,7 +41,7 @@ tax_clean_filled <- taxo_split_clean |>
 
 
 ###.... Metadata ####
-meta.raw <- read.csv(file = here("Data/Water","metadata.tsv"), dec = ".", header = T, row.names = 1, sep = "\t", comment.char = "") #load
+meta.raw <- read.csv(file = here("Data/Water/18S","metadata.tsv"), dec = ".", header = T, row.names = 1, sep = "\t", comment.char = "") #load
 str(meta.raw)
 meta.raw[sapply(meta.raw, is.character)] <- lapply(meta.raw[sapply(meta.raw, is.character)], as.factor) # did it work? Check with str(meta)
 
@@ -76,4 +76,4 @@ ps <- prune_taxa(taxa_sums(ps)>0, ps)
 ps
 getwd()
 # Save object 
-save(ps, file = here("RData","ps_water_obj.RData"))
+save(ps, file = here("RData","ps_18S_water_obj.RData"))
