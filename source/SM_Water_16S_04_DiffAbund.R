@@ -41,23 +41,7 @@ ps_obj_NP_Scirpus <- prune_taxa(rowSums(otu_table(ps_obj_NP_Scirpus) == 0)
 
 diagdds = phyloseq_to_deseq2(ps_obj_NP_Scirpus, ~ Sample_type)
 
-# calculate geometric means prior to estimate size factors
-# gm_mean = function(x, na.rm=TRUE){
-#   exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
-# }
-# 
-# 
-# geoMeans = apply(counts(diagdds), 1, gm_mean)
-# geoMeansvis <- as.data.frame(geoMeans)
-# 
-# ?estimateSizeFactors
-# diagdds = estimateSizeFactors(diagdds, geoMeans = geoMeans)
-
 diagdds = estimateSizeFactors(diagdds, type = "poscounts")
-# For each ASV -> calculates its geometric mean. Doesn't take into account the zeros
-# exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
-# https://support.bioconductor.org/p/62246/#62250
-
 
 diagdds = DESeq(diagdds,
                 test = "Wald",
@@ -161,22 +145,7 @@ ps_obj_NP_Triglochin <- prune_taxa(rowSums(otu_table(ps_obj_NP_Triglochin) == 0)
 
 diagdds = phyloseq_to_deseq2(ps_obj_NP_Triglochin, ~ Sample_type)
 
-# calculate geometric means prior to estimate size factors
-# gm_mean = function(x, na.rm=TRUE){
-#   exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
-# }
-# 
-# 
-# geoMeans = apply(counts(diagdds), 1, gm_mean)
-# geoMeansvis <- as.data.frame(geoMeans)
-# 
-# ?estimateSizeFactors
-# diagdds = estimateSizeFactors(diagdds, geoMeans = geoMeans)
-
 diagdds = estimateSizeFactors(diagdds, type = "poscounts")
-# For each ASV -> calculates its geometric mean. Doesn't take into account the zeros
-# exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
-# https://support.bioconductor.org/p/62246/#62250
 
 diagdds = DESeq(diagdds,
                 test = "Wald",
@@ -294,22 +263,7 @@ ps_obj_Triglo_Scirpus <- prune_taxa(rowSums(otu_table(ps_obj_Triglo_Scirpus) == 
       
 diagdds = phyloseq_to_deseq2(ps_obj_Triglo_Scirpus, ~ Sample_type)
 
-# calculate geometric means prior to estimate size factors
-# gm_mean = function(x, na.rm=TRUE){
-#   exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
-# }
-# 
-# 
-# geoMeans = apply(counts(diagdds), 1, gm_mean)
-# geoMeansvis <- as.data.frame(geoMeans)
-# 
-# ?estimateSizeFactors
-# diagdds = estimateSizeFactors(diagdds, geoMeans = geoMeans)
-
 diagdds = estimateSizeFactors(diagdds, type = "poscounts")
-# For each ASV -> calculates its geometric mean. Doesn't take into account the zeros
-# exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
-# https://support.bioconductor.org/p/62246/#62250
 
 
 diagdds = DESeq(diagdds,
@@ -432,22 +386,7 @@ p + theme_bw()+
 ####Temperature  ####
 diagdds = phyloseq_to_deseq2(ps_obj, ~ Temperature)
 
-# calculate geometric means prior to estimate size factors
-# gm_mean = function(x, na.rm=TRUE){
-#   exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
-# }
-# 
-# 
-# geoMeans = apply(counts(diagdds), 1, gm_mean)
-# geoMeansvis <- as.data.frame(geoMeans)
-# 
-# ?estimateSizeFactors
-# diagdds = estimateSizeFactors(diagdds, geoMeans = geoMeans)
-
 diagdds = estimateSizeFactors(diagdds, type = "poscounts")
-# For each ASV -> calculates its geometric mean. Doesn't take into account the zeros
-# exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
-# https://support.bioconductor.org/p/62246/#62250
 
 
 diagdds = DESeq(diagdds,
@@ -503,7 +442,7 @@ filtered_signif_taxa <- signif_taxa[(abs(signif_taxa$log2FoldChange) > 1) & (sig
 # Create a new dataframe with the relevant columns
 result_order_diff <- signif_taxa[, c("Order", "log2FoldChange", "neg_log10_pvalue")]
 result_order_diff$Order
-?EnhancedVolcano
+
 volcano_water_temp <- EnhancedVolcano(signif_taxa, 
                                      lab = signif_taxa$Order, 
                                      selectLab = signif_taxa$Order,
@@ -561,23 +500,8 @@ ps_obj_d0d62 <- prune_taxa(rowSums(otu_table(ps_obj_d0d62) == 0)
 
 
 diagdds = phyloseq_to_deseq2(ps_obj_d0d62, ~ Time)
-# calculate geometric means prior to estimate size factors
-# gm_mean = function(x, na.rm=TRUE){
-#   exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
-# }
-# 
-# 
-# geoMeans = apply(counts(diagdds), 1, gm_mean)
-# geoMeansvis <- as.data.frame(geoMeans)
-# 
-# ?estimateSizeFactors
-# diagdds = estimateSizeFactors(diagdds, geoMeans = geoMeans)
 
 diagdds = estimateSizeFactors(diagdds, type = "poscounts")
-# For each ASV -> calculates its geometric mean. Doesn't take into account the zeros
-# exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
-# https://support.bioconductor.org/p/62246/#62250
-
 
 diagdds = DESeq(diagdds,
                 test = "Wald",
