@@ -42,7 +42,7 @@ tax_clean_filled <- taxo_split_clean |>
 
 
 ###.... Metadata ####
-meta.raw <- read.csv(file = here("Data/Water/18S","metadata.tsv"), dec = ".", header = T, row.names = 1, sep = "\t", comment.char = "") #load
+meta.raw <- read.csv(file = here("Data/Water/16S","metadata.tsv"), dec = ".", header = T, row.names = 1, sep = "\t", comment.char = "") #load
 str(meta.raw)
 meta.raw[sapply(meta.raw, is.character)] <- lapply(meta.raw[sapply(meta.raw, is.character)], as.factor) # did it work? Check with str(meta)
 
@@ -59,7 +59,7 @@ meta <- meta.raw
 # Reorder Time in chronological order
 levels(meta$Time)
 meta$Time<- factor(meta$Time, levels=c('D-0', 'D8', 'D15', 'D34', 'D61',"D77"))
-# Renq;ing time to have coherent dates with other sampling (sed,roots, rhizo)
+# Renaming time to have coherent dates with other sampling (sed,roots, rhizo)
 levels(meta$Time) <- list(D0="D-0", D10="D8", D16 = "D15", D35= "D34", D62='D61',D77="D77")
 
 #
