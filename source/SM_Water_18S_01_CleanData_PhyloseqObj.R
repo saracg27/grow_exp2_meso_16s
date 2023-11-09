@@ -54,6 +54,15 @@ meta <- meta.raw
 # Reorder Time in chronological order
 levels(meta$Time)
 meta$Time<- factor(meta$Time, levels=c('D-0', 'D8', 'D15', 'D34', 'D61',"D77"))
+
+summary(meta$Time)
+# Problem with Time D61 being labelled for January 4th when this date is D34
+for(i in 1:nrow(meta)){
+    if (meta$Sampling_date[i]=="Jan_4_2022"){
+    meta$Time[i] <- 'D34'}
+}
+summary(meta$Time)
+
 # Renq;ing time to have coherent dates with other sampling (sed,roots, rhizo)
 levels(meta$Time) <- list(D0="D-0", D10="D8", D16 = "D15", D35= "D34", D62='D61',D77="D77")
 
