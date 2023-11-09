@@ -31,8 +31,7 @@ ps_obj <- ps_glom_ord
 ps_obj <- prune_taxa(rowSums(otu_table(ps_obj) == 0) 
                      < ncol(otu_table(ps_obj)) * 0.9, ps_obj)
 
-# Removes 41 orders if applied on order agglomerated data
-# Removes 707 Asvs, 83% of the dataset, keeps 143 taxa..
+# Removes 52 orders if applied on order agglomerated data
 
 ######Sample Type ####
 
@@ -44,21 +43,9 @@ ps_obj_NP_Scirpus <- prune_taxa(rowSums(otu_table(ps_obj_NP_Scirpus) == 0)
 
 diagdds = phyloseq_to_deseq2(ps_obj_NP_Scirpus, ~ Sample_type)
 
-# calculate geometric means prior to estimate size factors
-# gm_mean = function(x, na.rm=TRUE){
-#   exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
-# }
-# 
-# 
-# geoMeans = apply(counts(diagdds), 1, gm_mean)
-# geoMeansvis <- as.data.frame(geoMeans)
-# 
-# ?estimateSizeFactors
-# diagdds = estimateSizeFactors(diagdds, geoMeans = geoMeans)
 
 diagdds = estimateSizeFactors(diagdds, type = "poscounts")
-# For each ASV -> calculates its geometric mean. Doesn't take into account the zeros
-# exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
+
 # https://support.bioconductor.org/p/62246/#62250
 
 
@@ -117,7 +104,7 @@ filtered_signif_taxa <- signif_taxa[(abs(signif_taxa$log2FoldChange) > 1) & (sig
 # Create a new dataframe with the relevant columns
 result_order_diff <- signif_taxa[, c("Order", "log2FoldChange", "neg_log10_pvalue")]
 result_order_diff$Order
-?EnhancedVolcano
+
 volcano_water_ScVSNp <- EnhancedVolcano(signif_taxa, 
                                           lab =signif_taxa$Order, 
                                           selectLab =signif_taxa$Order,
@@ -138,8 +125,8 @@ volcano_water_ScVSNp <- EnhancedVolcano(signif_taxa,
 )
 volcano_water_ScVSNp
 
-ggsave(filename = here("Results/Figures/", "deseq_volcano_water_ScirpusVSnoplant.png"),height = 7.5, width = 10.5, dpi = 300)
-ggsave(filename = here("Results/Figures/", "deseq_volcano_water_ScirpusVSnoplant.pdf"),height = 7.5, width = 10.5, dpi = 300)
+ggsave(filename = here("Results/Figures/", "deseq_volcano_18S_water_ScirpusVSnoplant.png"),height = 7.5, width = 10.5, dpi = 300)
+ggsave(filename = here("Results/Figures/", "deseq_volcano_18S_water_ScirpusVSnoplant.pdf"),height = 7.5, width = 10.5, dpi = 300)
 
 
 # Check outliers 
@@ -164,21 +151,8 @@ ps_obj_NP_Triglochin <- prune_taxa(rowSums(otu_table(ps_obj_NP_Triglochin) == 0)
 
 diagdds = phyloseq_to_deseq2(ps_obj_NP_Triglochin, ~ Sample_type)
 
-# calculate geometric means prior to estimate size factors
-# gm_mean = function(x, na.rm=TRUE){
-#   exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
-# }
-# 
-# 
-# geoMeans = apply(counts(diagdds), 1, gm_mean)
-# geoMeansvis <- as.data.frame(geoMeans)
-# 
-# ?estimateSizeFactors
-# diagdds = estimateSizeFactors(diagdds, geoMeans = geoMeans)
-
 diagdds = estimateSizeFactors(diagdds, type = "poscounts")
-# For each ASV -> calculates its geometric mean. Doesn't take into account the zeros
-# exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
+
 # https://support.bioconductor.org/p/62246/#62250
 
 diagdds = DESeq(diagdds,
@@ -261,8 +235,8 @@ volcano_water_TgVSNp
 # Removed the Monhysterida outlier by setting the ylim and xlim 
 
 
-ggsave(filename = here("Results/Figures/", "deseq_volcano_water_TriglochinVSnoplant.png"),height = 7.5, width = 10.5, dpi = 300)
-ggsave(filename = here("Results/Figures/", "deseq_volcano_water_TriglochinVSnoplant.pdf"),height = 7.5, width = 10.5, dpi = 300)
+ggsave(filename = here("Results/Figures/", "deseq_volcano_18S_water_TriglochinVSnoplant.png"),height = 7.5, width = 10.5, dpi = 300)
+ggsave(filename = here("Results/Figures/", "deseq_volcano_18S_water_TriglochinVSnoplant.pdf"),height = 7.5, width = 10.5, dpi = 300)
 
 # Check outliers
 Monhy <- subset_taxa(ps,Order=="Monhysterida")
@@ -293,21 +267,9 @@ ps_obj_Triglo_Scirpus <- prune_taxa(rowSums(otu_table(ps_obj_Triglo_Scirpus) == 
       
 diagdds = phyloseq_to_deseq2(ps_obj_Triglo_Scirpus, ~ Sample_type)
 
-# calculate geometric means prior to estimate size factors
-# gm_mean = function(x, na.rm=TRUE){
-#   exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
-# }
-# 
-# 
-# geoMeans = apply(counts(diagdds), 1, gm_mean)
-# geoMeansvis <- as.data.frame(geoMeans)
-# 
-# ?estimateSizeFactors
-# diagdds = estimateSizeFactors(diagdds, geoMeans = geoMeans)
 
 diagdds = estimateSizeFactors(diagdds, type = "poscounts")
-# For each ASV -> calculates its geometric mean. Doesn't take into account the zeros
-# exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
+
 # https://support.bioconductor.org/p/62246/#62250
 
 
@@ -389,8 +351,8 @@ volcano_water_TgVSSc <- EnhancedVolcano(signif_taxa,
 volcano_water_TgVSSc
 
 # 
-ggsave(filename = here("Results/Figures/", "deseq_volcano_water_TrigloVSScirpus.png"),height = 7.5, width = 10.5, dpi = 300)
-ggsave(filename = here("Results/Figures/", "deseq_volcano_water_TrigloVSScirpus.pdf"),height = 7.5, width = 10.5, dpi = 300)
+ggsave(filename = here("Results/Figures/", "deseq_volcano_18S_water_TrigloVSScirpus.png"),height = 7.5, width = 10.5, dpi = 300)
+ggsave(filename = here("Results/Figures/", "deseq_volcano_18S_water_TrigloVSScirpus.pdf"),height = 7.5, width = 10.5, dpi = 300)
 
 
 
@@ -422,21 +384,7 @@ p + theme_bw()+
 ####Temperature  ####
 diagdds = phyloseq_to_deseq2(ps_obj, ~ Temperature)
 
-# calculate geometric means prior to estimate size factors
-# gm_mean = function(x, na.rm=TRUE){
-#   exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
-# }
-# 
-# 
-# geoMeans = apply(counts(diagdds), 1, gm_mean)
-# geoMeansvis <- as.data.frame(geoMeans)
-# 
-# ?estimateSizeFactors
-# diagdds = estimateSizeFactors(diagdds, geoMeans = geoMeans)
-
 diagdds = estimateSizeFactors(diagdds, type = "poscounts")
-# For each ASV -> calculates its geometric mean. Doesn't take into account the zeros
-# exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
 # https://support.bioconductor.org/p/62246/#62250
 
 
@@ -493,7 +441,7 @@ filtered_signif_taxa <- signif_taxa[(abs(signif_taxa$log2FoldChange) > 1) & (sig
 # Create a new dataframe with the relevant columns
 result_order_diff <- signif_taxa[, c("Order", "log2FoldChange", "neg_log10_pvalue")]
 result_order_diff$Order
-?EnhancedVolcano
+
 volcano_water_temp <- EnhancedVolcano(signif_taxa, 
                                      lab = signif_taxa$Order, 
                                      selectLab = signif_taxa$Order,
@@ -515,8 +463,8 @@ volcano_water_temp <- EnhancedVolcano(signif_taxa,
 
 volcano_water_temp
 
-ggsave(filename = here("Results/Figures/", "deseq_volcano_water_temp.png"),height = 7.5, width = 10.5,dpi=300)
-ggsave(filename = here("Results/Figures/", "deseq_volcano_water_temp.pdf"),height = 7.5, width = 10.5,dpi=300)
+ggsave(filename = here("Results/Figures/", "deseq_volcano_18S_water_temp.png"),height = 7.5, width = 10.5,dpi=300)
+ggsave(filename = here("Results/Figures/", "deseq_volcano_18S_water_temp.pdf"),height = 7.5, width = 10.5,dpi=300)
 
 
 Ploimida <- subset_taxa(ps,Order=="Ploimida")
@@ -552,23 +500,8 @@ ps_obj_d0d62 <- prune_taxa(rowSums(otu_table(ps_obj_d0d62) == 0)
 
 
 diagdds = phyloseq_to_deseq2(ps_obj_d0d62, ~ Time)
-# calculate geometric means prior to estimate size factors
-# gm_mean = function(x, na.rm=TRUE){
-#   exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
-# }
-# 
-# 
-# geoMeans = apply(counts(diagdds), 1, gm_mean)
-# geoMeansvis <- as.data.frame(geoMeans)
-# 
-# ?estimateSizeFactors
-# diagdds = estimateSizeFactors(diagdds, geoMeans = geoMeans)
 
 diagdds = estimateSizeFactors(diagdds, type = "poscounts")
-# For each ASV -> calculates its geometric mean. Doesn't take into account the zeros
-# exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
-# https://support.bioconductor.org/p/62246/#62250
-
 
 diagdds = DESeq(diagdds,
                 test = "Wald",
@@ -647,8 +580,8 @@ volcano_water_d0d62<- EnhancedVolcano(signif_taxa,
 
 volcano_water_d0d62
 
-ggsave(filename = here("Results/Figures/", "deseq_volcano_water_d0d62.png"), plot = volcano_water_d0d62,height = 7.5, width = 10.5, dpi = 300)
-ggsave(filename = here("Results/Figures/", "deseq_volcano_water_d0d62.pdf"), plot = volcano_water_d0d62,height = 7.5, width = 10.5, dpi = 300)
+ggsave(filename = here("Results/Figures/", "deseq_volcano_18S_water_d0d62.png"), plot = volcano_water_d0d62,height = 7.5, width = 10.5, dpi = 300)
+ggsave(filename = here("Results/Figures/", "deseq_volcano_18S_water_d0d62.pdf"), plot = volcano_water_d0d62,height = 7.5, width = 10.5, dpi = 300)
 
 #####|D0-D77 ####
 #Subset ps_rhizo to keep samples from D0 and D62 sampling dates
@@ -658,23 +591,8 @@ ps_obj_d0d77 <- prune_taxa(rowSums(otu_table(ps_obj_d0d77) == 0)
                            < ncol(otu_table(ps_obj_d0d77)) * 0.9, ps_obj_d0d77)
 
 diagdds = phyloseq_to_deseq2(ps_obj_d0d77, ~ Time)
-# calculate geometric means prior to estimate size factors
-# gm_mean = function(x, na.rm=TRUE){
-#   exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
-# }
-# 
-# 
-# geoMeans = apply(counts(diagdds), 1, gm_mean)
-# geoMeansvis <- as.data.frame(geoMeans)
-# 
-# ?estimateSizeFactors
-# diagdds = estimateSizeFactors(diagdds, geoMeans = geoMeans)
 
 diagdds = estimateSizeFactors(diagdds, type = "poscounts")
-# For each ASV -> calculates its geometric mean. Doesn't take into account the zeros
-# exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
-# https://support.bioconductor.org/p/62246/#62250
-
 
 diagdds = DESeq(diagdds,
                 test = "Wald",
@@ -753,8 +671,8 @@ volcano_water_d0d77<- EnhancedVolcano(signif_taxa,
 
 volcano_water_d0d77
 
-ggsave(filename = here("Results/Figures/", "deseq_volcano_water_d0d77.png"), plot = volcano_water_d0d77,height = 7.5, width = 10.5, dpi = 300)
-ggsave(filename = here("Results/Figures/", "deseq_volcano_water_d0d77.pdf"), plot = volcano_water_d0d77,height = 7.5, width = 10.5, dpi = 300)
+ggsave(filename = here("Results/Figures/", "deseq_volcano_18S_water_d0d77.png"), plot = volcano_water_d0d77,height = 7.5, width = 10.5, dpi = 300)
+ggsave(filename = here("Results/Figures/", "deseq_volcano_18S_water_d0d77.pdf"), plot = volcano_water_d0d77,height = 7.5, width = 10.5, dpi = 300)
 
 
 
