@@ -39,8 +39,8 @@ ggplot(plot,aes(x=variable,y=value,shape=Sample_type))+
   facet_wrap(~variable,scales="free")+
   ylab("Alpha diversity score")
 
-ggsave(here("Results","Figures","Water_SType_AlphaDiv.pdf"),device='pdf',height = 7.5, width = 10.5)
-ggsave(here("Results","Figures","Water_SType_AlphaDiv.png"),device='png',height = 7.5, width = 10.5)
+ggsave(here("Results","Figures","18S_Water_SType_AlphaDiv.pdf"),device='pdf',height = 7.5, width = 10.5)
+ggsave(here("Results","Figures","18S_Water_SType_AlphaDiv.png"),device='png',height = 7.5, width = 10.5)
 
 
 #####Temperature ####
@@ -69,8 +69,8 @@ ggplot(plot,aes(x=variable,y=value,color=Temperature))+
   facet_wrap(~variable,scales="free")+
   ylab("Alpha diversity score")
 
-ggsave(here("Results","Figures","Water_Temp_AlphaDiv.pdf"),device='pdf',height = 7.5, width = 10.5)
-ggsave(here("Results","Figures","Water_Temp_AlphaDiv.png"),device='png',height = 7.5, width = 10.5)
+ggsave(here("Results","Figures","18S_Water_Temp_AlphaDiv.pdf"),device='pdf',height = 7.5, width = 10.5)
+ggsave(here("Results","Figures","18S_Water_Temp_AlphaDiv.png"),device='png',height = 7.5, width = 10.5)
 
 #####Time #####
 library(ggh4x)
@@ -100,8 +100,8 @@ ggplot(plot,aes(x=variable,y=value,shape=Sample_type,color=Time))+
   ylab("Alpha diversity score")
 
 
-ggsave(here("Results","Figures","Water_TimeSType_AlphaDiv.pdf"),device='pdf',height = 7.5, width = 10.5)
-ggsave(here("Results","Figures","Water_TimeSType_AlphaDiv.png"),device='png',height = 7.5, width = 10.5)
+ggsave(here("Results","Figures","18S_Water_TimeSType_AlphaDiv.pdf"),device='pdf',height = 7.5, width = 10.5)
+ggsave(here("Results","Figures","18S_Water_TimeSType_AlphaDiv.png"),device='png',height = 7.5, width = 10.5)
 
 
 
@@ -227,8 +227,5 @@ ggplot(plot,aes(x=variable,y=value,shape=Sample_type,color=Time))+
   ylab("Alpha diversity score")
 
 
-# Significant difference between D10 and D35 in Observed - Scirpus 
-# not observed in rarefied dataset.
-#Otherwise results are similar with some changes in pvalue significance
-
+# Change in significance level but not new significant difference
 
