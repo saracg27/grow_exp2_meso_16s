@@ -79,18 +79,11 @@ ps_intermediate # 2462 taxa in 144 samples
 plot_bar(ps_intermediate)
 # 5 samples have a low read abundance 
 
+sort(sample_sums(ps_intermediate)) # see the number of reads per sample
 ps = prune_samples(sample_sums(ps_intermediate) > 500, ps_intermediate)
 setdiff(sample_names(ps_intermediate),sample_names(ps))
-sort(sample_sums(ps_intermediate)) # see the number of reads per sample
 # Removes the 5 samples
 # M2G.30.11.21 ; M10E.Jan.31.2022  ; M12E.10.12.21 ; M9E.434.Feb.16.2022 ; M7E.432.Feb.16.2022
-
-
-# We also remove the D16 samples as they have a strange behavior in the ordination
-ps <- subset_samples(ps, Time != "D16")
-ps <- prune_taxa(taxa_sums(ps)>0, ps)
-ps
-# 1918  taxa and 115 samples
 
 
 # Save object 
