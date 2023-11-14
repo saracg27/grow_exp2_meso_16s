@@ -7,7 +7,7 @@ format: html
 This report contains the results on the inverse redundancy analysis (RDA)
 performed on standardize heteroatom composition as response matrix, with
 a matrix of robust.aitch(or Hellinger) transformed microbial community agglomerated at
-Order rank in water samples. The time levels tested are d35 vs d62
+Order rank in water samples. The time levels tested are d0 vs d62
 
 The original data come from the GROW project, mesocosms experiment 2, water samples for both bacterial communities and heteroatom composition.
 
@@ -310,20 +310,16 @@ To agglomerate at order rank. Create a new phyloseq with the samples that were k
 analyses
 
 ```{r}
-otu <- otu_table(as.matrix(counts_f), taxa_are_rows = TRUE)
-tax <- tax_table(as.matrix(tax_clean))
-sample <- sample_data(meta_f)
-#colnames(sample)[colnames(sample) == "Day"] <- "Time"
-#rm(ps)
-# merge: 
+otu <- otu_table(as.matrix(otu_sub), taxa_are_rows = TRUE)
+tax <- tax_table(as.matrix(tax_sub))
+sample <- sample_data(meta_sub)
 ps <- phyloseq(otu, tax, sample)
 ```
 
 ### Agglomerate at order rank
 
 ```{r}
-ps_taxa <- tax_glom(ps, taxrank = 'Order', NArm = FALSE) 
-# 150 orders 
+ps_taxa <- tax_glom(ps, taxrank = 'Order', NArm = FALSE) # 145 orders 
 ```
 
 # DESeq2 
@@ -333,7 +329,7 @@ ps_taxa <- tax_glom(ps, taxrank = 'Order', NArm = FALSE)
 set.seed(123)
 # Subset the original phyloseq object 'ps_taxa' to only 
 #include samples from time points "D35" and "D62"
-ps_taxa_sub <- subset_samples(ps_taxa, Time %in% c("0", "62"))
+ps_taxa_sub <- subset_samples(ps_taxa, Day %in% c("0", "62"))
 
 # Filter out features (OTUs or taxa) that have more 
 #than 90% zeros across all samples
@@ -345,7 +341,7 @@ ps_taxa_pse_sub <- prune_taxa(rowSums(otu_table(ps_taxa_sub) == 0)
 
 # Convert the filtered phyloseq object to a DESeq2 object,
 #using 'Time' as the variable of interest
-ps_ds <- phyloseq_to_deseq2(ps_taxa_pse_sub, ~ Time)
+ps_ds <- phyloseq_to_deseq2(ps_taxa_pse_sub, ~ Day)
 
 # Estimate size factors for normalization using the 
 #"poscounts" method, which is useful when many genes have 
@@ -377,7 +373,7 @@ taxa_sig <- rownames(res_sign) # 7
 
 # Convert the counts in the original phyloseq object 'ps_taxa' 
 #to relative abundances (percentages)
-ps_taxa_rel <- transform_sample_counts(ps, function(x) x/sum(x)*100)
+ps_taxa_rel <- transform_sample_counts(ps, function(x) x/sum(x))
 colsumscheck_rel <- colSums(ps_taxa_rel@otu_table) # Sanity Check
 # Subset the relative abundance phyloseq object to only include 
 #the significant taxa identified earlier
@@ -393,8 +389,7 @@ converted to the syntactically valid column names in data.frame (see
 'make.names').*
 
 ```{r}
-#sample_names(ps_taxa_sig) <- paste0("x_", sample_names(ps_taxa_sig)) 
-ps_taxa_df <- phyloseq_to_df(ps_taxa_sig) 
+ps_taxa_df <- phyloseq_to_df(ps_taxa_rel_sig) 
 unique(ps_taxa_df$Domain) #"Bacteria"
 unique(ps_taxa_df$Phylum) # "Actinobacteriota" "Cyanobacteria"    "Planctomycetota"  "Armatimonadota"   "Desulfobacterota"
 unique(ps_taxa_df$Class) # "Actinobacteria"   "Cyanobacteriia"   "Planctomycetes"   "Armatimonadia"    "Desulfuromonadia" "Vampirivibrionia"
@@ -416,7 +411,7 @@ rownames(ps_taxa_df) <- ps_taxa_df$OTU
 otu_g <- ps_taxa_df[, sapply(ps_taxa_df, is.numeric)] # 33 in 48
 rowSums(otu_g)
 # get meta_g
-meta_g <- heteroatoms_f
+meta_g <- heteroatoms_z
 
 # Check that names in match
 meta_g <- meta_g[order(row.names(meta_g)),]
@@ -455,6 +450,8 @@ treat <- meta_g[,colnames(meta_g) %in% treats]
 
 ```{r}
 # first, check that asv names match
+otu_g <- otu_g[, order(colnames(otu_g))]
+tax_g <- tax_g[order(rownames(tax_g)),]
 colnames(otu_g) == rownames(tax_g) 
 # then simplify names in otu_g to display in correlation
 colnames(otu_g) <- tax_g$Order 
@@ -492,15 +489,9 @@ The result show that 2 order groups are highly autocorrelated:
 
 ### Hellinger transform and check correlation 
 
-Since we present our results with robust.aitch transformed data, we will
-perform our RDA with this transformed dataset. We need to check for
-correlation of explanatory variables.
-
 ```{r}
-# We transform otu_g (robust.aitch transformation: sqrt of the relative abundance)
-#otu_hell <- decostand(otu_g, method = "clr", pseudocount = 1)
-#rowSums(otu_rclr)
-otu_hell <- decostand(otu_g, method = "hellinger")
+# We transform otu_g (hellinger transformation: sqrt of the relative abundance)
+otu_hell <- sqrt(otu_g)
 #rowSums(otu_hell)
 
 # We look at the pairwise correlation among ALL the explanation variables
@@ -541,12 +532,12 @@ performed on Hellinger transformed data.
 high_correlation_threshold <- 0.7
 
 # reduce size of corr matrix
-melt_corr <- reshape2::melt(corr_values_hell) #1089
+melt_corr <- reshape2::melt(corr_values_hell) #49
 
 # Identify correlation pairs with high correlation values
 correlation_pairs <- melt_corr[which(melt_corr$value >
                      high_correlation_threshold & 
-                         melt_corr$value < 1),] # 72
+                         melt_corr$value < 1),] # 8
 
 
 # Create a unique identifier for each pair
@@ -557,14 +548,8 @@ correlation_pairs_filtered <- correlation_pairs %>%
 
 # Filter out duplicate pairs based on the unique identifier
 unique_data <- correlation_pairs_filtered %>%
-  distinct(pair_id, .keep_all = TRUE) #36 with Hellinger transf, 15 with Aitchison transf
+  distinct(pair_id, .keep_all = TRUE) #4 with Hellinger transf
 
-# Remove the pair_id column if no longer needed
-unique_data <- unique_data %>%
-  select(-pair_id)
-
-unique(unique_data$Var1) # 
-unique(unique_data$Var2) # 
 
 ```
 
@@ -595,13 +580,13 @@ Including all variables in the model explain the heteroatom composition
 worse than a simple regression line.
 
 ### Perform ordistep
-
 ```{r}
 set.seed(123)
 #otu_g <- as.data.frame(otu_g)
 otu_hell <- as.data.frame(otu_hell)
 sel_f1 <- ordistep(object = rda0_1,
                     scope = rdaall_1,
+                   direction = "forward",
                     R2scope = adjR2.tbrda1)
 sel_f1$anova
 anova(sel_f1, by = "term") 
@@ -610,10 +595,9 @@ anova(sel_f1, by = "term")
 
 
 ### Train Minimal RDA
-
 ```{r}
 set.seed(123)
-rda_select_hell <- rda(atoms ~ ` Frankiales` + ` Pirellulales`,
+rda_select_hell <- rda(atoms_z ~  Frankiales + Pirellulales + Geobacterales,
                       data = otu_hell) # 
 anova.cca(rda_select_hell, permutations = how(nperm = 999), by = "term")
 anova.cca(rda_select_hell, permutations = how(nperm = 999))
@@ -626,34 +610,14 @@ smry <- summary(rda_select_hell)
 ```
 
 
-```{r include=FALSE}
-# capture.output(print(rda_select_hell), file = here("output", "tables", "RDA_atoms-explained-by-actinomarinales_hellinger.txt"))
-# capture.output(anova.cca(rda_select_hell, permutations = how(nperm = 999)), file = here("output", "tables", "RDA_atoms-explained-by-actinomarinales_ANOVA_hellinger.txt"))
-# capture.output(anova.cca(rda_select_hell, permutations = how(nperm = 999), by = "term"), file = here("output", "tables", "RDA_atoms-explained-by-actinomarinales_ANOVAbyTerm_hellinger.txt"))
-# capture.output(RsquareAdj(rda_select_hell)$adj.r.squared, file = here("output", "tables", "RDA_atoms-explained-by-actinomarinales_adj_Rsq-hellinger.txt"))
+```{#r include=FALSE}
+capture.output(print(rda_select_hell), file = here("output", "tables", "RDA_atoms-explained-by-frankiales_hellinger-Water_16S.txt"))
+capture.output(anova.cca(rda_select_hell, permutations = how(nperm = 999)), file = here("output", "tables", "RDA_atoms-explained-by-frankiales_ANOVA_hellinger-Water_16S.txt"))
+capture.output(anova.cca(rda_select_hell, permutations = how(nperm = 999), by = "term"), file = here("output", "tables", "RDA_atoms-explained-by-frankiales_ANOVAbyTerm_hellinger-Water_16S.txt"))
+capture.output(RsquareAdj(rda_select_hell)$adj.r.squared, file = here("output", "tables", "RDA_atoms-explained-by-frankiales_adj_Rsq-hellinger-Water_16S.txt"))
 ```
 
-We performed an RDA to explain the contribution of microbial taxa on the
-heteroatom composition. For this, we selected samples from times 0 and
-62, where we identified significantly different abundant clades (DA). In
-order to model the effect of microbes on a heteroatom composition (a
-response table of 42 features) we preselected the orders to be tested.
-Hence, we included only the orders that had a DESeq2 Log2FoldChange
-value of more than 2, and a pvalue of 10e-5 (0.00001). This allowed us
-to include only the taxa that were significantly contributing to the
-differentiation of the two time points. This operation yielded 7
-explanatory variables (orders normalized at relative abundance and then
-square rooted --\> (hellinger transformation). We then proceeded to
-select variables following the ordistep() function. With the results
-from the ordistep function and the visual inspection of the Spearman
-correlation results, we selected initially 2 orders to include in our
-RDA: *Frankiales* and *Pirellulales*. Members of the order
-*Frankiales* (F = 11.4790, p \< 0.001) had the strongest effect,
-whereas *Pirellulales* (F = 3.6026, p = 0.032) had a minor
-contribution on NAFC heteroatom structure on water. The adjusted proportion
-explained by the relative abundance of these two orders was 10.98% of
-the total variance in heteroatom composition. The model was: formula =
-atoms \~ *Frankiales* + *Pirellulales*. Although a small percentage, the variance explained by these two orders was significant (F = 7.5408, p \< 0.001, df = 2).
+We used inverse RDA to analyze the impact of microbial taxa on heteroatom composition. We selected samples from time points 0 and 62 and focused on taxa agglomerated at the order level based on their differential expression (log2FoldChange of 2 and p-value of 10-5). This allowed us to test only the taxa that significantly contributed to the differentiation of the two time points, reducing the number of features to be tested in RDA. We retained seven explanatory microbial orders (expressed as a Hellinger transformation with respect to the full microbial community composition). Forward selection identified three orders that contributed to differences in heteroatom composition: Frankiales (Actinomycetota), Geobacterales (Desulfobacterota), and Pirellulales (Plactomycetota). The square root of the relative abundance of these orders in the water fraction explained 13.57% of the heteroatom composition. The overall model was statistically significant (F = 3.3552, p < 0.001).
 
 ##  GGPLOT biplot for minimal RDA
 
@@ -665,11 +629,11 @@ to show the ones kept in the paper.
 
 ```{r}
 biplot <- data.frame(smry$biplot[,1:2])
-dim(biplot) # 2 2
-rownames(biplot) <- c("italic(Frankiales)", "italic(Pirellulales)")
+dim(biplot) # 3 2
+rownames(biplot) <- c("italic(Frankiales)", "italic(Pirellulales)", "italic(Geobacterales)")
 
 sites <- data.frame(smry$sites[,1:2])
-dim(sites) # 107   2
+dim(sites) # 46   2
 # merge metadata to sites
 if (all(rownames(sites) == rownames(meta_g))) { 
     sites <- cbind(sites, meta_g[,1:10])
@@ -726,9 +690,9 @@ rda.biplot <- ggplot(data = sites, aes(x = RDA1, y = RDA2)) +
               color = "red", size =4) +
     theme_classic() +
     xlim(-3, 3) +
-    ylim(-2.5, 1.5) +
-    xlab("RDA1 = 18.66% ") + # Values obtained from summary(rda_select_min)
-    ylab("RDA2 = 5.87% ") +
+    ylim(-2.5, 2.5) +
+    xlab("RDA1 = 16.84% ") + # Values obtained from summary(rda_select_hell)
+    ylab("RDA2 = 2.32% ") +
     theme(panel.background = element_blank(),
           legend.position = "right",
           legend.text = element_markdown(size = 10),
@@ -741,7 +705,7 @@ rda.biplot
 ```
 
 ```{r, include=FALSE}
-#ggsave(filename = here("output", "figures", "rda_order_vars_robust.aitch.eps"), plot = rda.biplot, height = 5, width = 7)
+ggsave(filename = here("output", "figures", "rda_order_vars_water16S.eps"), plot = rda.biplot, height = 5, width = 7)
 ```
 
 We can divide this RDA plot in two graphics to separate the warm from
@@ -778,7 +742,7 @@ rda.biplot.warm <- ggplot(data = warm, aes(x = RDA1, y = RDA2)) +
               color = "black", size = 4, parse = TRUE) +
     theme_classic() +
     xlim(-3, 3.5) +
-    ylim(-2.5, 1.5) +
+    ylim(-2.5, 2.5) +
     xlab("RDA1 = 9.98% ") +
     ylab("RDA2 = 1.85% ") +
   labs(title = "B) Warm")+
@@ -828,7 +792,7 @@ rda.biplot.cold <- ggplot(data = cold, aes(x = RDA1, y = RDA2)) +
 
     theme_classic() +
     xlim(-3, 3.5) +
-    ylim(-2.5, 1.5) +
+    ylim(-2.5, 2.5) +
       xlab("RDA1 = 18.66% ") +
     ylab("RDA2 = 5.87% ") +
   labs(title = "A) Cold")+
@@ -844,10 +808,6 @@ rda.biplot.cold
 
 ```
 
-```{#r, include=FALSE}
-ggsave(filename = here("output", "figures", "rda_order_vars_cold_robust.aitch.eps"), plot = rda.biplot, height = 5, width = 7)
-```
-
 ```{r, message=FALSE}
 library(ggpubr)
 p <- ggarrange(rda.biplot.cold, 
@@ -859,65 +819,74 @@ p
 
 ```
 
-```{#r, include=FALSE}
-ggsave(filename = here("output", "figures", "rda_order_vars_divided_p.eps"), plot = p, height = 6, width = 6.5)
+```{r, include=FALSE}
+ggsave(filename = here("output", "figures", "rda_order_vars_water_16S_divided_p.eps"), plot = p, height = 6, width = 6.5)
 ```
 
-# Relative abundance of *Actinomarinales* and *Micromonosporales* bacteria at time 0 and 62 in the mesocosms
+# Relative abundance of *Frankiales* and *Pirellulales* bacteria at time 0 and 62 in the mesocosms
 # -------------------------------------------
 ### Gather data for relAbund
 ```{r}
-dim(otu_sub) # raw counts 15186    48
+dim(otu_sub) # raw counts 1675 46
 otu_sub <- as.data.frame(otu_sub)
 #colnames(otu_sub) <- paste0("x_", colnames(otu_sub))
 otu_t <- t(otu_sub)
 otu_rel <- otu_t / rowSums(otu_t)
 rowSums(otu_rel)
-dim(meta_g) # 48 47
+dim(meta_g) # 46 53
 tax_sub <- as.data.frame(tax_sub)
-dim(tax_sub) #15186     6
-tax_actinos <- tax_sub[tax_sub$Order == "Actinomarinales" | 
-                         tax_sub$Order == "Micromonosporales",]
-unique(tax_actinos$Genus)
+dim(tax_sub) #1675     6
+tax_keep <- tax_sub[tax_sub$Order == "Frankiales" | 
+                         tax_sub$Order == "Pirellulales" |
+                           tax_sub$Order == "Geobacterales",]
+unique(tax_keep$Genus)
 ```
 
-There were 18851 ASVs in D0 and D62. Out of those, 81 belonged to orders Actinomarinales or Micromonosporales. These were subsequently classified in 9 different genera: Actinoplanes, Luedemannella, Dactylosporangium, Micromonospora, Allocatelliglobosispora, Rhizocola, Virgisporangium and unclassified Microsporaceae bacterium and unclassified Actinomarinales bacterium. 
+# Fix "uncultured" genus name
+```{r}
+tax_keep <- tax_keep |> 
+  mutate(Genus = ifelse(Genus == "uncultured", paste("uncultured", Family), Genus))
+tax_keep <- tax_keep |> 
+  mutate(Genus = ifelse(Genus == "uncultured uncultured", paste("uncultured", Order), Genus))
+unique(tax_keep$Genus)
+```
+
+
+There were 1675 ASVs in D0 and D62. Out of those, 46 belonged to orders of interest. These were subsequently classified in 15 different genera.
 
 
 ### Subset otu_rel based on 81 interesting asv
 ```{r}
-otu_actinos <- otu_rel[, colnames(otu_rel) %in% rownames(tax_actinos)] # 48 81
+otu_keep <- otu_rel[, colnames(otu_rel) %in% rownames(tax_keep)] # 46 46
 # bind treatment and abundance
 
-otu_actinos <- t(otu_actinos)
-str(otu_actinos)
-str(tax_actinos)
-tax_actinos <- tax_actinos[sort(rownames(tax_actinos)),]
-otu_actinos <- otu_actinos[sort(rownames(otu_actinos)),]
-rownames(tax_actinos) == rownames(otu_actinos)
-colnames(otu_actinos) <- paste0("x_", colnames(otu_actinos))
-rownames(meta_sub) <- paste0("x_", rownames(meta_sub))
+otu_keep <- t(otu_keep)
+str(otu_keep)
+str(tax_keep)
+tax_keep <- tax_keep[sort(rownames(tax_keep)),]
+otu_keep <- otu_keep[sort(rownames(otu_keep)),]
+rownames(tax_keep) == rownames(otu_keep)
 meta_sub <- meta_sub[sort(rownames(meta_sub)),]
-colnames(otu_actinos) == rownames(meta_sub)
-# Agglom otu_actinos at genus level
+colnames(otu_keep) == rownames(meta_sub)
+# Agglom otu_keep at genus level
 
-otu_actinos <- otu_table(as.matrix(otu_actinos), taxa_are_rows = TRUE)
-tax_actinos <- tax_table(as.matrix(tax_actinos))
+otu_keep <- otu_table(as.matrix(otu_keep), taxa_are_rows = TRUE)
+tax_keep <- tax_table(as.matrix(tax_keep))
 sample <- sample_data(meta_sub)
 colnames(sample)[colnames(sample) == "Day"] <- "Time"
 
 # merge: 
-ps_actinos <- phyloseq(otu = otu_actinos, tax = tax_actinos, sample = sample)
-ps_actinos_g <- tax_glom(ps_actinos, taxrank = 'Genus', NArm = FALSE) 
-# 9 in 48 samples
+ps_keep <- phyloseq(otu = otu_keep, tax = tax_keep, sample = sample)
+ps_keep_g <- tax_glom(ps_keep, taxrank = 'Genus', NArm = FALSE) 
+# 15 in 46 samples
 
-ps_actinos_df <- phyloseq_to_df(ps_actinos_g) 
-rownames(ps_actinos_df) <- ps_actinos_df$Genus
-otu_actinos <- ps_actinos_df[,-(1:7)] # 9 48
-otu_actinos <- t(otu_actinos)
-rownames(otu_actinos) == rownames(meta_sub)
-abund_treat <- cbind(meta_sub, otu_actinos)
-dim(abund_treat) # 48, 13
+ps_keep_df <- phyloseq_to_df(ps_keep_g) 
+rownames(ps_keep_df) <- ps_keep_df$Genus
+otu_keep <- ps_keep_df[,-(1:7)] # 9 48
+otu_keep <- t(otu_keep)
+rownames(otu_keep) == rownames(meta_sub)
+abund_treat <- cbind(meta_sub, otu_keep)
+dim(abund_treat) # 46, 19
 
 ```
 
@@ -985,16 +954,16 @@ p1 <- ggplot(data = genus_long, aes(y = Taxa, x = RelAbund, color = Time)) +
 p1
 
 # Save plots
-#ggsave(file = here::here("output", "figures", "relAbund_Actinos_genus_16S_sediments_pops.pdf"), p1, width = 6, height = 5, units = "in", dpi = 300,bg = "white")
-#ggsave(file = here::here("output", "figures", "relAbund_Actinos_genus_16S_sediments_pops.eps"), p1, width = 6, height = 5, units = "in", dpi = 300,bg = "white")
-#ggsave(file = here::here("output", "figures", "relAbund_Actinos_genus_16S_sediments_pops.png"), p1, width = 6, height = 5, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_keep_genus_16S_water_pops0.62.pdf"), p1, width = 6, height = 5, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_keep_genus_16S_water_pops0.62.eps"), p1, width = 6, height = 5, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_keep_genus_16S_water_pops0.62.png"), p1, width = 6, height = 5, units = "in", dpi = 300,bg = "white")
 ```
 
 
 ```{r}
 combined_plot <- ggarrange(p, p1, ncol = 2)
-ggsave(file = here::here("output", "figures", "test.png"), combined_plot, width =11, height = 7, units = "in", dpi = 150,bg = "white")
-ggsave(file = here::here("output", "figures", "test.eps"), combined_plot, width = 11, height = 7, units = "in", dpi = 72,bg = "white")
+# ggsave(file = here::here("output", "figures", "combined_plot_invRDA_water16S.png"), combined_plot, width =11, height = 7, units = "in", dpi = 150,bg = "white")
+# ggsave(file = here::here("output", "figures", "combined_plot_invRDA_water16S.eps"), combined_plot, width = 11, height = 7, units = "in", dpi = 72,bg = "white")
 ```
 
 
@@ -1003,6 +972,6 @@ ggsave(file = here::here("output", "figures", "test.eps"), combined_plot, width 
 # END OF SCRIPT
 
 ```{r}
-save.image(here("RData", "SCG_06_sediments_RDA.RData"))
+save.image(here("RData", "SCG_10_sediments_RDA.RData"))
 ```
 
