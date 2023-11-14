@@ -1,0 +1,1008 @@
+---
+title: "RDAinverse-16S-water"
+author: "Sara Correa Grcia"
+format: html
+---
+
+This report contains the results on the inverse redundancy analysis (RDA)
+performed on standardize heteroatom composition as response matrix, with
+a matrix of robust.aitch(or Hellinger) transformed microbial community agglomerated at
+Order rank in water samples. The time levels tested are d35 vs d62
+
+The original data come from the GROW project, mesocosms experiment 2, water samples for both bacterial communities and heteroatom composition.
+
+# Libraries and data
+# -------------------------------------------
+```{r, message=FALSE}
+#devtools::install_github("vmikk/metagMisc")
+source(here::here("source", "libraries.R"))
+library(dplyr)
+library(phyloseq)
+library(metagMisc)
+library(corrplot)
+```
+
+## Metadata
+```{r}
+meta <- read.csv(file = here("data","raw", "16S_water", "metadata.tsv"), dec = ".", header = T, row.names = 1, sep = "\t", comment.char = "") # 144 obs 6 vars load
+str(meta)
+meta[sapply(meta, is.character)] <- lapply(meta[sapply(meta, is.character)], as.factor) ## Convert character vectors to factors
+rownames(meta) <- stringr::str_replace_all(rownames(meta), '[-]', '.') # quick name clean up
+```
+
+## 16S ASV table
+Raw filtered counts
+```{r}
+raw <- read.csv(file = here("data", "raw", "16S_water", "Mesocosm_Water_16S_oct2023.ASV_table_norarefaction_dnNA.tsv"), dec = ".", sep = "\t", header = T, row.names = 1, comment.char = "") #2462 objs in 145 vars
+```
+To be consistent with the other water treatment analyses of the 16S community, we need to filter out samples where the library is smaller than 4000 reads. 
+
+## Load heteroatoms
+```{r, echo=FALSE}
+heteroatoms <- readRDS(here::here("RData", "mapping_heteroatoms_totalAbund.rds"))
+```
+We will also filter counts to keep samples that have a matching heteroatom composition
+
+# Wrangling
+# -------------------------------------------
+## LIBRARY SIZE
+Evaluate the clean library sizes to filter any samples with too low DNA counts.
+```{r}
+raw_libsize <- as.data.frame(colSums(raw[,1:ncol(raw)-1]))
+names(raw_libsize) <- c("lib_size")
+summary(raw_libsize)
+```
+
+ Min.   :    6                  
+ 1st Qu.:42124                  
+ Median :48850                  
+ Mean   :46845                  
+ 3rd Qu.:53589                  
+ Max.   :75408 
+ 
+There seems to be certain libraries that have a small size (min = 6). Get the ones where the library size is smaller than 4000. There will be two rounds of filtering: the first one aims at filtering out the 10 samples missing from the heteroatoms data set. There should be 24 samples per time point (time points available: 4 (0), 13(10), 20 (16), 40 (35), 66 (62)), for a total of 120 samples. However, time 40 (35) is missing 10 sampling points (destroyed during transportation?). There are currently 139 samples for microbial communities. We need to reduce that to the 110 available heteroatom samples. 
+Then, we need to perform a second filtering, to keep in heteroatoms data only the samples that produced large library sizes.
+Then we need to perform the same filtering for the metadata table. 
+```{r}
+small_libs <-  raw_libsize %>% filter_at(vars(1), any_vars(. < 4000))
+small_libs
+```
+
+                    lib_size
+M10E.Jan.31.2022         177
+M12E.10.12.21            189
+M2G.30.11.21               6
+M7E.432.Feb.16.2022      421
+M9E.434.Feb.16.2022      361
+
+There are 5 problematically low libraries. Check what are these in the metadata
+
+### Subset meta and raw
+```{r}
+meta <- meta[!rownames(meta) %in% rownames(small_libs), ] # left with 139 samples
+# Transfer taxonomy to another dataframe to cbind later with good samples
+taxonomy <- as.data.frame(raw$taxonomy)
+rownames(taxonomy) <- rownames(raw)
+raw <- raw[ , colnames(raw) %in% rownames(meta)]
+#raw <- cbind(raw, taxonomy)
+rm(raw_libsize)
+rm(small_libs)
+```
+
+## TAXONOMY (RAW COUNTS)
+
+### Separate taxonomy into groups
+```{r}
+names(taxonomy) <- c("taxonomy")
+tax_raw_clean <- separate(taxonomy, taxonomy, into = c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species", "Strain"), sep = ";")
+tax_raw_clean <- tax_raw_clean[,-which(names(tax_raw_clean) %in% c("Species", "Strain"))]
+tax_raw_clean <- as.data.frame(tax_raw_clean)
+levels(as.factor(tax_raw_clean$Domain)) #  Bacteria, all ok
+levels(as.factor(tax_raw_clean$Phylum)) #  24 Phyla 
+levels(as.factor(tax_raw_clean$Class)) # 57 classes
+levels(as.factor(tax_raw_clean$Order)) # 139 orders
+levels(as.factor(tax_raw_clean$Family)) # 202 Families
+levels(as.factor(tax_raw_clean$Genus)) # 342 genus
+str(tax_raw_clean)
+```
+
+### Clean taxonomy names
+```{r}
+# eliminate the characters  -----
+pattern <- "[a-z]__"
+replacement <- ""
+tax_clean <- as.data.frame(apply(tax_raw_clean, 2, function(col) gsub(pattern, replacement, col)))
+pattern <- " "
+replacement <- ""
+tax_clean <- as.data.frame(apply(tax_clean, 2, function(col) gsub(pattern, replacement, col)))
+rm(pattern)
+rm(replacement)
+```
+
+### Fill NAs with last available taxon rank
+```{r}
+tax_clean <- tax_clean |> 
+   t() |> 
+   as.data.frame() |> 
+   fill(everything(), .direction = "down") |> 
+   t() |> 
+   as.data.frame()
+rm(tax_raw_clean)
+```
+
+### Create clean count table no tax
+```{r}
+counts <- raw[, sapply(raw, is.numeric)]
+```
+
+
+## HETEROATOMS AND META
+### Set rownames in heteroatoms
+```{r}
+heteroatoms <- as.data.frame(heteroatoms)
+heteroatoms$ID <- paste0(heteroatoms$Greenhouse, "_", heteroatoms$Mesocosms.., "_", heteroatoms$Day)
+rownames(heteroatoms) <- heteroatoms$ID
+heteroatoms$ID <- NULL
+dim(heteroatoms) # There are 110 samples and 53 variables
+heteroatoms$Day <- as.factor(heteroatoms$Day)
+```
+
+### Subset heteroatoms to time points 0-62
+Erase, recode, standardize variables. We select 0 and 62 to match our choice for sediment data.
+```{r}
+
+heteroatoms <- heteroatoms[heteroatoms$Day == "0" | heteroatoms$Day == "62",]
+# heteroatoms <- heteroatoms |> 
+#     dplyr::select(-c("SampleID", "File Name", "Mesocosms..",
+#            "Greenhouse", "Sample.type", "Day_microbiome"))
+dim(heteroatoms) # 48 53
+colSums(heteroatoms[,11:ncol(heteroatoms)])
+# keep only the data where the colSums is larger than 0 (at least a value in one of the samples) 
+# retains char, factors and numeric columns where colSums > 0
+# Filter columns: Keep non-numeric or numeric columns with colSum > 0
+heteroatoms <- heteroatoms[, sapply(heteroatoms, function(col) {
+    
+# check if the current column col is numeric.
+  if (is.numeric(col)) {
+#If the column is numeric, we use any(col != 0) to check if there are any non-zero values in the column. This effectively checks if the colSum is greater than 0.
+    return(any(col != 0))
+# If the column is not numeric (i.e., it's not numeric data type), we enter this part of the conditional.
+  } else {
+#For non-numeric columns, we simply return TRUE, indicating that we want to keep all non-numeric columns.
+    return(TRUE)
+  }
+# Close the sapply function and use the resulting logical vector to subset the data. This line filters the columns of heteroatoms based on the conditions specified in the sapply function.
+})]
+dim(heteroatoms) # 48 23
+```
+
+### Subset genomic data (139 samples) based on the samples present in heteroatoms_z (48)
+
+The metadata and names of the samples do not match. Create a function to extract the information from the water sample ids, and then create a common id for both datasets
+```{r}
+split_strings <- function(input_vector) {
+    # Split each element of the input vector using underscores
+    split_parts <- lapply(input_vector, function(x) unlist(strsplit(x, "_")))
+    
+    # Create a data frame with three columns
+    data_frame <- data.frame(
+        Mesocosms.. = sapply(split_parts, function(x) {
+            modified_column1 <- substr(x[1], 2, nchar(x[1]) - 1)  # Remove the first and last characters (M and last character)
+            if (substring(x[1], 1, 1) == "M") {
+                modified_column1 <- paste("Mesocosm", modified_column1, sep = "_")
+            }
+            modified_column1
+        }),
+        Date = sapply(split_parts, function(x) paste(x[-1], collapse = "_")),  # Combine the rest with underscores
+        Greenhouse = sapply(split_parts, function(x) substr(x[1], nchar(x[1]), nchar(x[1])))  # Extract the last character from Column1
+    )
+    # Set row names of the data frame to match the input vector
+  rownames(data_frame) <- input_vector
+    return(data_frame)
+}
+```
+
+This new function accepts a vector as input. Use the "string" object
+```{r}
+string <- as.vector(meta$alias)
+result <- split_strings(string)
+print(result)
+rownames(result) <- stringr::str_replace_all(rownames(result), '[_]', '.') # quick name clean up
+```
+
+### Merge the newly separate result to the metadata
+```{r}
+rownames(result) == rownames(meta)
+meta <- cbind(meta, result)
+rm(result)
+rm(string)
+```
+
+### Create a unique identifier 
+We can create a unique identifier for each sample, using basic info regarding the greenhouse (for the temperature treatment), the mesocosm number (for the plant treatment applied) and the date. 
+```{r}
+# Change names in meta
+levels(as.factor(meta$Time))
+meta$Time <- factor(meta$Time,
+                         levels = c("D-0", "D8", "D15", "D34" ,"D61" ,"D77" ), 
+                         labels = c("0", "10", "16", "35" ,"62" ,"77" ))
+meta$ID <- paste0(meta$Greenhouse, "_", meta$Mesocosms.., "_", meta$Time)
+rownames(meta) <- meta$ID
+colnames(counts) <- stringr::str_replace_all(colnames(counts), '[.]', '_') # Change . to _ to match values in meta$alias 
+meta <- meta[order(meta$alias),] #order meta by alias (which has the sames values as count colnames)
+counts <- counts[,order(colnames(counts))] # Order counts to match meta alias orders
+meta$alias == colnames(counts) # Ensure they are all true
+colnames(counts) <- rownames(meta) # change colnames in cunts to match new ID column
+colnames(counts) == rownames(meta)# Check all TRUE
+```
+
+##FILTER DATASETS
+
+```{r}
+### Filter 1: keep 48 samples in meta and counts
+meta_f <- meta[rownames(meta) %in% rownames(heteroatoms),] # 46 in 10 vars
+counts_f <- counts[,colnames(counts) %in% rownames(heteroatoms)] # 46
+### Filter 2: keep 105 samples in all (small libraries out)
+heteroatoms_f <- heteroatoms[rownames(heteroatoms) %in% rownames(meta),] # 46
+```
+There is a total of 46 samples for dates 0 and 62.
+
+Check all datasets are in order
+```{r}
+#Order
+heteroatoms_f <- heteroatoms_f[order(rownames(heteroatoms_f)),]
+meta_f <- meta_f[order(rownames(meta_f)),]
+counts_f <- counts_f[,order(colnames(counts_f))]
+#Check
+rownames(meta_f) == colnames(counts_f)
+rownames(meta_f) == rownames(heteroatoms_f)
+if (all(row.names(counts_f) == rownames(tax_clean) )) {
+  print("Sanity check ok")
+} else {
+  print("ERROR: not all row names are the same")
+}
+```
+
+### Create other versions of heteroatoms
+```{r}
+heteroatoms_z <- heteroatoms_f |> 
+    mutate_if(~!is.numeric(.), as.factor) |> 
+    mutate_if(is.numeric, scale)    # standardize
+
+# Check it work
+heteroatoms_z |> 
+    summarise_if(is.numeric, list(mean = ~round(mean(.)), std = ~sd(.))) 
+heteroatoms_t <- t(heteroatoms_f[,12:ncol(heteroatoms_f)])
+
+heteroatoms_rel <- apply(heteroatoms_t, 2, function(x) x/sum(x)) # samples are cols, species are rows
+colSums(heteroatoms_rel)
+heteroatoms_rel <- t(heteroatoms_rel) # back to sp as cols
+dim(heteroatoms_rel) # 46 42
+dim(heteroatoms_z) # should be 46 53
+```
+
+### Clean environment before continuing
+```{r}
+rm(list = c("counts", "heteroatoms", "meta", "raw", "taxonomy"))
+```
+
+
+#  Phyloseq
+# -------------------------------------------
+
+```{r}
+#class(meta)
+#meta <- as.data.frame(meta)
+meta_sub <- heteroatoms_z[,!sapply(heteroatoms_z, is.numeric)] 
+otu_sub <- counts_f[ ,colnames(counts_f) %in% rownames(meta_sub)] 
+otu_sub <- otu_sub[rowSums(otu_sub) > 0, ] # 1675 in 46 samples
+tax_sub <- tax_clean[rownames(tax_clean) %in% rownames(otu_sub),]
+dim(otu_sub) #1675 in 46 samples
+meta_sub <- meta_sub[rownames(meta_sub) %in% colnames(otu_sub),]
+treats <- c("Temperature", "Day", "Plant.type", "Mesocosms..")
+meta_sub <- meta_sub[,colnames(meta_sub) %in% treats]
+dim(meta_sub) #46   4
+```
+
+
+### Create Phylo Object 
+To agglomerate at order rank. Create a new phyloseq with the samples that were kept for the NA
+analyses
+
+```{r}
+otu <- otu_table(as.matrix(counts_f), taxa_are_rows = TRUE)
+tax <- tax_table(as.matrix(tax_clean))
+sample <- sample_data(meta_f)
+#colnames(sample)[colnames(sample) == "Day"] <- "Time"
+#rm(ps)
+# merge: 
+ps <- phyloseq(otu, tax, sample)
+```
+
+### Agglomerate at order rank
+
+```{r}
+ps_taxa <- tax_glom(ps, taxrank = 'Order', NArm = FALSE) 
+# 150 orders 
+```
+
+# DESeq2 
+# -------------------------------------------
+# Run DEseq2 at order rank
+```{r}
+set.seed(123)
+# Subset the original phyloseq object 'ps_taxa' to only 
+#include samples from time points "D35" and "D62"
+ps_taxa_sub <- subset_samples(ps_taxa, Time %in% c("0", "62"))
+
+# Filter out features (OTUs or taxa) that have more 
+#than 90% zeros across all samples
+# This is done by checking the number of zeros in each row
+#of the OTU table and comparing it to 90% of the total
+#number of columns (samples)
+ps_taxa_pse_sub <- prune_taxa(rowSums(otu_table(ps_taxa_sub) == 0) 
+                              < ncol(otu_table(ps_taxa_sub)) * 0.9, ps_taxa_sub) #112
+
+# Convert the filtered phyloseq object to a DESeq2 object,
+#using 'Time' as the variable of interest
+ps_ds <- phyloseq_to_deseq2(ps_taxa_pse_sub, ~ Time)
+
+# Estimate size factors for normalization using the 
+#"poscounts" method, which is useful when many genes have 
+#zeros in some samples
+ds <- estimateSizeFactors(ps_ds, type = "poscounts")
+
+# Perform differential abundance analysis using the 
+#Wald test and a parametric fit
+ds <- DESeq(ds, test = "Wald", fitType = "parametric")
+
+# Set the significance threshold (alpha) to 0_05
+alpha <- 0.05 
+
+# Retrieve the results of the differential abundance analysis
+res <- results(ds, alpha = alpha)
+
+# Order the results by the adjusted p-values 
+#(padj) in ascending order
+res <- res[order(res$padj, na.last = NA), ]
+res_df <- as.data.frame(res)
+res_sign <- res_df[res_df$padj < 0.00001 &
+                       res_df$log2FoldChange > 2,] 
+# 7 orders with p value smaller than 10-5 (-log10 > 5,
+#like in volcano plot)
+taxa_sig_df <- tax[rownames(tax) %in% rownames(res_sign),1:4]
+
+# Extract the names (taxa) of the features with the lowest adjusted p-values
+taxa_sig <- rownames(res_sign) # 7
+
+# Convert the counts in the original phyloseq object 'ps_taxa' 
+#to relative abundances (percentages)
+ps_taxa_rel <- transform_sample_counts(ps, function(x) x/sum(x)*100)
+colsumscheck_rel <- colSums(ps_taxa_rel@otu_table) # Sanity Check
+# Subset the relative abundance phyloseq object to only include 
+#the significant taxa identified earlier
+ps_taxa_rel_sig <- prune_taxa(taxa_sig, ps_taxa_rel)
+ps_taxa_sig <- prune_taxa(taxa_sig, ps)
+```
+
+### Extract agglomerated tables at genus to run RDA
+
+Change column names, R doesn't allow for columns to start by a number.
+Avoids error : *Sample names in 'physeq' could not be automatically
+converted to the syntactically valid column names in data.frame (see
+'make.names').*
+
+```{r}
+#sample_names(ps_taxa_sig) <- paste0("x_", sample_names(ps_taxa_sig)) 
+ps_taxa_df <- phyloseq_to_df(ps_taxa_sig) 
+unique(ps_taxa_df$Domain) #"Bacteria"
+unique(ps_taxa_df$Phylum) # "Actinobacteriota" "Cyanobacteria"    "Planctomycetota"  "Armatimonadota"   "Desulfobacterota"
+unique(ps_taxa_df$Class) # "Actinobacteria"   "Cyanobacteriia"   "Planctomycetes"   "Armatimonadia"    "Desulfuromonadia" "Vampirivibrionia"
+unique(ps_taxa_df$Order) # "Frankiales"         "Synechococcales"    " Pirellulales"       "Armatimonadales"    "Pseudanabaenales"   "Geobacterales"     "Vampirovibrionales"
+
+# ensure the same samples are in otu and meta
+#heteroatoms_z <- heteroatoms_z[rownames(heteroatoms_z) %in% rownames(meta_sub),] 
+
+# make row names in heteroatoms match column names in ps_taxa_df
+#rownames(heteroatoms_z) <- paste0("x_", rownames(heteroatoms_z))
+#rownames(heteroatoms) <- paste0("x_", rownames(heteroatoms))
+# Get the taxonomy apart tax_g
+tax_g <- ps_taxa_df[,1:7]
+rownames(tax_g) <- tax_g$OTU
+tax_g$OTU <- NULL
+
+# Extract otu_g
+rownames(ps_taxa_df) <- ps_taxa_df$OTU
+otu_g <- ps_taxa_df[, sapply(ps_taxa_df, is.numeric)] # 33 in 48
+rowSums(otu_g)
+# get meta_g
+meta_g <- heteroatoms_f
+
+# Check that names in match
+meta_g <- meta_g[order(row.names(meta_g)),]
+
+otu_g <- otu_g[, order(colnames(otu_g))]
+rownames(meta_g) == colnames(otu_g)
+otu_g <- t(otu_g)
+rownames(meta_g) == rownames(otu_g)
+```
+
+
+Clean environment out of variables that are not needed anymore before
+moving into the next part of the analyses
+
+```{#r}
+rm(list = c("tax_clean"))
+```
+
+### Set heteroatoms
+```{r}
+atoms <- meta_g[,12:ncol(meta_g)]
+```
+
+### Set NA concentration
+```{r}
+na <- meta_g[,11]
+```
+
+### Set treatments
+```{r}
+treats <- c("Temperature", "Day", "Plant.type", "Mesocosms..")
+treat <- meta_g[,colnames(meta_g) %in% treats]
+```
+
+### Check for autocorrelation
+
+```{r}
+# first, check that asv names match
+colnames(otu_g) == rownames(tax_g) 
+# then simplify names in otu_g to display in correlation
+colnames(otu_g) <- tax_g$Order 
+
+# We look at the pairwise correlation among ALL the explanation variables
+corr_values <- round(cor(otu_g, method = "spearman"), 2) # Calculate correlation
+
+pdf(file = here("output", "figures", "correlation-order-level-water16S.pdf"),height = 8)
+plot_cor <- corrplot(corr_values,
+                     method = "circle",
+                     type = "lower",
+                     insig = "blank",
+                     number.cex = 0.6,
+                     order = "hclust",
+                     addrect = 2,
+                     diag = FALSE,
+                     cl.ratio = 0.2, # justify iwdth of legend
+                       tl.cex = 0.7,
+                       tl.col = "black",
+                       tl.srt = 45,
+                       col = COL2('PuOr', n = 10),
+                       title = "Spearman correlation between Order abundance",
+                     mar=c(0,0,2,0))
+
+dev.off()
+
+```
+
+![](images/correlation-order-level-01.png)
+
+The result show that 2 order groups are highly autocorrelated:
+
+ *Pseudanabaenales* with *Geobacterales* from phyla *Cyanobacteria* and *Desulfobacterota*, respectively. 
+    methanotrophs
+
+### Hellinger transform and check correlation 
+
+Since we present our results with robust.aitch transformed data, we will
+perform our RDA with this transformed dataset. We need to check for
+correlation of explanatory variables.
+
+```{r}
+# We transform otu_g (robust.aitch transformation: sqrt of the relative abundance)
+#otu_hell <- decostand(otu_g, method = "clr", pseudocount = 1)
+#rowSums(otu_rclr)
+otu_hell <- decostand(otu_g, method = "hellinger")
+#rowSums(otu_hell)
+
+# We look at the pairwise correlation among ALL the explanation variables
+corr_values_hell <- round(cor(otu_hell, method = "spearman"), 2) 
+# Calculate correlation
+
+pdf(file = here("output", "figures",
+                "correlation-order-level-hell_16S-water.pdf"),
+    height = 8)
+plot_cor_hell <- corrplot(corr_values_hell,
+                     method = "circle",
+                     type = "lower",
+                     insig = "blank",
+                     number.cex = 0.6,
+                     order = "hclust",
+                     addrect = 2,
+                     diag = FALSE,
+                     cl.ratio = 0.2, # justify iwdth of legend
+                       tl.cex = 0.7,
+                       tl.col = "black",
+                       tl.srt = 45,
+                       col = COL2('PuOr', n = 10),
+                       title = "Spearman correlation between Order abundances - Hellinger",
+                     mar=c(0,0,4,0))
+
+dev.off()
+
+```
+
+![](images/correlation-order-level-hellinger.png)
+
+The autocorrelation graph yields only slightly different results when
+performed on Hellinger transformed data.
+
+### Identify and select variables to retain (e.g., based on high correlation threshold)
+
+```{r}
+high_correlation_threshold <- 0.7
+
+# reduce size of corr matrix
+melt_corr <- reshape2::melt(corr_values_hell) #1089
+
+# Identify correlation pairs with high correlation values
+correlation_pairs <- melt_corr[which(melt_corr$value >
+                     high_correlation_threshold & 
+                         melt_corr$value < 1),] # 72
+
+
+# Create a unique identifier for each pair
+correlation_pairs_filtered <- correlation_pairs %>%
+  rowwise() %>%
+  mutate(pair_id = paste(sort(c(Var1, Var2)), collapse = "-")) %>%
+  ungroup()
+
+# Filter out duplicate pairs based on the unique identifier
+unique_data <- correlation_pairs_filtered %>%
+  distinct(pair_id, .keep_all = TRUE) #36 with Hellinger transf, 15 with Aitchison transf
+
+# Remove the pair_id column if no longer needed
+unique_data <- unique_data %>%
+  select(-pair_id)
+
+unique(unique_data$Var1) # 
+unique(unique_data$Var2) # 
+
+```
+
+# RDA
+# -------------------------------------------
+
+## RDA analyses
+### Selection of variables with ordi2step
+
+### Compute *null* and *full* models
+
+```{r}
+set.seed(123)
+atoms$ID <- NULL
+atoms_z <- scale(atoms)
+
+# Create simplest and most complex models
+rda0_1 <- rda(atoms_z ~ 1, data = otu_hell)
+rdaall_1 <- rda(atoms_z ~ ., data = as.data.frame(otu_hell)) # 
+rdaall_1
+anova(rdaall_1, by = "term")
+adjR2.tbrda1 <- RsquareAdj(rdaall_1)$adj.r.squared  
+# -0.36 with robust.aitch transformed data 
+
+```
+
+Including all variables in the model explain the heteroatom composition
+worse than a simple regression line.
+
+### Perform ordistep
+
+```{r}
+set.seed(123)
+#otu_g <- as.data.frame(otu_g)
+otu_hell <- as.data.frame(otu_hell)
+sel_f1 <- ordistep(object = rda0_1,
+                    scope = rdaall_1,
+                    R2scope = adjR2.tbrda1)
+sel_f1$anova
+anova(sel_f1, by = "term") 
+#summary(sel_f1)
+```
+
+
+### Train Minimal RDA
+
+```{r}
+set.seed(123)
+rda_select_hell <- rda(atoms ~ ` Frankiales` + ` Pirellulales`,
+                      data = otu_hell) # 
+anova.cca(rda_select_hell, permutations = how(nperm = 999), by = "term")
+anova.cca(rda_select_hell, permutations = how(nperm = 999))
+summary(rda_select_hell)
+#print(rda_select_hell)
+adjR2.rda.hell <- RsquareAdj(rda_select_hell)$adj.r.squared 
+# 0.2117 explained by Actinomarinales and 
+#Micromonosporales with std atoms and robust.aitch norm comm data.
+smry <- summary(rda_select_hell)
+```
+
+
+```{r include=FALSE}
+# capture.output(print(rda_select_hell), file = here("output", "tables", "RDA_atoms-explained-by-actinomarinales_hellinger.txt"))
+# capture.output(anova.cca(rda_select_hell, permutations = how(nperm = 999)), file = here("output", "tables", "RDA_atoms-explained-by-actinomarinales_ANOVA_hellinger.txt"))
+# capture.output(anova.cca(rda_select_hell, permutations = how(nperm = 999), by = "term"), file = here("output", "tables", "RDA_atoms-explained-by-actinomarinales_ANOVAbyTerm_hellinger.txt"))
+# capture.output(RsquareAdj(rda_select_hell)$adj.r.squared, file = here("output", "tables", "RDA_atoms-explained-by-actinomarinales_adj_Rsq-hellinger.txt"))
+```
+
+We performed an RDA to explain the contribution of microbial taxa on the
+heteroatom composition. For this, we selected samples from times 0 and
+62, where we identified significantly different abundant clades (DA). In
+order to model the effect of microbes on a heteroatom composition (a
+response table of 42 features) we preselected the orders to be tested.
+Hence, we included only the orders that had a DESeq2 Log2FoldChange
+value of more than 2, and a pvalue of 10e-5 (0.00001). This allowed us
+to include only the taxa that were significantly contributing to the
+differentiation of the two time points. This operation yielded 7
+explanatory variables (orders normalized at relative abundance and then
+square rooted --\> (hellinger transformation). We then proceeded to
+select variables following the ordistep() function. With the results
+from the ordistep function and the visual inspection of the Spearman
+correlation results, we selected initially 2 orders to include in our
+RDA: *Frankiales* and *Pirellulales*. Members of the order
+*Frankiales* (F = 11.4790, p \< 0.001) had the strongest effect,
+whereas *Pirellulales* (F = 3.6026, p = 0.032) had a minor
+contribution on NAFC heteroatom structure on water. The adjusted proportion
+explained by the relative abundance of these two orders was 10.98% of
+the total variance in heteroatom composition. The model was: formula =
+atoms \~ *Frankiales* + *Pirellulales*. Although a small percentage, the variance explained by these two orders was significant (F = 7.5408, p \< 0.001, df = 2).
+
+##  GGPLOT biplot for minimal RDA
+
+### Extract coordinates
+
+We extract the coordinates for the biplot, and rename the row names to
+italicize where appropriate. We also subset the heteroatoms to display,
+to show the ones kept in the paper.
+
+```{r}
+biplot <- data.frame(smry$biplot[,1:2])
+dim(biplot) # 2 2
+rownames(biplot) <- c("italic(Frankiales)", "italic(Pirellulales)")
+
+sites <- data.frame(smry$sites[,1:2])
+dim(sites) # 107   2
+# merge metadata to sites
+if (all(rownames(sites) == rownames(meta_g))) { 
+    sites <- cbind(sites, meta_g[,1:10])
+} else {
+        print("diff row names")
+    }
+species <- data.frame(smry$species[,1:2])
+dim(species) # 42 2
+# Keep only a small subset of heteroatom species to display, 
+#according to especies shown in the paper
+atoms_keep <- c("O", "O2", "O3", "O4", "O5", "O6", "O7", "S", "OS", "O2S",
+                "O3S", "N2O3", "NO6", "N2", "N2O3S", "N2S", "O2S2")
+species <- species[rownames(species) %in% atoms_keep, ]
+dim(species) # 17 2
+```
+
+### Reset variables
+
+Set colors to match manuscript palette and levels
+
+```{r}
+high_contrast <- c("#000004FF", "#721F81FF" ,"#B63679FF" ,"#F1605DFF", "#FEAF77FF") 
+sites$Plant.type <- factor(sites$Plant.type, 
+                           levels = c("no plant", "Scirpus", "Triglochin"),
+                           labels = c("no plant", "*Scirpus*", "*Triglochin*"))
+
+names(sites)[names(sites) == 'Plant.type'] <- 'Conditions'
+```
+
+### Plot the biplot
+
+```{r}
+
+rda.biplot <- ggplot(data = sites, aes(x = RDA1, y = RDA2)) + 
+    geom_point(aes(fill = factor(sites$Day),
+                   shape = sites$Conditions),
+               size = 4, colour = "grey40") +
+    scale_fill_manual(values = c("#000004FF",  "#FEAF77FF")) + 
+    scale_shape_manual(values = c(21,22,23),name = "Conditions") +
+    geom_hline(yintercept=0, linetype="dotted") +
+    geom_vline(xintercept=0, linetype="dotted") +
+    coord_fixed() +
+    geom_segment(data = biplot, 
+                 aes(x = 0, xend = RDA1 * 1, y = 0, yend = RDA2 * 1), 
+                 color = "black", 
+                 arrow = arrow(length = unit(0.1, "cm"))) + 
+    geom_text(data = biplot, 
+              aes(x = RDA1 * 1, y = RDA2 * 1,label = rownames(biplot),
+                  hjust = 0.5 * (1 - sign(RDA1)), 
+                  vjust = 0.5 * (1 - sign(RDA2))), 
+              color = "black", size = 4, parse = TRUE) +
+    geom_text(data = species,
+              aes(x = RDA1, y = RDA2, label = rownames(species)),
+              color = "red", size =4) +
+    theme_classic() +
+    xlim(-3, 3) +
+    ylim(-2.5, 1.5) +
+    xlab("RDA1 = 18.66% ") + # Values obtained from summary(rda_select_min)
+    ylab("RDA2 = 5.87% ") +
+    theme(panel.background = element_blank(),
+          legend.position = "right",
+          legend.text = element_markdown(size = 10),
+          axis.title = element_text(size = 10)) + 
+    guides(fill = guide_legend(override.aes=list(shape = 21), title = "Day"),
+           shape = guide_legend(override.aes=list(fill = "grey40"))) 
+rda.biplot
+
+
+```
+
+```{r, include=FALSE}
+#ggsave(filename = here("output", "figures", "rda_order_vars_robust.aitch.eps"), plot = rda.biplot, height = 5, width = 7)
+```
+
+We can divide this RDA plot in two graphics to separate the warm from
+the cold data to match the style from the figures already present in the
+first draft of the manuscript.
+
+### Warm plot
+
+```{r, message=FALSE}
+warm <- sites[sites$Temperature == "warm",]
+cold <- sites[sites$Temperature == "cold",]
+rda.biplot.warm <- ggplot(data = warm, aes(x = RDA1, y = RDA2)) + 
+    geom_point(aes(fill = factor(warm$Day),
+                   shape = warm$Conditions),
+               size = 4, colour = "grey40") +
+    scale_fill_manual(values = c("#000004FF",  "#FEAF77FF")) + 
+    scale_shape_manual(values = c(21,22,23),name = "Conditions") +
+    geom_hline(yintercept=0, linetype="dotted") +
+    geom_vline(xintercept=0, linetype="dotted") +
+    coord_fixed() +
+    geom_segment(data = biplot, 
+                 aes(x = 0, xend = RDA1 * 1, y = 0, yend = RDA2 * 1), 
+                 color = "black", 
+                 arrow = arrow(length = unit(0.1, "cm"))) + 
+    geom_point(data = species, aes(x = RDA1, y = RDA2),
+              color = "red", size = 1) +
+    geom_text_repel(data = species,
+              aes(x = RDA1, y = RDA2, label = rownames(species)),
+              color = "red", size = 3,  max.overlaps = 5) +
+      geom_text_repel(data = biplot, 
+              aes(x = RDA1 * 1.4, y = RDA2 * 1.3,label = rownames(biplot),
+                  hjust = 0.5 * (1 - sign(RDA1)), 
+                  vjust = 0.5 * (1 - sign(RDA2))), 
+              color = "black", size = 4, parse = TRUE) +
+    theme_classic() +
+    xlim(-3, 3.5) +
+    ylim(-2.5, 1.5) +
+    xlab("RDA1 = 9.98% ") +
+    ylab("RDA2 = 1.85% ") +
+  labs(title = "B) Warm")+
+    theme(panel.background = element_blank(),
+          legend.position = "right",
+          title = element_text(size = 10, face = "bold"),
+          legend.text = element_markdown(size = 10),
+          legend.title = element_text(size = 10),
+          axis.title = element_text(size = 10)) + 
+    guides(fill = guide_legend(override.aes=list(shape = 21), title = "Day"),
+           shape = guide_legend(override.aes=list(fill = "grey40"))) 
+rda.biplot.warm
+
+```
+
+```{r, include=FALSE}
+#ggsave(filename = here("output", "figures", "rda_order_vars_warm_robust.aitch.eps"), plot = rda.biplot.warm, height = 5, width = 7)
+```
+
+### Cold plot
+
+```{r, message=FALSE}
+cold <- sites[sites$Temperature == "cold",]
+rda.biplot.cold <- ggplot(data = cold, aes(x = RDA1, y = RDA2)) + 
+    geom_point(aes(fill = factor(cold$Day),
+                   shape = cold$Conditions),
+               size = 4, colour = "grey40") +
+    scale_fill_manual(values = c("#000004FF",  "#FEAF77FF")) + 
+    scale_shape_manual(values = c(21,22,23),name = "Conditions") +
+    geom_hline(yintercept=0, linetype="dotted") +
+    geom_vline(xintercept=0, linetype="dotted") +
+    coord_fixed() +
+        geom_point(data = species, aes(x = RDA1, y = RDA2),
+              color = "red", size = 1) +
+      geom_text_repel(data = species,
+              aes(x = RDA1, y = RDA2, label = rownames(species)),
+              color = "red", size =3, max.overlaps = 5) +
+    geom_segment(data = biplot, 
+                 aes(x = 0, xend = RDA1 * 1, y = 0, yend = RDA2 * 1), 
+                 color = "black", 
+                 arrow = arrow(length = unit(0.1, "cm"))) + 
+    geom_text_repel(data = biplot, 
+              aes(x = RDA1 * 1.3, y = RDA2 * 1.2,label = rownames(biplot),
+                  hjust = 0.5 * (1 - sign(RDA1)), 
+                  vjust = 0.5 * (1 - sign(RDA2))), 
+              color = "black", size = 4, parse = TRUE) +
+
+    theme_classic() +
+    xlim(-3, 3.5) +
+    ylim(-2.5, 1.5) +
+      xlab("RDA1 = 18.66% ") +
+    ylab("RDA2 = 5.87% ") +
+  labs(title = "A) Cold")+
+    theme(panel.background = element_blank(),
+          legend.position = "right",
+          title = element_text(size = 10, face = "bold"),
+          legend.text = element_markdown(size = 10),
+          legend.title = element_text(size = 10),
+          axis.title = element_text(size = 10)) + 
+    guides(fill = guide_legend(override.aes=list(shape = 21), title = "Day"),
+           shape = guide_legend(override.aes=list(fill = "grey40"))) 
+rda.biplot.cold
+
+```
+
+```{#r, include=FALSE}
+ggsave(filename = here("output", "figures", "rda_order_vars_cold_robust.aitch.eps"), plot = rda.biplot, height = 5, width = 7)
+```
+
+```{r, message=FALSE}
+library(ggpubr)
+p <- ggarrange(rda.biplot.cold, 
+               rda.biplot.warm, 
+               common.legend = TRUE, 
+               legend = "bottom", 
+               nrow = 2)
+p
+
+```
+
+```{#r, include=FALSE}
+ggsave(filename = here("output", "figures", "rda_order_vars_divided_p.eps"), plot = p, height = 6, width = 6.5)
+```
+
+# Relative abundance of *Actinomarinales* and *Micromonosporales* bacteria at time 0 and 62 in the mesocosms
+# -------------------------------------------
+### Gather data for relAbund
+```{r}
+dim(otu_sub) # raw counts 15186    48
+otu_sub <- as.data.frame(otu_sub)
+#colnames(otu_sub) <- paste0("x_", colnames(otu_sub))
+otu_t <- t(otu_sub)
+otu_rel <- otu_t / rowSums(otu_t)
+rowSums(otu_rel)
+dim(meta_g) # 48 47
+tax_sub <- as.data.frame(tax_sub)
+dim(tax_sub) #15186     6
+tax_actinos <- tax_sub[tax_sub$Order == "Actinomarinales" | 
+                         tax_sub$Order == "Micromonosporales",]
+unique(tax_actinos$Genus)
+```
+
+There were 18851 ASVs in D0 and D62. Out of those, 81 belonged to orders Actinomarinales or Micromonosporales. These were subsequently classified in 9 different genera: Actinoplanes, Luedemannella, Dactylosporangium, Micromonospora, Allocatelliglobosispora, Rhizocola, Virgisporangium and unclassified Microsporaceae bacterium and unclassified Actinomarinales bacterium. 
+
+
+### Subset otu_rel based on 81 interesting asv
+```{r}
+otu_actinos <- otu_rel[, colnames(otu_rel) %in% rownames(tax_actinos)] # 48 81
+# bind treatment and abundance
+
+otu_actinos <- t(otu_actinos)
+str(otu_actinos)
+str(tax_actinos)
+tax_actinos <- tax_actinos[sort(rownames(tax_actinos)),]
+otu_actinos <- otu_actinos[sort(rownames(otu_actinos)),]
+rownames(tax_actinos) == rownames(otu_actinos)
+colnames(otu_actinos) <- paste0("x_", colnames(otu_actinos))
+rownames(meta_sub) <- paste0("x_", rownames(meta_sub))
+meta_sub <- meta_sub[sort(rownames(meta_sub)),]
+colnames(otu_actinos) == rownames(meta_sub)
+# Agglom otu_actinos at genus level
+
+otu_actinos <- otu_table(as.matrix(otu_actinos), taxa_are_rows = TRUE)
+tax_actinos <- tax_table(as.matrix(tax_actinos))
+sample <- sample_data(meta_sub)
+colnames(sample)[colnames(sample) == "Day"] <- "Time"
+
+# merge: 
+ps_actinos <- phyloseq(otu = otu_actinos, tax = tax_actinos, sample = sample)
+ps_actinos_g <- tax_glom(ps_actinos, taxrank = 'Genus', NArm = FALSE) 
+# 9 in 48 samples
+
+ps_actinos_df <- phyloseq_to_df(ps_actinos_g) 
+rownames(ps_actinos_df) <- ps_actinos_df$Genus
+otu_actinos <- ps_actinos_df[,-(1:7)] # 9 48
+otu_actinos <- t(otu_actinos)
+rownames(otu_actinos) == rownames(meta_sub)
+abund_treat <- cbind(meta_sub, otu_actinos)
+dim(abund_treat) # 48, 13
+
+```
+
+
+## Gather in long format for ggplot
+
+```{r}
+long <- gather(abund_treat,Taxa,RelAbund,5:ncol(abund_treat)) #change the column index value to match the first column that contains a Taxa name and not a treatment
+head(long) # It looks ok!
+genus_long <- long
+```
+
+### Italicize genera names
+```{r}
+colnames(genus_long)[colnames(genus_long) == "Day"] <- "Time"
+genus_long$Taxa <- paste("*", genus_long$Taxa, "*", sep = "")
+genus_long$Plant.type <- factor(genus_long$Plant.type,
+                                levels = c("no plant", "Scirpus", "Triglochin"),
+                                labels = c("no plant", "*Scirpus*", "*Triglochin*"))
+```
+
+## Create the lolipop chart
+```{r}
+# Step 1: Calculate the mean values with ave()
+mean_values <- ave(genus_long$RelAbund, genus_long$Time, genus_long$Taxa, FUN = mean)
+
+# Reorder the levels based on mean values
+genus_long$Taxa <- reorder(genus_long$Taxa, mean_values, FUN = mean)
+
+# Add small value to prevent inf error when log transforming
+genus_long$RelAbund <- genus_long$RelAbund + 1e-6
+
+high_contrast <- c("#000004FF", "#FEAF77FF","#721F81FF" ,"#B63679FF" ,"#F1605DFF" ) 
+# Step 3: Create the plot
+p1 <- ggplot(data = genus_long, aes(y = Taxa, x = RelAbund, color = Time)) +
+    geom_vline(xintercept = c(0.001, 0.01, 0.1, 0.4), color = "lightgrey", size = 0.1) +
+  stat_summary(fun.data = median_hilow, geom = "pointrange", fun.args = list(conf.int = 0.5),
+               position = position_dodge(width = 0.4),
+               linewidth = 0.25) +
+  coord_trans(x = "log10") +
+    ylab("Taxonomic group") + 
+    xlab("log10 Relative abundance") +
+    labs(title = "C) Relative abundance (Genus)")+
+    scale_color_manual(values = high_contrast) + 
+  theme_classic() +
+  theme(
+    axis.text.y = element_markdown(),
+    axis.text.x = element_text(size = 7),
+    legend.text = element_markdown(),
+    title = element_text(size = 10, face = "bold"),
+    legend.position = "none",
+    legend.spacing = unit(0.1, "cm"),
+    #legend.position = c(0.92, 0.15),
+    legend.background = element_rect(color = "darkgrey", fill = "white"),
+    #legend.margin = margin(t = -5, r = 3, b = 3),
+    strip.text.x = element_markdown(size = 9),
+    strip.text.y = element_markdown(size = 9)
+    
+  ) +
+    scale_x_continuous(limits = c(NA, 1.5), 
+                       breaks = c(0.001,0.01, 0.1, 0.4),
+                       labels = c(".001", ".01", ".1", ".4")) +
+  facet_grid(Temperature ~ Plant.type)
+
+p1
+
+# Save plots
+#ggsave(file = here::here("output", "figures", "relAbund_Actinos_genus_16S_sediments_pops.pdf"), p1, width = 6, height = 5, units = "in", dpi = 300,bg = "white")
+#ggsave(file = here::here("output", "figures", "relAbund_Actinos_genus_16S_sediments_pops.eps"), p1, width = 6, height = 5, units = "in", dpi = 300,bg = "white")
+#ggsave(file = here::here("output", "figures", "relAbund_Actinos_genus_16S_sediments_pops.png"), p1, width = 6, height = 5, units = "in", dpi = 300,bg = "white")
+```
+
+
+```{r}
+combined_plot <- ggarrange(p, p1, ncol = 2)
+ggsave(file = here::here("output", "figures", "test.png"), combined_plot, width =11, height = 7, units = "in", dpi = 150,bg = "white")
+ggsave(file = here::here("output", "figures", "test.eps"), combined_plot, width = 11, height = 7, units = "in", dpi = 72,bg = "white")
+```
+
+
+# -------------------------------------------
+
+# END OF SCRIPT
+
+```{r}
+save.image(here("RData", "SCG_06_sediments_RDA.RData"))
+```
+
