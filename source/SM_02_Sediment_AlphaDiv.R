@@ -22,76 +22,115 @@ sample_names(ps_sed) <- sub("Meso.*","",sample_names(ps_sed))
 
 ###______#####
 ### ALPHA DIV ####
-### *** Raw abundance ####
-alpha.div<- plot_richness(ps_sed, x="Time", color="Time", measures=c("Observed","Chao1","Simpson", "Shannon"))
+##### Raw abundance ####
 
-alpha.div.plot <- alpha.div+
+######Plant type ####
+alpha.div<- plot_richness(ps_sed, x="Plant.type", color="Sample.type", measures=c("Observed","Simpson", "Shannon"))
+
+plot <- select(alpha.div$data,c("samples","Time","Plant.type","Temperature","variable","value"))
+
+
+ggplot(plot,aes(x=variable,y=value,shape=Plant.type))+
+    geom_boxplot(outlier.shape = NA)+
+    #geom_boxplot(outlier.shape = NA,position=position_dodge(width=1.5))+
+    geom_point(aes(x=variable,y=value,shape=Plant.type),position=position_dodge(width=0.75),size=2.5,fill='black')+
+    theme_bw()+
+    theme(title = element_text(size=20),
+          axis.text.x =element_blank(),
+          axis.text.y =element_text(size=12),
+          axis.title.x = element_blank(), 
+          axis.title.y = element_text(size=15),
+          legend.text.align = 0,
+          axis.ticks.x = element_blank(),
+          legend.text=element_text(size=20),
+          strip.text = element_text(size=15),
+          strip.background = element_rect(fill='white'))+
+    stat_pwc(method="wilcox_test",hide.ns=T,
+             p.adjust.method="fdr",label="p.adj.signif",
+             tip.length = 0, 
+             step.increase = 0.05,
+             vjust=0)+
+    scale_shape_manual(values=c(19,22,23),name="Plant type",
+                       labels=c("No plant",expression(italic("Scirpus")),expression(italic("Triglochin"))))+
+    facet_wrap(~variable,scales="free")+
+    ylab("Alpha diversity score")
+?scale_shape_manual
+
+ggsave(here("Results","Figures","Sed_SType_AlphaDiv.pdf"),device='pdf',height = 7.5, width = 10.5)
+ggsave(here("Results","Figures","Sed_SType_AlphaDiv.png"),device='png',height = 7.5, width = 10.5)
+
+
+######Temperature ####
+alpha.div<- plot_richness(ps, x="Temperature", color="Temperature", measures=c("Observed","Simpson", "Shannon"))
+
+plot <- select(alpha.div$data,c("samples","Time","Plant.type","Temperature","variable","value"))
+
+
+ggplot(plot,aes(x=variable,y=value,color=Temperature))+
+    geom_boxplot(outlier.shape = NA)+
+    #geom_boxplot(outlier.shape = NA,position=position_dodge(width=1.5))+
+    geom_point(aes(x=variable,y=value),position=position_dodge(width=0.75),size=2.5,fill='black')+
+    theme_bw()+
+    theme(title = element_text(size=20),
+          axis.text.x =element_blank(),
+          axis.text.y =element_text(size=12),
+          axis.title.x = element_blank(), 
+          axis.title.y = element_text(size=15),
+          legend.text.align = 0,
+          axis.ticks.x = element_blank(),
+          legend.text=element_text(size=20),
+          legend.position = "bottom",
+          strip.text = element_text(size=15),
+          strip.background = element_rect(fill='white'))+
+    stat_pwc(method="wilcox_test",
+             hide.ns=T,
+             p.adjust.method="fdr",
+             label="p.adj.signif",
+             tip.length = 0, 
+             step.increase = 0.5,
+             vjust=0)+
+    scale_color_manual(values=c("#0000FE","#B02223"),name="Temperature")+
+    facet_wrap(~variable,scales="free")+
+    ylab("Alpha diversity score")
+
+ggsave(here("Results","Figures","Sed_Temp_AlphaDiv.pdf"),device='pdf',height = 7.5, width = 10.5)
+ggsave(here("Results","Figures","Sed_Temp_AlphaDiv.png"),device='png',height = 7.5, width = 10.5)
+
+
+###### Time ####
+
+
+alpha.div<- plot_richness(ps_sed, x="Time", color="Time", measures=c("Observed","Simpson", "Shannon"))
+
+plot <- select(alpha.div$data,c("samples","Time","Plant.type","Temperature","variable","value"))
+
+ggplot(plot,aes(x=variable,y=value,color=Time))+
+                  geom_boxplot(outlier.shape = NA)+
+                  #geom_boxplot(outlier.shape = NA,position=position_dodge(width=1.5))+
+                  geom_point(aes(x=variable,y=value),position=position_dodge(width=0.75),size=2.5,fill='black')+
                   theme_bw()+
                   theme(title = element_text(size=20),
-                        axis.text.x =element_blank(),
-                        axis.text.y =element_text(size=12),
-                        axis.title.x = element_blank(), 
-                        axis.title.y = element_text(size=15),
-                        axis.ticks.x = element_blank(),
-                        legend.text=element_text(size=20))+
-                  stat_summary(fun.data = mean_sdl, fun.args = list(mult = 1),colour="grey50")+
-                  #adds mean and standard deviation 
-                  stat_pwc(method="wilcox_test",hide.ns=T,
-                           p.adjust.method="BH",label="p.adj.signif",
-                           tip.length = 0, step.increase = 0.03,vjust=1)+
+                  axis.text.x =element_blank(),
+                  axis.text.y =element_text(size=12),
+                  axis.title.x = element_blank(), 
+                  axis.title.y = element_text(size=15),
+                  legend.text.align = 0,
+                  axis.ticks.x = element_blank(),
+                  legend.text=element_text(size=20),
+                  legend.position = "bottom",
+                  strip.text = element_text(size=15),
+                  strip.background = element_rect(fill='white'))+
+                  stat_pwc(method="wilcox_test",
+                           hide.ns=T,
+                           p.adjust.method="fdr",
+                           label="p.adj.signif",
+                           tip.length = 0, 
+                           step.increase = 0.05,
+                           vjust=0)+
                   # Computes pairwise wilcoxon rank-sum test in each facet
-                  scale_colour_viridis(option="magma",discrete=T,name="Time")
-
-### Checking stats ### 
-####  Observed  
-kruskal.test(value ~ Time, data = Rich.div) 
-# p-value = 1.736e-10
-
-pairwise.wilcox.test(Rich.div$value, Rich.div$Time,
-                     p.adjust.method = "BH")
-#        D4      D13     D20     D40    
-#  D13 0.13    -       -       -      
-#  D20 0.47    0.43    -       -      
-#  D40 0.16    0.93    0.49    -      
-#  D66 1.7e-07 1.7e-07 1.7e-07 1.7e-07
-
-####  CHAO1 
-kruskal.test(value ~ Time, data = Chao.div) 
-# p-value = 1.864e-10
-
-pairwise.wilcox.test(Chao.div$value, Chao.div$Time,
-                     p.adjust.method = "BH")
-#       D4      D13     D20     D40    
-#   D13 0.14    -       -       -      
-#   D20 0.48    0.44    -       -      
-#   D40 0.17    0.89    0.48    -      
-#   D66 7.5e-10 1.9e-09 1.4e-09 2.3e-09
-
-####  SHANNON 
-kruskal.test(value ~ Time, data = Shannon.div) 
-# p-value = 1.527e-08
-
-pairwise.wilcox.test(Shannon.div$value, Shannon.div$Time,
-                     p.adjust.method = "BH")
-
-#      D4      D13     D20     D40    
-#  D13 0.14    -       -       -      
-#  D20 0.47    0.42    -       -      
-#  D40 0.47    0.23    0.83    -      
-#  D66 1.9e-07 5.7e-07 2.5e-07 1.9e-07
-
-
-####  SIMPSON 
-kruskal.test(value ~ Time, data = Simpson.div) 
-# p-value = 8.003e-06
-
-pairwise.wilcox.test(Simpson.div$value, Simpson.div$Time,
-                     p.adjust.method = "BH")
-#       D4      D13     D20     D40    
-#  D13 0.25516 -       -       -      
-#  D20 0.65333 0.53300 -       -      
-#  D40 0.95928 0.18609 0.65333 -      
-#  D66 6.2e-05 0.00018 9.1e-05 6.2e-05
+                  scale_colour_viridis(option="magma",discrete=T,name="Time")+
+                  facet_wrap(~variable,scales="free")+
+                  ylab("Alpha diversity score")
 
 
 
@@ -135,58 +174,105 @@ max(sample_sums(ps.rar))
 
 
 
-alpha.div.rar<- plot_richness(ps.rar, x="Time", color="Time", measures=c("Observed","Chao1","Simpson", "Shannon"))
+######Plant type ####
+alpha.div.rar<- plot_richness(ps.rar, x="Plant.type", color="Sample.type", measures=c("Observed","Simpson", "Shannon"))
 
-alpha.div.rar.plot <- alpha.div.rar+
-                      theme_bw()+
-                      theme(title = element_text(size=20),
-                            axis.text.x =element_blank(),
-                            axis.text.y =element_text(size=12),
-                            axis.title.x = element_blank(), 
-                            axis.title.y = element_text(size=15),
-                            axis.ticks.x = element_blank(),
-                            legend.text=element_text(size=20))+
-                      stat_summary(fun.data = mean_sdl, fun.args = list(mult = 1),colour="grey50")+
-                      stat_pwc(method="wilcox_test",hide.ns=T,
-                               p.adjust.method="BH",label="p.adj.signif",
-                               tip.length = 0, step.increase = 0.03,vjust=1)+
-                      scale_colour_viridis(option="magma",discrete=T,name="Time")
+plot <- select(alpha.div.rar$data,c("samples","Time","Plant.type","Temperature","variable","value"))
 
-### *** Figure + save ####
-Alpha_div_sed <- ggarrange(alpha.div.plot,alpha.div.rar.plot,
-                           nrow=2,
-                           labels="AUTO",
-                           common.legend = T,
-                           legend="bottom")
 
-ggsave(here("Results","Figures","Sed_AlphaDiv.pdf"),device='pdf',height = 7.5, width = 10.5)
-ggsave(here("Results","Figures","Sed_AlphaDiv.png"),device='png',height = 7.5, width = 10.5)
+ggplot(plot,aes(x=variable,y=value,shape=Plant.type))+
+    geom_boxplot(outlier.shape = NA)+
+    #geom_boxplot(outlier.shape = NA,position=position_dodge(width=1.5))+
+    geom_point(aes(x=variable,y=value,shape=Plant.type),position=position_dodge(width=0.75),size=2.5,fill='black')+
+    theme_bw()+
+    theme(title = element_text(size=20),
+          axis.text.x =element_blank(),
+          axis.text.y =element_text(size=12),
+          axis.title.x = element_blank(), 
+          axis.title.y = element_text(size=15),
+          legend.text.align = 0,
+          axis.ticks.x = element_blank(),
+          legend.text=element_text(size=20),
+          strip.text = element_text(size=15),
+          strip.background = element_rect(fill='white'))+
+    stat_pwc(method="wilcox_test",hide.ns=T,
+             p.adjust.method="fdr",label="p.adj.signif",
+             tip.length = 0, 
+             step.increase = 0.05,
+             vjust=0)+
+    scale_shape_manual(values=c(19,22,23),name="Plant type",
+                       labels=c("No plant",expression(italic("Scirpus")),expression(italic("Triglochin"))))+
+    facet_wrap(~variable,scales="free")+
+    ylab("Alpha diversity score")
 
-####  Final figure  ######
-alpha.div<- plot_richness(ps_sed, x="Time", color="Time", measures=c("Observed", "Simpson", "Shannon"))
-# removed Chao1 as the results were very similar with observed richness 
-alpha.div.plot <- alpha.div+
-  theme_bw()+
-  theme(title = element_text(size=20),
-        axis.text.x =element_blank(),
-        axis.text.y =element_text(size=12),
-        axis.title.x = element_blank(), 
-        axis.title.y = element_text(size=15),
-        axis.ticks.x = element_blank(),
-        legend.text=element_text(size=20),
-        strip.text = element_text(size=15),
-        strip.background = element_rect(fill='white'))+
-  stat_summary(fun.data = mean_sdl, fun.args = list(mult = 1),colour="grey50")+
-  stat_pwc(method="wilcox_test",hide.ns=T,
-           p.adjust.method="BH",label="p.adj.signif",
-           tip.length = 0, step.increase = 0.03,vjust=1)+
-  scale_colour_viridis(option="magma",discrete=T,name="Time")
+######Temperature ####
+alpha.div.rar <- plot_richness(ps.rar, x="Temperature", color="Temperature", measures=c("Observed","Simpson", "Shannon"))
 
-# Mean and sd 
-mean_alpha <- alpha.div$data %>%
-  group_by(Time,variable) %>%
-  summarise(mean = mean(value), sd = sd(value))
+plot <- select(alpha.div.rar$data,c("samples","Time","Plant.type","Temperature","variable","value"))
 
-# Figure save
-ggsave(here("Results","Figures","SupFig_AlphaDiv_Sed.pdf"),device='pdf',height = 7.5, width = 10.5)
-ggsave(here("Results","Figures","SupFig_AlphaDiv_Sed.png"),device='png',height = 7.5, width = 10.5)
+
+ggplot(plot,aes(x=variable,y=value,color=Temperature))+
+    geom_boxplot(outlier.shape = NA)+
+    #geom_boxplot(outlier.shape = NA,position=position_dodge(width=1.5))+
+    geom_point(aes(x=variable,y=value),position=position_dodge(width=0.75),size=2.5,fill='black')+
+    theme_bw()+
+    theme(title = element_text(size=20),
+          axis.text.x =element_blank(),
+          axis.text.y =element_text(size=12),
+          axis.title.x = element_blank(), 
+          axis.title.y = element_text(size=15),
+          legend.text.align = 0,
+          axis.ticks.x = element_blank(),
+          legend.text=element_text(size=20),
+          legend.position = "bottom",
+          strip.text = element_text(size=15),
+          strip.background = element_rect(fill='white'))+
+    stat_pwc(method="wilcox_test",
+             hide.ns=T,
+             p.adjust.method="fdr",
+             label="p.adj.signif",
+             tip.length = 0, 
+             step.increase = 0.5,
+             vjust=0)+
+    scale_color_manual(values=c("#0000FE","#B02223"),name="Temperature")+
+    facet_wrap(~variable,scales="free")+
+    ylab("Alpha diversity score")
+
+###### Time ####
+
+
+alpha.div.rar<- plot_richness(ps_sed, x="Time", color="Time", measures=c("Observed","Simpson", "Shannon"))
+
+plot <- select(alpha.div.rar$data,c("samples","Time","Plant.type","Temperature","variable","value"))
+
+ggplot(plot,aes(x=variable,y=value,color=Time))+
+    geom_boxplot(outlier.shape = NA)+
+    #geom_boxplot(outlier.shape = NA,position=position_dodge(width=1.5))+
+    geom_point(aes(x=variable,y=value),position=position_dodge(width=0.75),size=2.5,fill='black')+
+    theme_bw()+
+    theme(title = element_text(size=20),
+          axis.text.x =element_blank(),
+          axis.text.y =element_text(size=12),
+          axis.title.x = element_blank(), 
+          axis.title.y = element_text(size=15),
+          legend.text.align = 0,
+          axis.ticks.x = element_blank(),
+          legend.text=element_text(size=20),
+          legend.position = "bottom",
+          strip.text = element_text(size=15),
+          strip.background = element_rect(fill='white'))+
+    stat_pwc(method="wilcox_test",
+             hide.ns=T,
+             p.adjust.method="fdr",
+             label="p.adj.signif",
+             tip.length = 0, 
+             step.increase = 0.05,
+             vjust=0)+
+    # Computes pairwise wilcoxon rank-sum test in each facet
+    scale_colour_viridis(option="magma",discrete=T,name="Time")+
+    facet_wrap(~variable,scales="free")+
+    ylab("Alpha diversity score")
+
+
+
+
