@@ -43,6 +43,7 @@ ggplot(plot,aes(x=variable,y=value,shape=Plant.type))+
           legend.text.align = 0,
           axis.ticks.x = element_blank(),
           legend.text=element_text(size=20),
+          legend.position = "bottom",
           strip.text = element_text(size=15),
           strip.background = element_rect(fill='white'))+
     stat_pwc(method="wilcox_test",hide.ns=T,
@@ -131,6 +132,9 @@ ggplot(plot,aes(x=variable,y=value,color=Time))+
                   scale_colour_viridis(option="magma",discrete=T,name="Time")+
                   facet_wrap(~variable,scales="free")+
                   ylab("Alpha diversity score")
+
+ggsave(here("Results","Figures","Sed_Time_AlphaDiv.pdf"),device='pdf',height = 7.5, width = 10.5)
+ggsave(here("Results","Figures","Sed_Time_AlphaDiv.png"),device='png',height = 7.5, width = 10.5)
 
 
 
