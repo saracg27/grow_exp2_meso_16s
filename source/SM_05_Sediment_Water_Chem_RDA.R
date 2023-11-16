@@ -450,31 +450,36 @@ df.annotations <- data.frame(
 
 
 
-Rda.plot.clr.S1 <-ggplot(data=coord.sites.rda, aes(x=RDA1, y=PC1)) +
-  theme_bw()+
-  geom_point()+
-  geom_text_repel(label=rownames(coord.sites.rda))+
-  geom_point(data=coord.asv.rda,aes(x=RDA1, y=PC1),colour="red",shape=4, alpha=0.2)+
-  geom_text_repel(data=Interest,label=Interest$Order,colour="red",size=2,fontface = "italic")+ 
-  geom_hline(yintercept=0, linetype="dotted") +  
-  geom_vline(xintercept=0, linetype="dotted") +
-  geom_segment(data= coord.env.mul, aes(x=0, xend=RDA1, y=0, yend=PC1), 
-               color="blue", arrow=arrow(length=unit(0.01,"npc")))+
-  geom_text_repel(data=coord.env.mul, aes(label=rownames(coord.env.mul)),
-                  color="blue", size=3.5)+
-  geom_label_npc(data= df.annotations , 
-                 aes(npcx = "left", npcy = "bottom", label = label),
-                 parse=T,size=6)+
-  labs(x = paste0("RDA1 (",round(res.rda$cont$importance[2,1]*100,2),"%)"),#Variance explained by each axis
-       y = paste0("PC1 (",round(res.rda$cont$importance[2,2]*100,2),"%)"),#Variance explained by each axis
-       title="RDA constrained by sediment chemistry",
-       subtitle="Robust Aitchison transformed abundance matrix as response variables - Scaling 1")
+Rda.plot.rclr.S1<-ggplot(data=coord.sites.rda, aes(x=RDA1, y=PC1))+
+    theme_bw()+
+    geom_point(aes(shape=new_sdata$Plant.type,color=new_sdata$Temperature.x),size=2.8)+
+    geom_point(data=coord.asv.rda,aes(x=RDA1, y=PC1),colour="purple4",shape=4, alpha=0.7)+
+    geom_text_repel(data=Interest,label=Interest$Order,colour="purple4",
+                    size=3.5,
+                    min.segment.length = 0,
+                    arrow=arrow(angle = 30, length = unit(0.01, "inches"),ends = "first", type = "open"),
+                    fontface = "italic")+ 
+    geom_hline(yintercept=0, linetype="dotted") +  
+    geom_vline(xintercept=0, linetype="dotted") +
+    geom_segment(data= coord.env.mul, aes(x=0, xend=RDA1, y=0, yend=PC1), 
+                 color="tomato4", arrow=arrow(length=unit(0.01,"npc")))+
+    geom_text_repel(data=coord.env.mul, aes(label=rownames(coord.env.mul)),
+                    color="tomato4",force=2, size=4,fontface="bold")+
+    labs(x = paste0("RDA1 (",round(res.rda$cont$importance[2,1]*100,2),"%)"),#Variance explained by each axis
+         y = paste0("PC1 (",round(res.rda$cont$importance[2,2]*100,2),"%)"),#Variance explained by each axis
+         title="RDA constrained by sediment chemistry",
+         subtitle="Robust Aitchison transformed D62 abundance matrix as response variables - Scaling 1")+
+    geom_label_npc(data= df.annotations , 
+                   aes(npcx = "left", npcy = "bottom", label = label),
+                   parse=T,size=6)+
+    scale_shape_manual(name="Sample type",values=c(21,22,23),lables)+
+    scale_color_manual(name="Temperature",values=c("blue","red"),labels=c("Cold","Warm"))
 
-Rda.plot.clr.S1
+Rda.plot.rclr.S1
 
 
-ggsave(here("Results","Figures","RDA_S1_D62_EnvSediment_RCLR_OrderGlom.pdf"),device='pdf')
-ggsave(here("Results","Figures","RDA_S1_D62_EnvSediment_RCLR_OrderGlom.png"),device='png')
+ggsave(here("Results","Figures","RDA_S1_D62_EnvSediment_RCLR_OrderGlom.pdf"),device='pdf',height = 7.5, width = 10.5)
+ggsave(here("Results","Figures","RDA_S1_D62_EnvSediment_RCLR_OrderGlom.png"),device='png',height = 7.5, width = 10.5)
 
 
 ###### Scaling 2 #####
