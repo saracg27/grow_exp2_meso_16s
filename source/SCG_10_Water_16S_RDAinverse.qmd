@@ -459,7 +459,7 @@ colnames(otu_g) <- tax_g$Order
 # We look at the pairwise correlation among ALL the explanation variables
 corr_values <- round(cor(otu_g, method = "spearman"), 2) # Calculate correlation
 
-pdf(file = here("output", "figures", "correlation-order-level-water16S.pdf"),height = 8)
+#pdf(file = here("output", "figures", "correlation-order-level-water16S.pdf"),height = 8)
 plot_cor <- corrplot(corr_values,
                      method = "circle",
                      type = "lower",
@@ -476,7 +476,7 @@ plot_cor <- corrplot(corr_values,
                        title = "Spearman correlation between Order abundance",
                      mar=c(0,0,2,0))
 
-dev.off()
+#dev.off()
 
 ```
 
@@ -498,9 +498,7 @@ otu_hell <- sqrt(otu_g)
 corr_values_hell <- round(cor(otu_hell, method = "spearman"), 2) 
 # Calculate correlation
 
-pdf(file = here("output", "figures",
-                "correlation-order-level-hell_16S-water.pdf"),
-    height = 8)
+#pdf(file = here("output", "figures", "correlation-order-level-hell_16S-water.pdf"),height = 8)
 plot_cor_hell <- corrplot(corr_values_hell,
                      method = "circle",
                      type = "lower",
@@ -701,11 +699,11 @@ rda.biplot <- ggplot(data = sites, aes(x = RDA1, y = RDA2)) +
            shape = guide_legend(override.aes=list(fill = "grey40"))) 
 rda.biplot
 
-
+saveRDS(rda.biplot, file = here("RData", "iRDA_water16S.rds"))
 ```
 
 ```{r, include=FALSE}
-ggsave(filename = here("output", "figures", "rda_order_vars_water16S.eps"), plot = rda.biplot, height = 5, width = 7)
+#ggsave(filename = here("output", "figures", "rda_order_vars_water16S.eps"), plot = rda.biplot, height = 5, width = 7)
 ```
 
 We can divide this RDA plot in two graphics to separate the warm from
@@ -743,9 +741,9 @@ rda.biplot.warm <- ggplot(data = warm, aes(x = RDA1, y = RDA2)) +
     theme_classic() +
     xlim(-3, 3.5) +
     ylim(-2.5, 2.5) +
-    xlab("RDA1 = 9.98% ") +
-    ylab("RDA2 = 1.85% ") +
-  labs(title = "B) Warm")+
+    xlab("RDA1 = 16.84% ") +
+    ylab("RDA2 = 2.32% ") +
+  labs(title = "Warm")+
     theme(panel.background = element_blank(),
           legend.position = "right",
           title = element_text(size = 10, face = "bold"),
@@ -793,9 +791,9 @@ rda.biplot.cold <- ggplot(data = cold, aes(x = RDA1, y = RDA2)) +
     theme_classic() +
     xlim(-3, 3.5) +
     ylim(-2.5, 2.5) +
-      xlab("RDA1 = 18.66% ") +
-    ylab("RDA2 = 5.87% ") +
-  labs(title = "A) Cold")+
+      xlab("RDA1 = 16.84% ") +
+    ylab("RDA2 = 2.32% ") +
+  labs(title = "Cold")+
     theme(panel.background = element_blank(),
           legend.position = "right",
           title = element_text(size = 10, face = "bold"),
@@ -816,11 +814,11 @@ p <- ggarrange(rda.biplot.cold,
                legend = "bottom", 
                nrow = 2)
 p
-
+saveRDS(p, file = here("RData", "split_iRDA_water16S.rds"))
 ```
 
 ```{r, include=FALSE}
-ggsave(filename = here("output", "figures", "rda_order_vars_water_16S_divided_p.eps"), plot = p, height = 6, width = 6.5)
+#ggsave(filename = here("output", "figures", "rda_order_vars_water_16S_divided_p.eps"), plot = p, height = 6, width = 6.5)
 ```
 
 # Relative abundance of *Frankiales* and *Pirellulales* bacteria at time 0 and 62 in the mesocosms
@@ -972,6 +970,6 @@ combined_plot <- ggarrange(p, p1, ncol = 2)
 # END OF SCRIPT
 
 ```{r}
-save.image(here("RData", "SCG_10_sediments_RDA.RData"))
+#save.image(here("RData", "SCG_10_sediments_RDA.RData"))
 ```
 
