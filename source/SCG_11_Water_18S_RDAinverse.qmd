@@ -1,0 +1,829 @@
+---
+title: "SCG_11_Water_18S_RDAinverse"
+author: "Sara Correa Garcia"
+format: html
+editor: source
+---
+
+This report contains the results on the inverse redundancy analysis (RDA)
+performed on standardize heteroatom composition as response matrix, with a
+matrix of Hellinger transformed microbial community (18S, specially algae, but
+also fungi) agglomerated at Order rank in water samples. The time levels tested
+are d0 vs d62
+
+The original data come from the GROW project, mesocosms experiment 2, water
+samples for both bacterial communities and heteroatom composition.
+
+# Libraries and data
+
+# -------------------------------------------
+
+```{r, message=FALSE}
+#devtools::install_github("vmikk/metagMisc")
+source(here::here("source", "libraries.R"))
+library(dplyr)
+library(phyloseq)
+library(metagMisc)
+library(corrplot)
+```
+
+## Metadata
+
+```{r}
+meta <- read.csv(file = here("data","raw", "18S_water", "metadata.tsv"), dec = ".", header = T, row.names = 1, sep = "\t", comment.char = "") # 144 obs 7 vars load
+str(meta)
+meta[sapply(meta, is.character)] <- lapply(meta[sapply(meta, is.character)], as.factor) ## Convert character vectors to factors
+rownames(meta) <- stringr::str_replace_all(rownames(meta), '[-]', '.') # quick name clean up
+```
+
+## 18S ASV table
+
+Raw filtered counts
+
+```{r}
+raw <- read.csv(file = here("data", "raw", "18S_water", "Mesocosm_Water_18S_oct2023.ASV_table_norarefaction_dnNA.tsv"), dec = ".", sep = "\t", header = T, row.names = 1, comment.char = "") #850 objs in 142 vars
+```
+
+To be consistent with the other water treatment analyses of the 16S community,
+we need to filter out samples where the library is smaller than 4000 reads.
+
+## Load heteroatoms
+
+```{r, echo=FALSE}
+heteroatoms <- readRDS(here::here("RData", "mapping_heteroatoms_totalAbund.rds"))
+```
+
+We will also filter counts to keep samples that have a matching heteroatom
+composition
+
+# Wrangling
+
+# -------------------------------------------
+
+## LIBRARY SIZE
+
+Evaluate the clean library sizes to filter any samples with too low DNA counts.
+
+```{r}
+raw_libsize <- as.data.frame(colSums(raw[,1:ncol(raw)-1]))
+names(raw_libsize) <- c("lib_size")
+summary(raw_libsize)
+```
+
+```         
+lib_size    
+```
+
+Min. : 5\
+1st Qu.:27821\
+Median :31104\
+Mean :32618\
+3rd Qu.:36566\
+Max. :54723
+
+There seems to be certain libraries that have a small size (min = 5). Upon
+closer inspection of the object raw_libsize, we find only one sample that has a
+low library size.
+
+```{r}
+small_libs <-  raw_libsize %>% filter_at(vars(1), any_vars(. < 4000)) # keep consistent filter with 16S
+small_libs
+```
+
+```         
+          lib_size
+```
+
+M7G.Jan.4.2022 5
+
+There is 1 problematically low library. Check what are these in the metadata
+
+### Subset meta and raw
+
+```{r}
+meta <- meta[!rownames(meta) %in% rownames(small_libs), ] # left with 143 samples
+# Transfer taxonomy to another dataframe to cbind later with good samples
+taxonomy <- as.data.frame(raw$taxonomy)
+rownames(taxonomy) <- rownames(raw)
+raw <- raw[ , colnames(raw) %in% rownames(meta)]
+#raw <- cbind(raw, taxonomy)
+rm(raw_libsize)
+rm(small_libs)
+```
+
+## TAXONOMY (RAW COUNTS)
+
+### Separate taxonomy into groups
+
+```{r}
+names(taxonomy) <- c("taxonomy")
+tax_raw_clean <- separate(taxonomy, taxonomy, into = c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species", "Strain"), sep = ";")
+tax_raw_clean <- tax_raw_clean[,-which(names(tax_raw_clean) %in% c("Species", "Strain"))]
+tax_raw_clean <- as.data.frame(tax_raw_clean)
+levels(as.factor(tax_raw_clean$Domain)) #  Eukaryota, all ok
+levels(as.factor(tax_raw_clean$Phylum)) #  37 Phyla 
+levels(as.factor(tax_raw_clean$Class)) # 59 classes
+levels(as.factor(tax_raw_clean$Order)) # 80 orders
+levels(as.factor(tax_raw_clean$Family)) # 85 Families
+levels(as.factor(tax_raw_clean$Genus)) # 151 genus
+str(tax_raw_clean)
+```
+
+### Clean taxonomy names
+
+```{r}
+# eliminate the characters  -----
+pattern <- "[a-z]__"
+replacement <- ""
+tax_clean <- as.data.frame(apply(tax_raw_clean, 2, function(col) gsub(pattern, replacement, col)))
+pattern <- " "
+replacement <- ""
+tax_clean <- as.data.frame(apply(tax_clean, 2, function(col) gsub(pattern, replacement, col)))
+rm(pattern)
+rm(replacement)
+```
+
+### Fill NAs with last available taxon rank
+
+```{r}
+tax_clean <- tax_clean |> 
+   t() |> 
+   as.data.frame() |> 
+   fill(everything(), .direction = "down") |> 
+   t() |> 
+   as.data.frame()
+rm(tax_raw_clean)
+```
+
+### Create clean count table no tax
+
+```{r}
+counts <- raw[, sapply(raw, is.numeric)] # at this step 850 in 140 vars
+```
+
+## HETEROATOMS AND META
+
+### Set rownames in heteroatoms
+
+```{r}
+heteroatoms <- as.data.frame(heteroatoms)
+heteroatoms$ID <- paste0(heteroatoms$Greenhouse, "_", heteroatoms$Mesocosms.., "_", heteroatoms$Day)
+rownames(heteroatoms) <- heteroatoms$ID
+heteroatoms$ID <- NULL
+dim(heteroatoms) # There are 110 samples and 53 variables
+heteroatoms$Day <- as.factor(heteroatoms$Day)
+```
+
+### Subset heteroatoms to time points 0-62
+
+Erase, recode, standardize variables. We select 0 and 62 to match our choice for
+sediment data.
+
+```{r}
+
+heteroatoms <- heteroatoms[heteroatoms$Day == "0" | heteroatoms$Day == "62",]
+# heteroatoms <- heteroatoms |> 
+#     dplyr::select(-c("SampleID", "File Name", "Mesocosms..",
+#            "Greenhouse", "Sample.type", "Day_microbiome"))
+dim(heteroatoms) # 48 53
+colSums(heteroatoms[,11:ncol(heteroatoms)])
+# keep only the data where the colSums is larger than 0 (at least a value in one of the samples) 
+# retains char, factors and numeric columns where colSums > 0
+# Filter columns: Keep non-numeric or numeric columns with colSum > 0
+heteroatoms <- heteroatoms[, sapply(heteroatoms, function(col) {
+    
+# check if the current column col is numeric.
+  if (is.numeric(col)) {
+#If the column is numeric, we use any(col != 0) to check if there are any non-zero values in the column. This effectively checks if the colSum is greater than 0.
+    return(any(col != 0))
+# If the column is not numeric (i.e., it's not numeric data type), we enter this part of the conditional.
+  } else {
+#For non-numeric columns, we simply return TRUE, indicating that we want to keep all non-numeric columns.
+    return(TRUE)
+  }
+# Close the sapply function and use the resulting logical vector to subset the data. This line filters the columns of heteroatoms based on the conditions specified in the sapply function.
+})]
+dim(heteroatoms) # 48 53 at this point, it is raw data, not standardized
+```
+
+### Subset genomic data based on the samples present in heteroatoms_z (48)
+
+The metadata and names of the samples do not match. Create a function to extract
+the information from the water sample ids, and then create a common id for both
+datasets
+
+```{r}
+split_strings <- function(input_vector) {
+    # Split each element of the input vector using underscores
+    split_parts <- lapply(input_vector, function(x) unlist(strsplit(x, "_")))
+    
+    # Create a data frame with three columns
+    data_frame <- data.frame(
+        Mesocosms.. = sapply(split_parts, function(x) {
+            modified_column1 <- substr(x[1], 2, nchar(x[1]) - 1)  # Remove the first and last characters (M and last character)
+            if (substring(x[1], 1, 1) == "M") {
+                modified_column1 <- paste("Mesocosm", modified_column1, sep = "_")
+            }
+            modified_column1
+        }),
+        Date = sapply(split_parts, function(x) paste(x[-1], collapse = "_")),  # Combine the rest with underscores
+        Greenhouse = sapply(split_parts, function(x) substr(x[1], nchar(x[1]), nchar(x[1])))  # Extract the last character from Column1
+    )
+    # Set row names of the data frame to match the input vector
+  rownames(data_frame) <- input_vector
+    return(data_frame)
+}
+```
+
+This new function accepts a vector as input. Use the "string" object
+
+```{r}
+string <- as.vector(meta$alias)
+result <- split_strings(string)
+print(result)
+rownames(result) <- stringr::str_replace_all(rownames(result), '[_]', '.') # quick name clean up
+```
+
+### Merge the newly separate result to the metadata
+
+```{r}
+rownames(result) == rownames(meta) # there is the addition of .Tar at the end of meta row names. Need to eliminate that
+rownames(meta) <- stringr::str_replace_all(rownames(meta), '.Tar', '')
+meta <- meta[order(rownames(meta)),]
+result <- result[order(rownames(result)),]
+rownames(result) == rownames(meta) # check again all TRUE
+meta <- cbind(meta, result)
+rm(result)
+rm(string)
+```
+
+### Create a unique identifier
+
+We can create a unique identifier for each sample, using basic info regarding
+the greenhouse (for the temperature treatment), the mesocosm number (for the
+plant treatment applied) and the date.
+
+```{r}
+# Change names in meta
+levels(as.factor(meta$Time))
+meta$Time <- factor(meta$Time,
+                         levels = c("D-0", "D8", "D15", "D34" ,"D61" ,"D77" ), 
+                         labels = c("0", "10", "16", "35" ,"62" ,"77" ))
+meta$ID <- paste0(meta$Greenhouse, "_", meta$Mesocosms.., "_", meta$Time)
+rownames(meta) <- meta$ID
+colnames(counts) <- stringr::str_replace_all(colnames(counts), '[.]', '_') # Change . to _ to match values in meta$alias 
+colnames(counts) <- stringr::str_replace(colnames(counts), '_Tar', '') # Change . to _ to match values in meta$alias 
+meta <- meta[order(meta$alias),] #order meta by alias (which has the sames values as count colnames)
+counts <- counts[,order(colnames(counts))] # Order counts to match meta alias orders
+meta <- meta[meta$alias %in% colnames(counts),]
+meta$alias == colnames(counts) # Ensure they are all true
+colnames(counts) <- rownames(meta) # change colnames in cunts to match new ID column
+colnames(counts) == rownames(meta)# Check all TRUE
+```
+
+##FILTER DATASETS
+
+```{r}
+meta_f <- meta[rownames(meta) %in% rownames(heteroatoms),] # 48 in 11 vars
+counts_f <- counts[,colnames(counts) %in% rownames(heteroatoms)] # 850 48
+heteroatoms_f <- heteroatoms[rownames(heteroatoms) %in% rownames(meta),] # 48 53
+```
+
+There is a total of 48 samples for dates 0 and 62.
+
+Check all datasets are in order
+
+```{r}
+#Order
+heteroatoms_f <- heteroatoms_f[order(rownames(heteroatoms_f)),]
+meta_f <- meta_f[order(rownames(meta_f)),]
+counts_f <- counts_f[,order(colnames(counts_f))]
+#Check
+rownames(meta_f) == colnames(counts_f)
+rownames(meta_f) == rownames(heteroatoms_f)
+if (all(row.names(counts_f) == rownames(tax_clean) )) {
+  print("Sanity check ok")
+} else {
+  print("ERROR: not all row names are the same")
+}
+```
+
+### Create other versions of heteroatoms
+
+```{r}
+heteroatoms_z <- heteroatoms_f |> 
+    mutate_if(~!is.numeric(.), as.factor) |> 
+    mutate_if(is.numeric, scale)    # standardize
+
+# Check it work
+heteroatoms_z |> 
+    summarise_if(is.numeric, list(mean = ~round(mean(.)), std = ~sd(.))) 
+heteroatoms_t <- t(heteroatoms_f[,12:ncol(heteroatoms_f)])
+
+heteroatoms_rel <- apply(heteroatoms_t, 2, function(x) x/sum(x)) # samples are cols, species are rows
+colSums(heteroatoms_rel)
+heteroatoms_rel <- t(heteroatoms_rel) # back to sp as cols
+dim(heteroatoms_rel) # 48 42
+dim(heteroatoms_z) # should be 48 53
+```
+
+### Clean environment before continuing
+
+```{r}
+rm(list = c("counts", "heteroatoms", "meta", "raw", "taxonomy"))
+```
+
+# Phyloseq
+
+# -------------------------------------------
+
+```{r}
+#class(meta)
+#meta <- as.data.frame(meta)
+meta_sub <- heteroatoms_z[,!sapply(heteroatoms_z, is.numeric)] 
+otu_sub <- counts_f[ ,colnames(counts_f) %in% rownames(meta_sub)] 
+otu_sub <- otu_sub[rowSums(otu_sub) > 0, ] # 700 in 48 samples
+tax_sub <- tax_clean[rownames(tax_clean) %in% rownames(otu_sub),]
+meta_sub <- meta_sub[rownames(meta_sub) %in% colnames(otu_sub),]
+treats <- c("Temperature", "Day", "Plant.type", "Mesocosms..")
+meta_sub <- meta_sub[,colnames(meta_sub) %in% treats]
+dim(meta_sub) #48   4
+```
+
+### Create Phylo Object
+
+To agglomerate at order rank. Create a new phyloseq with the samples that were
+kept for the NA analyses
+
+```{r}
+otu <- otu_table(as.matrix(otu_sub), taxa_are_rows = TRUE)
+tax <- tax_table(as.matrix(tax_sub))
+sample <- sample_data(meta_sub)
+ps <- phyloseq(otu, tax, sample)
+```
+
+### Agglomerate at order rank
+
+```{r}
+ps_taxa <- tax_glom(ps, taxrank = 'Order', NArm = FALSE) # 90 orders 
+```
+
+# DESeq2
+
+# -------------------------------------------
+
+# Run DEseq2 at order rank
+
+```{r}
+set.seed(123)
+# Subset the original phyloseq object 'ps_taxa' to only 
+#include samples from time points "D0" and "D62"
+ps_taxa_sub <- subset_samples(ps_taxa, Day %in% c("0", "62"))
+
+# Filter out features (OTUs or taxa) that have more 
+#than 90% zeros across all samples
+# This is done by checking the number of zeros in each row
+#of the OTU table and comparing it to 90% of the total
+#number of columns (samples)
+ps_taxa_pse_sub <- prune_taxa(rowSums(otu_table(ps_taxa_sub) == 0) 
+                              < ncol(otu_table(ps_taxa_sub)) * 0.9, ps_taxa_sub) #55
+
+# Convert the filtered phyloseq object to a DESeq2 object,
+#using 'Time' as the variable of interest
+ps_ds <- phyloseq_to_deseq2(ps_taxa_pse_sub, ~ Day)
+
+# Estimate size factors for normalization using the 
+#"poscounts" method, which is useful when many genes have 
+#zeros in some samples
+ds <- estimateSizeFactors(ps_ds, type = "poscounts")
+
+# Perform differential abundance analysis using the 
+#Wald test and a parametric fit
+ds <- DESeq(ds, test = "Wald", fitType = "parametric")
+
+# Set the significance threshold (alpha) to 0_05
+alpha <- 0.05 
+
+# Retrieve the results of the differential abundance analysis
+res <- results(ds, alpha = alpha)
+
+# Order the results by the adjusted p-values 
+#(padj) in ascending order
+res <- res[order(res$padj, na.last = NA), ]
+res_df <- as.data.frame(res)
+res_sign <- res_df[res_df$padj < 0.00001 &
+                       res_df$log2FoldChange > 2,] 
+# 3 orders with p value smaller than 10-5 (-log10 > 5,
+#like in volcano plot)
+taxa_sig_df <- tax[rownames(tax) %in% rownames(res_sign),1:4]
+
+# Extract the names (taxa) of the features with the lowest adjusted p-values
+taxa_sig <- rownames(res_sign) # 3
+
+# Convert the counts in the original phyloseq object 'ps_taxa' 
+#to relative abundances (percentages)
+ps_taxa_rel <- transform_sample_counts(ps, function(x) x/sum(x))
+colsumscheck_rel <- colSums(ps_taxa_rel@otu_table) # Sanity Check
+# Subset the relative abundance phyloseq object to only include 
+#the significant taxa identified earlier
+ps_taxa_rel_sig <- prune_taxa(taxa_sig, ps_taxa_rel)
+ps_taxa_sig <- prune_taxa(taxa_sig, ps)
+```
+
+### Extract agglomerated tables at genus to run RDA
+
+Change column names, R doesn't allow for columns to start by a number. Avoids
+error : *Sample names in 'physeq' could not be automatically converted to the
+syntactically valid column names in data.frame (see 'make.names').*
+
+```{r}
+ps_taxa_df <- phyloseq_to_df(ps_taxa_rel_sig) 
+unique(ps_taxa_df$Domain) #"Eukaryota"
+unique(ps_taxa_df$Phylum) # "Chlorophyta" "Protalveolata"   
+unique(ps_taxa_df$Class) # "Trebouxiophyceae"   "Chlorophyceae"   "Perkinsidae"  
+unique(ps_taxa_df$Order) # "Trebouxiophyceae"  "Sphaeropleales" "A31" 
+
+# ensure the same samples are in otu and meta
+#heteroatoms_z <- heteroatoms_z[rownames(heteroatoms_z) %in% rownames(meta_sub),] 
+
+# make row names in heteroatoms match column names in ps_taxa_df
+#rownames(heteroatoms_z) <- paste0("x_", rownames(heteroatoms_z))
+#rownames(heteroatoms) <- paste0("x_", rownames(heteroatoms))
+# Get the taxonomy apart tax_g
+tax_g <- ps_taxa_df[,1:7]
+rownames(tax_g) <- tax_g$OTU
+tax_g$OTU <- NULL
+
+# Extract otu_g
+rownames(ps_taxa_df) <- ps_taxa_df$OTU
+otu_g <- ps_taxa_df[, sapply(ps_taxa_df, is.numeric)] # 3 in 48
+rowSums(otu_g)
+# get meta_g
+meta_g <- heteroatoms_z
+
+# Check that names in match
+meta_g <- meta_g[order(row.names(meta_g)),]
+
+otu_g <- otu_g[, order(colnames(otu_g))]
+rownames(meta_g) == colnames(otu_g)
+otu_g <- t(otu_g)
+rownames(meta_g) == rownames(otu_g)
+```
+
+Clean environment out of variables that are not needed anymore before moving
+into the next part of the analyses
+
+``` {#r}
+rm(list = c("tax_clean"))
+```
+
+### Set heteroatoms
+
+```{r}
+atoms <- meta_g[,12:ncol(meta_g)]
+```
+
+### Set NA concentration
+
+```{r}
+na <- meta_g[,11]
+```
+
+### Set treatments
+
+```{r}
+treats <- c("Temperature", "Day", "Plant.type", "Mesocosms..")
+treat <- meta_g[,colnames(meta_g) %in% treats]
+```
+
+### Check for autocorrelation
+
+```{r}
+# first, check that asv names match
+otu_g <- otu_g[, order(colnames(otu_g))]
+tax_g <- tax_g[order(rownames(tax_g)),]
+colnames(otu_g) == rownames(tax_g) 
+# then simplify names in otu_g to display in correlation
+colnames(otu_g) <- tax_g$Order 
+
+# We look at the pairwise correlation among ALL the explanation variables
+corr_values <- round(cor(otu_g, method = "spearman"), 2) # Calculate correlation
+
+pdf(file = here("output", "figures", "correlation-order-level-water18S.pdf"),height = 8)
+plot_cor <- corrplot(corr_values,
+                     method = "circle",
+                     type = "lower",
+                     insig = "blank",
+                     number.cex = 0.6,
+                     order = "hclust",
+                     addrect = 2,
+                     diag = FALSE,
+                     cl.ratio = 0.2, # justify iwdth of legend
+                       tl.cex = 0.7,
+                       tl.col = "black",
+                       tl.srt = 45,
+                       col = COL2('PuOr', n = 10),
+                       title = "Spearman correlation between Order abundance",
+                     mar=c(0,0,2,0))
+
+dev.off()
+
+```
+
+![](images/correlation-order-level-01.png)
+
+The result show that 2 order groups are highly autocorrelated:
+
+*Sphaeropleales* with *Trebouxiophyceae*
+
+### Hellinger transform and check correlation
+
+```{r}
+# We transform otu_g (hellinger transformation: sqrt of the relative abundance)
+otu_hell <- sqrt(otu_g)
+#rowSums(otu_hell)
+
+# We look at the pairwise correlation among ALL the explanation variables
+corr_values_hell <- round(cor(otu_hell, method = "spearman"), 2) 
+# Calculate correlation
+
+pdf(file = here("output", "figures",
+                "correlation-order-level-hell_18S-water.pdf"),
+    height = 8)
+plot_cor_hell <- corrplot(corr_values_hell,
+                     method = "circle",
+                     type = "lower",
+                     insig = "blank",
+                     number.cex = 0.6,
+                     order = "hclust",
+                     addrect = 2,
+                     diag = FALSE,
+                     cl.ratio = 0.2, # justify iwdth of legend
+                       tl.cex = 0.7,
+                       tl.col = "black",
+                       tl.srt = 45,
+                       col = COL2('PuOr', n = 10),
+                       title = "Spearman correlation between Order abundances - Hellinger",
+                     mar=c(0,0,4,0))
+
+dev.off()
+
+```
+
+The autocorrelation graph yields a similar correlation result when performed on
+Hellinger transformed data.
+
+# RDA
+
+# -------------------------------------------
+
+## RDA analyses
+
+### Selection of variables with ordi2step
+
+### Compute *null* and *full* models
+
+```{r}
+set.seed(123)
+atoms$ID <- NULL
+atoms_z <- scale(atoms)
+
+# Create simplest and most complex models
+rda0_1 <- rda(atoms_z ~ 1, data = otu_hell)
+rdaall_1 <- rda(atoms_z ~ ., data = as.data.frame(otu_hell)) # 
+rdaall_1
+anova(rdaall_1, by = "term")
+adjR2.tbrda1 <- RsquareAdj(rdaall_1)$adj.r.squared  
+# 0.045 with robust.aitch transformed data 
+
+```
+
+Including the 3 orders in the model does not explain a lot of variability in the
+heteroatom data, with only 0.045 R2 Adjusted. Trebouxiophyceae seems to be the
+only significant group.
+
+### Perform ordistep
+
+```{r}
+set.seed(123)
+#otu_g <- as.data.frame(otu_g)
+otu_hell <- as.data.frame(otu_hell)
+sel_f1 <- ordistep(object = rda0_1,
+                    scope = rdaall_1,
+                   direction = "forward",
+                    R2scope = adjR2.tbrda1)
+sel_f1$anova
+anova(sel_f1, by = "term") 
+#summary(sel_f1)
+```
+
+### Train Minimal RDA
+
+```{r}
+set.seed(123)
+rda_select_hell <- rda(atoms_z ~  Trebouxiophyceae,
+                      data = otu_hell) # 
+anova.cca(rda_select_hell, permutations = how(nperm = 999), by = "term")
+anova.cca(rda_select_hell, permutations = how(nperm = 999))
+summary(rda_select_hell)
+#print(rda_select_hell)
+adjR2.rda.hell <- RsquareAdj(rda_select_hell)$adj.r.squared 
+# 0.0684 explained by Trebouxiophyceae 
+smry <- summary(rda_select_hell)
+```
+
+``` {include="FALSE"}
+capture.output(print(rda_select_hell), file = here("output", "tables", "RDA_atoms-explained-by-frankiales_hellinger-Water_18S.txt"))
+capture.output(anova.cca(rda_select_hell, permutations = how(nperm = 999)), file = here("output", "tables", "RDA_atoms-explained-by-frankiales_ANOVA_hellinger-Water_18S.txt"))
+capture.output(anova.cca(rda_select_hell, permutations = how(nperm = 999), by = "term"), file = here("output", "tables", "RDA_atoms-explained-by-frankiales_ANOVAbyTerm_hellinger-Water_18S.txt"))
+capture.output(RsquareAdj(rda_select_hell)$adj.r.squared, file = here("output", "tables", "RDA_atoms-explained-by-frankiales_adj_Rsq-hellinger-Water_18S.txt"))
+```
+
+We used inverse RDA to analyze the impact of microbial taxa on heteroatom
+composition. We selected samples from time points 0 and 62 and focused on taxa
+agglomerated at the order level based on their differential expression
+(log2FoldChange of 2 and p-value of 10-4, for 18S). This allowed us to test only
+the taxa that significantly contributed to the differentiation of the two time
+points, reducing the number of features to be tested in RDA. We retained three
+explanatory microbial orders (expressed as a Hellinger transformation with
+respect to the full microbial community composition). Forward selection
+identified 1 order that contributed to differences in heteroatom composition:
+*Trebouxiophyceae*. The square root of the relative abundance of these orders in
+the water fraction explained only 6.84% of the heteroatom composition. The
+overall model was statistically significant (F = 4.4509, p \< 0.001).
+
+## GGPLOT biplot for minimal RDA
+
+### Extract coordinates
+
+We extract the coordinates for the biplot, and rename the row names to italicize
+where appropriate. We also subset the heteroatoms to display, to show the ones
+kept in the paper.
+
+```{r}
+biplot <- data.frame(smry$biplot[,1:2])
+dim(biplot) # 2 2
+rownames(biplot) <- c("italic(Trebouxiophyceae)", "PC1")
+
+sites <- data.frame(smry$sites[,1:2])
+dim(sites) # 48   2
+# merge metadata to sites
+if (all(rownames(sites) == rownames(meta_g))) { 
+    sites <- cbind(sites, meta_g[,1:10])
+} else {
+        print("diff row names")
+    }
+species <- data.frame(smry$species[,1:2])
+dim(species) # 42 2
+# Keep only a small subset of heteroatom species to display, 
+#according to especies shown in the paper
+atoms_keep <- c("O", "O2", "O3", "O4", "O5", "O6", "O7", "S", "OS", "O2S",
+                "O3S", "N2O3", "NO6", "N2", "N2O3S", "N2S", "O2S2")
+species <- species[rownames(species) %in% atoms_keep, ]
+dim(species) # 17 2
+```
+
+
+# Relative abundance of *Trebouxiophyceae* at time 0 and 62 in the mesocosms
+
+# -------------------------------------------
+
+### Gather data for relAbund
+
+```{r}
+dim(otu_sub) # raw counts 700 48
+otu_sub <- as.data.frame(otu_sub)
+#colnames(otu_sub) <- paste0("x_", colnames(otu_sub))
+otu_t <- t(otu_sub)
+otu_rel <- otu_t / rowSums(otu_t)
+rowSums(otu_rel)
+dim(meta_g) # 48 53
+tax_sub <- as.data.frame(tax_sub)
+dim(tax_sub) #700     6
+tax_keep <- tax_sub[tax_sub$Order == "Trebouxiophyceae" | 
+                         tax_sub$Order == "Sphaeropleales" |
+                           tax_sub$Order == "A31",]
+unique(tax_keep$Genus)
+```
+
+# Fix "uncultured" genus name
+
+There were 700 ASVs in D0 and D62. Out of those, 3 belonged to orders of
+interest. These were subsequently classified in 13 different genera.
+
+### Subset otu_rel based on 81 interesting asv
+
+```{r}
+otu_keep <- otu_rel[, colnames(otu_rel) %in% rownames(tax_keep)] # 48 samples 70 ASV
+# bind treatment and abundance
+
+otu_keep <- t(otu_keep)
+str(otu_keep)
+str(tax_keep)
+tax_keep <- tax_keep[sort(rownames(tax_keep)),]
+otu_keep <- otu_keep[sort(rownames(otu_keep)),]
+rownames(tax_keep) == rownames(otu_keep)
+meta_sub <- meta_sub[sort(rownames(meta_sub)),]
+colnames(otu_keep) == rownames(meta_sub)
+# Agglom otu_keep at genus level
+
+otu_keep <- otu_table(as.matrix(otu_keep), taxa_are_rows = TRUE)
+tax_keep <- tax_table(as.matrix(tax_keep))
+sample <- sample_data(meta_sub)
+colnames(sample)[colnames(sample) == "Day"] <- "Time"
+
+# merge: 
+ps_keep <- phyloseq(otu = otu_keep, tax = tax_keep, sample = sample)
+ps_keep_g <- tax_glom(ps_keep, taxrank = 'Genus', NArm = FALSE) 
+# 15 in 46 samples
+
+ps_keep_df <- phyloseq_to_df(ps_keep_g) 
+rownames(ps_keep_df) <- ps_keep_df$Genus
+otu_keep <- ps_keep_df[,-(1:7)] # 13 48
+otu_keep <- t(otu_keep)
+rownames(otu_keep) == rownames(meta_sub)
+abund_treat <- cbind(meta_sub, otu_keep)
+dim(abund_treat) # 48, 17
+
+```
+
+## Gather in long format for ggplot
+
+```{r}
+long <- gather(abund_treat,Taxa,RelAbund,5:ncol(abund_treat)) #change the column index value to match the first column that contains a Taxa name and not a treatment
+head(long) # It looks ok!
+genus_long <- long
+```
+
+### Italicize genera names
+
+```{r}
+colnames(genus_long)[colnames(genus_long) == "Day"] <- "Time"
+genus_long$Taxa <- paste("*", genus_long$Taxa, "*", sep = "")
+genus_long$Plant.type <- factor(genus_long$Plant.type,
+                                levels = c("no plant", "Scirpus", "Triglochin"),
+                                labels = c("no plant", "*Scirpus*", "*Triglochin*"))
+```
+
+## Create the lolipop chart
+
+```{r}
+# Step 1: Calculate the mean values with ave()
+mean_values <- ave(genus_long$RelAbund, genus_long$Time, genus_long$Taxa, FUN = mean)
+
+# Reorder the levels based on mean values
+genus_long$Taxa <- reorder(genus_long$Taxa, mean_values, FUN = mean)
+
+# Add small value to prevent inf error when log transforming
+genus_long$RelAbund <- genus_long$RelAbund + 1e-6
+
+high_contrast <- c("#000004FF", "#FEAF77FF","#721F81FF" ,"#B63679FF" ,"#F1605DFF" ) 
+# Step 3: Create the plot
+p1 <- ggplot(data = genus_long, aes(y = Taxa, x = RelAbund, color = Time)) +
+    geom_vline(xintercept = c(0.001, 0.01, 0.1, 0.4), color = "lightgrey", size = 0.1) +
+  stat_summary(fun.data = median_hilow, geom = "pointrange", fun.args = list(conf.int = 0.5),
+               position = position_dodge(width = 0.4),
+               linewidth = 0.25) +
+  coord_trans(x = "log10") +
+    ylab("Taxonomic group") + 
+    xlab("log10 Relative abundance") +
+    labs(title = "C) Relative abundance (Genus)")+
+    scale_color_manual(values = high_contrast) + 
+  theme_classic() +
+  theme(
+    axis.text.y = element_markdown(),
+    axis.text.x = element_text(size = 7),
+    legend.text = element_markdown(),
+    title = element_text(size = 10, face = "bold"),
+    legend.position = "right",
+    legend.spacing = unit(0.1, "cm"),
+    #legend.position = c(0.92, 0.15),
+    legend.background = element_rect(color = "darkgrey", fill = "white"),
+    #legend.margin = margin(t = -5, r = 3, b = 3),
+    strip.text.x = element_markdown(size = 9),
+    strip.text.y = element_markdown(size = 9)
+    
+  ) +
+    scale_x_continuous(limits = c(NA, 1.5), 
+                       breaks = c(0.001,0.01, 0.1, 0.4),
+                       labels = c(".001", ".01", ".1", ".4")) +
+  facet_grid(Temperature ~ Plant.type)
+
+p1
+
+#Save plots
+# ggsave(file = here::here("output", "figures", "relAbund_keep_genus_18S_water_pops0.62.pdf"), p1, width = 6, height = 5, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_keep_genus_18S_water_pops0.62.eps"), p1, width = 6, height = 5, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_keep_genus_18S_water_pops0.62.png"), p1, width = 6, height = 5, units = "in", dpi = 300,bg = "white")
+```
+
+
+# -------------------------------------------
+
+# END OF SCRIPT
+
+```{r}
+save.image(here("RData", "SCG_10_sediments_RDA.RData"))
+```
+
+
