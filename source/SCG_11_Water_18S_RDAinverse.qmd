@@ -20,11 +20,17 @@ samples for both bacterial communities and heteroatom composition.
 
 ```{r, message=FALSE}
 #devtools::install_github("vmikk/metagMisc")
-source(here::here("source", "libraries.R"))
+#source(here::here("source", "libraries.R"))
+library(here)
 library(dplyr)
 library(phyloseq)
 library(metagMisc)
 library(corrplot)
+library(vegan)
+library(ggplot2)
+library(tidyr)
+library(DESeq2)
+library(ggtext) # element_markdown to work
 ```
 
 ## Metadata
@@ -70,9 +76,9 @@ names(raw_libsize) <- c("lib_size")
 summary(raw_libsize)
 ```
 
-```         
+        
 lib_size    
-```
+
 
 Min. : 5\
 1st Qu.:27821\
@@ -90,9 +96,9 @@ small_libs <-  raw_libsize %>% filter_at(vars(1), any_vars(. < 4000)) # keep con
 small_libs
 ```
 
-```         
+        
           lib_size
-```
+
 
 M7G.Jan.4.2022 5
 
@@ -330,7 +336,7 @@ dim(heteroatoms_z) # should be 48 53
 ### Clean environment before continuing
 
 ```{r}
-rm(list = c("counts", "heteroatoms", "meta", "raw", "taxonomy"))
+#rm(list = c("counts", "heteroatoms", "meta", "raw", "taxonomy"))
 ```
 
 # Phyloseq
@@ -509,7 +515,7 @@ colnames(otu_g) <- tax_g$Order
 # We look at the pairwise correlation among ALL the explanation variables
 corr_values <- round(cor(otu_g, method = "spearman"), 2) # Calculate correlation
 
-pdf(file = here("output", "figures", "correlation-order-level-water18S.pdf"),height = 8)
+#pdf(file = here("output", "figures", "correlation-order-level-water18S.pdf"),height = 8)
 plot_cor <- corrplot(corr_values,
                      method = "circle",
                      type = "lower",
@@ -526,7 +532,7 @@ plot_cor <- corrplot(corr_values,
                        title = "Spearman correlation between Order abundance",
                      mar=c(0,0,2,0))
 
-dev.off()
+#dev.off()
 
 ```
 
@@ -547,9 +553,7 @@ otu_hell <- sqrt(otu_g)
 corr_values_hell <- round(cor(otu_hell, method = "spearman"), 2) 
 # Calculate correlation
 
-pdf(file = here("output", "figures",
-                "correlation-order-level-hell_18S-water.pdf"),
-    height = 8)
+#pdf(file = here("output", "figures", "correlation-order-level-hell_18S-water.pdf"), height = 8)
 plot_cor_hell <- corrplot(corr_values_hell,
                      method = "circle",
                      type = "lower",
@@ -566,7 +570,7 @@ plot_cor_hell <- corrplot(corr_values_hell,
                        title = "Spearman correlation between Order abundances - Hellinger",
                      mar=c(0,0,4,0))
 
-dev.off()
+#dev.off()
 
 ```
 
@@ -632,7 +636,7 @@ adjR2.rda.hell <- RsquareAdj(rda_select_hell)$adj.r.squared
 smry <- summary(rda_select_hell)
 ```
 
-``` {include="FALSE"}
+``` {#include="FALSE"}
 capture.output(print(rda_select_hell), file = here("output", "tables", "RDA_atoms-explained-by-frankiales_hellinger-Water_18S.txt"))
 capture.output(anova.cca(rda_select_hell, permutations = how(nperm = 999)), file = here("output", "tables", "RDA_atoms-explained-by-frankiales_ANOVA_hellinger-Water_18S.txt"))
 capture.output(anova.cca(rda_select_hell, permutations = how(nperm = 999), by = "term"), file = here("output", "tables", "RDA_atoms-explained-by-frankiales_ANOVAbyTerm_hellinger-Water_18S.txt"))
@@ -823,7 +827,7 @@ p1
 # END OF SCRIPT
 
 ```{r}
-save.image(here("RData", "SCG_10_sediments_RDA.RData"))
+#save.image(here("RData", "SCG_10_sediments_RDA.RData"))
 ```
 
 
