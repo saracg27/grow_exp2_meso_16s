@@ -22,11 +22,14 @@ ps_sed
 ####Metacoder on all sed samples####
 
 ### ....Metacoder Object####
-# Order agglomeration
-ps_glom_ord <- tax_glom(ps_sed,taxrank="Order")
+# Taxonomic agglomeration
+ps_glom_order <- tax_glom(ps_sed,taxrank="Order")
+ps_glom_class <- tax_glom(ps_sed,taxrank="Class")
 
-# Relative abundance transformation
-ps.relab <- transform_sample_counts(ps_glom_ord,function(x) x/sum(x))
+ps_obj <- ps_glom_class
+
+    # Relative abundance transformation
+ps.relab <- transform_sample_counts(ps_obj,function(x) x/sum(x))
 
 meta_obj <- parse_phyloseq(ps.relab) 
 # transforms the phyloseq object in a metacoder object
@@ -59,8 +62,14 @@ range(meta_obj$data$diff_table$wilcox_FDR_p_value, finite = TRUE)
 # highlight unsignificant results. 
 meta_obj$data$diff_table$log2_median_ratio[meta_obj$data$diff_table$wilcox_FDR_p_value > 0.05] <- 0
 
+# Only label significant differences
+per_taxon_fold_changes <- obs(meta_obj, data = 'diff_table', value = 'log2_median_ratio')
+per_taxon_max_change <- unlist(lapply(per_taxon_fold_changes, function(tax_changes) max(abs(tax_changes))))
+meta_obj_simp <- filter_taxa(meta_obj, per_taxon_max_change !=0, supertaxa = TRUE, reassign_obs = c(diff_table = FALSE))
+
+
 # Plot the tree
-heat_tree_matrix (meta_obj,
+heat_tree_matrix (meta_obj_simp,
                   data="diff_table",
                   node_size = n_obs, # n_obs is a function that calculates, in this case, the number of ASV per taxon
                   node_label = taxon_names,
@@ -71,12 +80,12 @@ heat_tree_matrix (meta_obj,
                   node_size_axis_label = "Number of orders",
                   node_color_axis_label = "Log2 ratio median proportions",
                   repel_labels = TRUE,
-                  key_size = 0,
-                  label_small_trees = T,
+                  key_size = 0.8,
+                  label_small_trees = F,
                   layout = "davidson-harel", # The primary layout algorithm
                   initial_layout = "reingold-tilford", # The layout algorithm that initializes node locations
                   output_file = here("Results","Figures","Sed_Time_DiffTree.pdf")) # Saves the plot as a pdf file
-
+?heat_tree_matrix
 ### Sanity check of metacoder results ###
 
 Diff_table <- as.data.frame(meta_obj$data$diff_table)
