@@ -18,10 +18,13 @@ tax <- data.frame(tax_table(ps))
 #Order agglomeration
 ps_glom_ord <- tax_glom(ps,taxrank="Order",NArm = F)
 # 96 orders in 140 samples
+ps_glom_gen <- tax_glom(ps,taxrank="Genus",NArm = F)
+#204 generea in 139 samples 
 
 # Run to select which object you want to run the analysis on
-#ps_obj <- ps
+
 ps_obj <- ps_glom_ord
+ps_obj <- ps_glom_gen
 
 # Filter out features (OTUs or taxa) that have more 
 #than 90% zeros across all samples
@@ -517,32 +520,33 @@ res2 = res[order(res$padj, na.last=NA), ] # ordered and removes the ASVs which h
 plotMA(res2)
 
 summary(res2)
-sigtab = res2[(res2$padj < 0.05), ] # Select significant padj
-sigtab <- as.data.frame(sigtab)
-sigtab <- cbind(rownames(sigtab),sigtab)
-colnames(sigtab)[1] <- "OTU"
-
-tax <- data.frame(tax_table(ps_obj))
-tax_diffab <- subset(tax,rownames(tax)%in%rownames(sigtab))
-
-signif_taxa <- merge(tax_diffab,sigtab,by='row.names')
-
 
 
 # Simple plot
-signif_taxa$Time <- "More abundant in D62"
-for (i in 1:nrow(signif_taxa)){
-  if(signif_taxa$log2FoldChange[i]<0){
-    signif_taxa$Time[i] <- "More abundant in D0"
-  }
-}
-ggplot(signif_taxa,aes(x=log2FoldChange,y=Order,color=Time))+
-  theme_bw()+
-  facet_grid(Phylum~.,scale='free',space='free',switch='y')+
-  theme(strip.text.y.left = element_text(angle = 0))+
-  geom_vline(xintercept = 0)+
-  scale_color_manual(values=c("black","yellow"),name="Differential abundance")+
-  geom_point(size=3)
+# 
+#sigtab = res2[(res2$padj < 0.05), ] # Select significant padj
+#sigtab <- as.data.frame(sigtab)
+#sigtab <- cbind(rownames(sigtab),sigtab)
+#colnames(sigtab)[1] <- "OTU"
+#
+#tax <- data.frame(tax_table(ps_obj))
+#tax_diffab <- subset(tax,rownames(tax)%in%rownames(sigtab))
+#
+#signif_taxa <- merge(tax_diffab,sigtab,by='row.names')
+#
+#signif_taxa$Time <- "More abundant in D62"
+#for (i in 1:nrow(signif_taxa)){
+#  if(signif_taxa$log2FoldChange[i]<0){
+#    signif_taxa$Time[i] <- "More abundant in D0"
+#  }
+#}
+#ggplot(signif_taxa,aes(x=log2FoldChange,y=Order,color=Time))+
+#  theme_bw()+
+#  facet_grid(Phylum~.,scale='free',space='free',switch='y')+
+#  theme(strip.text.y.left = element_text(angle = 0))+
+#  geom_vline(xintercept = 0)+
+#  scale_color_manual(values=c("black","yellow"),name="Differential abundance")+
+#  geom_point(size=3)
 
 #ggsave(filename = here("Results/Figures/", "deseq_diffab_roots_time.png"),height = 7.5, width = 10.5, dpi = 300)
 #ggsave(filename = here("Results/Figures/", "deseq_diffab_roots_time.pdf"),height = 7.5, width = 10.5, dpi = 300)
@@ -550,23 +554,29 @@ ggplot(signif_taxa,aes(x=log2FoldChange,y=Order,color=Time))+
 
 # Volcano plot 
 # Convert p-values to -log10 scale
-signif_taxa$neg_log10_pvalue <- -log10(signif_taxa$padj)
+
+res2 <- as.data.frame(res2)
+tax <- data.frame(tax_table(ps_obj))
+res2_taxa <- merge(res2,tax,by='row.names')
+
+
+res2_taxa$neg_log10_pvalue <- -log10(res2_taxa$padj)
 
 # Filter signif_taxa based on cutoffs
-filtered_signif_taxa <- signif_taxa[(abs(signif_taxa$log2FoldChange) > 1) & (signif_taxa$neg_log10_pvalue > 2), ]
+filtered_signif_taxa <- res2_taxa[(abs(res2_taxa$log2FoldChange) > 1) & (res2_taxa$neg_log10_pvalue > 5), ]
 
 # Create a new dataframe with the relevant columns
-result_order_diff <- signif_taxa[, c("Order", "log2FoldChange", "neg_log10_pvalue")]
-result_order_diff$Order
+result_diff <- filtered_signif_taxa[, c("Genus", "log2FoldChange", "neg_log10_pvalue")]
+result_diff$Genus
 
-volcano_water_d0d62<- EnhancedVolcano(signif_taxa, 
-                                   lab = signif_taxa$Order, 
-                                   selectLab = signif_taxa$Order,
-                                   x = 'log2FoldChange', 
-                                   y = "padj",
-                                   pCutoff = 1e-02,
-                                   title = "Differential abundance in water",
-                                   subtitle = "D62 vs D0 - Order",
+volcano_water_d0d62<- EnhancedVolcano(res2_taxa, 
+                                      lab = res2_taxa$Genus, 
+                                      selectLab = res2_taxa$Genus,
+                                      x = 'log2FoldChange', 
+                                      y = "padj",
+                                      pCutoff = 1e-05,
+                                   title = "Differential abundance of 18S reads in water",
+                                   subtitle = "D62 vs D0 - Genus level",
                                    pointSize = 4.0,
                                    labSize = 3.0,
                                    colAlpha = 0.5,
@@ -580,8 +590,8 @@ volcano_water_d0d62<- EnhancedVolcano(signif_taxa,
 
 volcano_water_d0d62
 
-ggsave(filename = here("Results/Figures/", "deseq_volcano_18S_water_d0d62.png"), plot = volcano_water_d0d62,height = 7.5, width = 10.5, dpi = 300)
-ggsave(filename = here("Results/Figures/", "deseq_volcano_18S_water_d0d62.pdf"), plot = volcano_water_d0d62,height = 7.5, width = 10.5, dpi = 300)
+ggsave(filename = here("Results/Figures/", "deseq_volcano_18S_water_Genusd0d62.png"), plot = volcano_water_d0d62,height = 7.5, width = 10.5, dpi = 300)
+ggsave(filename = here("Results/Figures/", "deseq_volcano_18S_water_Genusd0d62.pdf"), plot = volcano_water_d0d62,height = 7.5, width = 10.5, dpi = 300)
 
 #####|D0-D77 ####
 #Subset ps_rhizo to keep samples from D0 and D62 sampling dates
@@ -608,56 +618,62 @@ res2 = res[order(res$padj, na.last=NA), ] # ordered and removes the ASVs which h
 plotMA(res2)
 
 summary(res2)
-sigtab = res2[(res2$padj < 0.05), ] # Select significant padj
-sigtab <- as.data.frame(sigtab)
-sigtab <- cbind(rownames(sigtab),sigtab)
-colnames(sigtab)[1] <- "OTU"
-
-tax <- data.frame(tax_table(ps_obj))
-tax_diffab <- subset(tax,rownames(tax)%in%rownames(sigtab))
-
-signif_taxa <- merge(tax_diffab,sigtab,by='row.names')
-
 
 
 # Simple plot
-signif_taxa$Time <- "More abundant in D77"
-for (i in 1:nrow(signif_taxa)){
-    if(signif_taxa$log2FoldChange[i]<0){
-        signif_taxa$Time[i] <- "More abundant in D0"
-    }
-}
-ggplot(signif_taxa,aes(x=log2FoldChange,y=Order,color=Time))+
-    theme_bw()+
-    facet_grid(Phylum~.,scale='free',space='free',switch='y')+
-    theme(strip.text.y.left = element_text(angle = 0))+
-    geom_vline(xintercept = 0)+
-    scale_color_manual(values=c("black","yellow"),name="Differential abundance")+
-    geom_point(size=3)
-
+# 
+# sigtab = res2[(res2$padj < 0.05), ] # Select significant padj
+# sigtab <- as.data.frame(sigtab)
+# sigtab <- cbind(rownames(sigtab),sigtab)
+# colnames(sigtab)[1] <- "OTU"
+# 
+# tax <- data.frame(tax_table(ps_obj))
+# tax_diffab <- subset(tax,rownames(tax)%in%rownames(sigtab))
+# 
+# signif_taxa <- merge(tax_diffab,sigtab,by='row.names')
+# signif_taxa$Time <- "More abundant in D77"
+# for (i in 1:nrow(signif_taxa)){
+#     if(signif_taxa$log2FoldChange[i]<0){
+#         signif_taxa$Time[i] <- "More abundant in D0"
+#     }
+# }
+# ggplot(signif_taxa,aes(x=log2FoldChange,y=Order,color=Time))+
+#     theme_bw()+
+#     facet_grid(Phylum~.,scale='free',space='free',switch='y')+
+#     theme(strip.text.y.left = element_text(angle = 0))+
+#     geom_vline(xintercept = 0)+
+#     scale_color_manual(values=c("black","yellow"),name="Differential abundance")+
+#     geom_point(size=3)
+# 
 #ggsave(filename = here("Results/Figures/", "deseq_diffab_roots_time.png"),height = 7.5, width = 10.5, dpi = 300)
 #ggsave(filename = here("Results/Figures/", "deseq_diffab_roots_time.pdf"),height = 7.5, width = 10.5, dpi = 300)
 
 
 # Volcano plot 
 # Convert p-values to -log10 scale
-signif_taxa$neg_log10_pvalue <- -log10(signif_taxa$padj)
+
+res2 <- as.data.frame(res2)
+tax <- data.frame(tax_table(ps_obj))
+res2_taxa <- merge(res2,tax,by='row.names')
+
+
+res2_taxa$neg_log10_pvalue <- -log10(res2_taxa$padj)
 
 # Filter signif_taxa based on cutoffs
-filtered_signif_taxa <- signif_taxa[(abs(signif_taxa$log2FoldChange) > 1) & (signif_taxa$neg_log10_pvalue > 2), ]
+filtered_signif_taxa <- res2_taxa[(abs(res2_taxa$log2FoldChange) > 1) & (res2_taxa$neg_log10_pvalue > 5), ]
 
 # Create a new dataframe with the relevant columns
-result_order_diff <- signif_taxa[, c("Order", "log2FoldChange", "neg_log10_pvalue")]
-result_order_diff$Order
+result_diff <- filtered_signif_taxa[, c("Genus", "log2FoldChange", "neg_log10_pvalue")]
+result_diff$Genus
 
-volcano_water_d0d77<- EnhancedVolcano(signif_taxa, 
-                                      lab = signif_taxa$Order, 
-                                      selectLab = signif_taxa$Order,
+volcano_water_d0d77<- EnhancedVolcano(res2_taxa, 
+                                      lab = res2_taxa$Genus, 
+                                      selectLab = res2_taxa$Genus,
                                       x = 'log2FoldChange', 
                                       y = "padj",
-                                      pCutoff = 1e-02,
-                                      title = "Differential abundance in water",
-                                      subtitle = "D77 vs D0 - Order",
+                                      pCutoff = 1e-05,
+                                      title = "Differential abundance of 18S reads in water",
+                                      subtitle = "D77 vs D0 - Genus level",
                                       pointSize = 4.0,
                                       labSize = 3.0,
                                       colAlpha = 0.5,
@@ -671,8 +687,8 @@ volcano_water_d0d77<- EnhancedVolcano(signif_taxa,
 
 volcano_water_d0d77
 
-ggsave(filename = here("Results/Figures/", "deseq_volcano_18S_water_d0d77.png"), plot = volcano_water_d0d77,height = 7.5, width = 10.5, dpi = 300)
-ggsave(filename = here("Results/Figures/", "deseq_volcano_18S_water_d0d77.pdf"), plot = volcano_water_d0d77,height = 7.5, width = 10.5, dpi = 300)
+ggsave(filename = here("Results/Figures/", "deseq_volcano_18S_water_Genusd0d77.png"), plot = volcano_water_d0d77,height = 7.5, width = 10.5, dpi = 300)
+ggsave(filename = here("Results/Figures/", "deseq_volcano_18S_water_Genusd0d77.pdf"), plot = volcano_water_d0d77,height = 7.5, width = 10.5, dpi = 300)
 
 
 
