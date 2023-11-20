@@ -6,6 +6,7 @@ library(viridis)
 library(dplyr)
 library(ggpp)
 library(EnhancedVolcano)
+library(metacoder)
 #### Data ####
 
 load(here("Rdata","ps_16S_water_obj.RData"))
@@ -16,11 +17,14 @@ load(here("Rdata","ps_16S_water_obj.RData"))
 #Order agglomeration
 ps_glom_ord <- tax_glom(ps,taxrank="Order",NArm = F)
 # 150  orders in 139 samples
+ps_glom_gen <- tax_glom(ps,taxrank="Genus",NArm = F)
+#451 generea in 139 samples 
+#A <- data.frame(tax_table(ps_glom_gen))
 
 # Run to select which object you want to run the analysis on
 #ps_obj <- ps
 ps_obj <- ps_glom_ord
-
+ps_obj <- ps_glom_gen
 # Filter out features (OTUs or taxa) that have more 
 #than 90% zeros across all samples
 # This is done by checking the number of zeros in each row
@@ -517,71 +521,78 @@ res2 = res[order(res$padj, na.last=NA), ] # ordered and removes the ASVs which h
 plotMA(res2)
 
 summary(res2)
-sigtab = res2[(res2$padj < 0.05), ] # Select significant padj
-sigtab <- as.data.frame(sigtab)
-sigtab <- cbind(rownames(sigtab),sigtab)
-colnames(sigtab)[1] <- "OTU"
-
-tax <- data.frame(tax_table(ps_obj))
-tax_diffab <- subset(tax,rownames(tax)%in%rownames(sigtab))
-
-signif_taxa <- merge(tax_diffab,sigtab,by='row.names')
-
 
 
 # Simple plot
-signif_taxa$Time <- "More abundant in D62"
-for (i in 1:nrow(signif_taxa)){
-  if(signif_taxa$log2FoldChange[i]<0){
-    signif_taxa$Time[i] <- "More abundant in D0"
-  }
-}
-ggplot(signif_taxa,aes(x=log2FoldChange,y=Order,color=Time))+
-  theme_bw()+
-  facet_grid(Phylum~.,scale='free',space='free',switch='y')+
-  theme(strip.text.y.left = element_text(angle = 0))+
-  geom_vline(xintercept = 0)+
-  scale_color_manual(values=c("black","yellow"),name="Differential abundance")+
-  geom_point(size=3)
+#sigtab = res2[(res2$padj < 0.05), ] # Select significant padj
+#sigtab <- as.data.frame(sigtab)
+#sigtab <- cbind(rownames(sigtab),sigtab)
+#colnames(sigtab)[1] <- "OTU"
+#
+#tax <- data.frame(tax_table(ps_obj))
+#tax_diffab <- subset(tax,rownames(tax)%in%rownames(sigtab))
+#
+#signif_taxa <- merge(tax_diffab,sigtab,by='row.names')
 
-#ggsave(filename = here("Results/Figures/", "deseq_diffab_roots_time.png"),height = 7.5, width = 10.5, dpi = 300)
-#ggsave(filename = here("Results/Figures/", "deseq_diffab_roots_time.pdf"),height = 7.5, width = 10.5, dpi = 300)
-
-
+# 
+# signif_taxa$Time <- "More abundant in D62"
+# for (i in 1:nrow(signif_taxa)){
+#   if(signif_taxa$log2FoldChange[i]<0){
+#     signif_taxa$Time[i] <- "More abundant in D0"
+#   }
+# }
+# ggplot(signif_taxa,aes(x=log2FoldChange,y=Order,color=Time))+
+#   theme_bw()+
+#   facet_grid(Phylum~.,scale='free',space='free',switch='y')+
+#   theme(strip.text.y.left = element_text(angle = 0))+
+#   geom_vline(xintercept = 0)+
+#   scale_color_manual(values=c("black","yellow"),name="Differential abundance")+
+#   geom_point(size=3)
+# 
+# ggsave(filename = here("Results/Figures/", "deseq_diffab_roots_time.png"),height = 7.5, width = 10.5, dpi = 300)
+# ggsave(filename = here("Results/Figures/", "deseq_diffab_roots_time.pdf"),height = 7.5, width = 10.5, dpi = 300)
+# 
+# 
 # Volcano plot 
 # Convert p-values to -log10 scale
-signif_taxa$neg_log10_pvalue <- -log10(signif_taxa$padj)
+res2 <- as.data.frame(res2)
+tax <- data.frame(tax_table(ps_obj))
+res2_taxa <- merge(res2,tax,by='row.names')
+
+
+res2_taxa$neg_log10_pvalue <- -log10(res2_taxa$padj)
 
 # Filter signif_taxa based on cutoffs
-filtered_signif_taxa <- signif_taxa[(abs(signif_taxa$log2FoldChange) > 1) & (signif_taxa$neg_log10_pvalue > 2), ]
+filtered_signif_taxa <- res2_taxa[(abs(res2_taxa$log2FoldChange) > 1) & (res2_taxa$neg_log10_pvalue > 5), ]
 
 # Create a new dataframe with the relevant columns
-result_order_diff <- signif_taxa[, c("Order", "log2FoldChange", "neg_log10_pvalue")]
-result_order_diff$Order
+result_diff <- filtered_signif_taxa[, c("Genus", "log2FoldChange", "neg_log10_pvalue")]
+result_diff$Genus
 
-volcano_water_d0d62<- EnhancedVolcano(signif_taxa, 
-                                   lab = signif_taxa$Order, 
-                                   selectLab = signif_taxa$Order,
-                                   x = 'log2FoldChange', 
-                                   y = "padj",
-                                   pCutoff = 1e-02,
-                                   title = "Differential abundance in water",
-                                   subtitle = "D62 vs D0 - Order",
-                                   pointSize = 4.0,
-                                   labSize = 3.0,
-                                   colAlpha = 0.5,
-                                   legendPosition = 'top',
-                                   legendLabSize = 10,
-                                   legendIconSize = 4.0,
-                                   drawConnectors = TRUE,
-                                   widthConnectors = 0.6,
-                                   max.overlaps = 20
+volcano_water_d0d62<- EnhancedVolcano(res2_taxa, 
+                                      lab = res2_taxa$Genus, 
+                                      selectLab = res2_taxa$Genus,
+                                      x = 'log2FoldChange', 
+                                      y = "padj",
+                                      pCutoff = 1e-05,
+                                      title = "Differential abundance of 16S reads in water",
+                                      subtitle = "D62 vs D0 - Genus level",
+                                      pointSize = 4.0,
+                                      labSize = 3.0,
+                                      colAlpha = 0.5,
+                                      legendPosition = 'top',
+                                      legendLabSize = 10,
+                                      legendIconSize = 4.0,
+                                      drawConnectors = TRUE,
+                                      widthConnectors = 0.6,
+                                      max.overlaps = 20
 )
 
 volcano_water_d0d62
 
-ggsave(filename = here("Results/Figures/", "deseq_volcano_16S_water_d0d62.png"), plot = volcano_water_d0d62,height = 7.5, width = 10.5, dpi = 300)
-ggsave(filename = here("Results/Figures/", "deseq_volcano_16S_water_d0d62.pdf"), plot = volcano_water_d0d62,height = 7.5, width = 10.5, dpi = 300)
+
+ggsave(filename = here("Results/Figures/", "deseq_volcano_16S_water_Genusd0d62.png"), plot = volcano_water_d0d62,height = 7.5, width = 10.5, dpi = 300)
+ggsave(filename = here("Results/Figures/", "deseq_volcano_16S_water_Genusd0d62.pdf"), plot = volcano_water_d0d62,height = 7.5, width = 10.5, dpi = 300)
 
 #####|D0-D77 ####
 #Subset ps_rhizo to keep samples from D0 and D62 sampling dates
@@ -589,7 +600,8 @@ ps_obj_d0d77 <-  subset_samples(ps_obj, Time =="D0" | Time =="D77")
 ps_obj_d0d77 <- prune_taxa(taxa_sums(ps_obj_d0d77)>0, ps_obj_d0d77)
 ps_obj_d0d77 <- prune_taxa(rowSums(otu_table(ps_obj_d0d77) == 0) 
                            < ncol(otu_table(ps_obj_d0d77)) * 0.9, ps_obj_d0d77)
-
+#244 genera in 45 samples
+#
 diagdds = phyloseq_to_deseq2(ps_obj_d0d77, ~ Time)
 # calculate geometric means prior to estimate size factors
 # gm_mean = function(x, na.rm=TRUE){
@@ -623,56 +635,63 @@ res2 = res[order(res$padj, na.last=NA), ] # ordered and removes the ASVs which h
 plotMA(res2)
 
 summary(res2)
-sigtab = res2[(res2$padj < 0.05), ] # Select significant padj
-sigtab <- as.data.frame(sigtab)
-sigtab <- cbind(rownames(sigtab),sigtab)
-colnames(sigtab)[1] <- "OTU"
-
-tax <- data.frame(tax_table(ps_obj))
-tax_diffab <- subset(tax,rownames(tax)%in%rownames(sigtab))
-
-signif_taxa <- merge(tax_diffab,sigtab,by='row.names')
-
 
 
 # Simple plot
-signif_taxa$Time <- "More abundant in D77"
-for (i in 1:nrow(signif_taxa)){
-    if(signif_taxa$log2FoldChange[i]<0){
-        signif_taxa$Time[i] <- "More abundant in D0"
-    }
-}
-ggplot(signif_taxa,aes(x=log2FoldChange,y=Order,color=Time))+
-    theme_bw()+
-    facet_grid(Phylum~.,scale='free',space='free',switch='y')+
-    theme(strip.text.y.left = element_text(angle = 0))+
-    geom_vline(xintercept = 0)+
-    scale_color_manual(values=c("black","yellow"),name="Differential abundance")+
-    geom_point(size=3)
-
+ 
+# sigtab = res2[(res2$padj < 0.05), ] # Select significant padj
+# sigtab <- as.data.frame(sigtab)
+# sigtab <- cbind(rownames(sigtab),sigtab)
+# colnames(sigtab)[1] <- "OTU"
+# 
+# tax <- data.frame(tax_table(ps_obj))
+# tax_diffab <- subset(tax,rownames(tax)%in%rownames(sigtab))
+# 
+# signif_taxa <- merge(tax_diffab,sigtab,by='row.names')
+# 
+# signif_taxa$Time <- "More abundant in D77"
+# for (i in 1:nrow(signif_taxa)){
+#     if(signif_taxa$log2FoldChange[i]<0){
+#         signif_taxa$Time[i] <- "More abundant in D0"
+#     }
+# }
+# ggplot(signif_taxa,aes(x=log2FoldChange,y=Order,color=Time))+
+#     theme_bw()+
+#     facet_grid(Phylum~.,scale='free',space='free',switch='y')+
+#     theme(strip.text.y.left = element_text(angle = 0))+
+#     geom_vline(xintercept = 0)+
+#     scale_color_manual(values=c("black","yellow"),name="Differential abundance")+
+#     geom_point(size=3)
+# 
 #ggsave(filename = here("Results/Figures/", "deseq_diffab_roots_time.png"),height = 7.5, width = 10.5, dpi = 300)
 #ggsave(filename = here("Results/Figures/", "deseq_diffab_roots_time.pdf"),height = 7.5, width = 10.5, dpi = 300)
 
 
 # Volcano plot 
 # Convert p-values to -log10 scale
-signif_taxa$neg_log10_pvalue <- -log10(signif_taxa$padj)
+
+res2 <- as.data.frame(res2)
+tax <- data.frame(tax_table(ps_obj))
+res2_taxa <- merge(res2,tax,by='row.names')
+
+
+res2_taxa$neg_log10_pvalue <- -log10(res2_taxa$padj)
 
 # Filter signif_taxa based on cutoffs
-filtered_signif_taxa <- signif_taxa[(abs(signif_taxa$log2FoldChange) > 1) & (signif_taxa$neg_log10_pvalue > 2), ]
+filtered_signif_taxa <- res2_taxa[(abs(res2_taxa$log2FoldChange) > 1) & (res2_taxa$neg_log10_pvalue > 5), ]
 
 # Create a new dataframe with the relevant columns
-result_order_diff <- signif_taxa[, c("Order", "log2FoldChange", "neg_log10_pvalue")]
-result_order_diff$Order
+result_diff <- filtered_signif_taxa[, c("Genus", "log2FoldChange", "neg_log10_pvalue")]
+result_diff$Genus
 
-volcano_water_d0d77<- EnhancedVolcano(signif_taxa, 
-                                      lab = signif_taxa$Order, 
-                                      selectLab = signif_taxa$Order,
+volcano_water_d0d77<- EnhancedVolcano(res2_taxa, 
+                                      lab = res2_taxa$Genus, 
+                                      selectLab = res2_taxa$Genus,
                                       x = 'log2FoldChange', 
                                       y = "padj",
-                                      pCutoff = 1e-02,
-                                      title = "Differential abundance in water",
-                                      subtitle = "D77 vs D0 - Order",
+                                      pCutoff = 1e-05,
+                                      title = "Differential abundance of 16S reads in water",
+                                      subtitle = "D77 vs D0 - Genus level",
                                       pointSize = 4.0,
                                       labSize = 3.0,
                                       colAlpha = 0.5,
@@ -686,8 +705,74 @@ volcano_water_d0d77<- EnhancedVolcano(signif_taxa,
 
 volcano_water_d0d77
 
-ggsave(filename = here("Results/Figures/", "deseq_volcano_16S_water_d0d77.png"), plot = volcano_water_d0d77,height = 7.5, width = 10.5, dpi = 300)
-ggsave(filename = here("Results/Figures/", "deseq_volcano_16S_water_d0d77.pdf"), plot = volcano_water_d0d77,height = 7.5, width = 10.5, dpi = 300)
+ggsave(filename = here("Results/Figures/", "deseq_volcano_16S_water_Genusd0d77.png"), plot = volcano_water_d0d77,height = 7.5, width = 10.5, dpi = 300)
+ggsave(filename = here("Results/Figures/", "deseq_volcano_16S_water_Genusd0d77.pdf"), plot = volcano_water_d0d77,height = 7.5, width = 10.5, dpi = 300)
+
+####Metacoder####
+load(here("Rdata","ps_16S_water_obj.RData"))
+
+### ....Metacoder Object####
+# Taxonomic agglomeration
+#ps_glom_order <- tax_glom(ps,taxrank="Order")
+ps_glom_class <- tax_glom(ps,taxrank="Class")
+
+ps_obj <- ps_glom_class
+
+# Relative abundance transformation
+ps.relab <- transform_sample_counts(ps_obj,function(x) x/sum(x))
+
+meta_obj <- parse_phyloseq(ps.relab) 
+# transforms the phyloseq object in a metacoder object
+
+### ....Heat tree #####
+
+### Sample Type ###
+meta_obj$data$tax_abund <- calc_taxon_abund(meta_obj, "otu_table")
 
 
+meta_obj$data$sample_data$Time <- factor(as.character(meta_obj$data$sample_data$Time), 
+                                         levels = c("D0","D10","D16","D35","D62","D77"),
+                                         ordered = TRUE)
+
+
+meta_obj$data$diff_table <- compare_groups(meta_obj, data = "tax_abund",
+                                           cols = meta_obj$data$sample_data$sample_id,
+                                           groups = meta_obj$data$sample_data$Time)# What columns of sample data to use
+# Compares the taxonomic difference based on ASV abundance
+
+# Adjust the p_value with FDR correction
+meta_obj$data$diff_table$wilcox_FDR_p_value <- p.adjust(meta_obj$data$diff_table$wilcox_p_value,
+                                                        method = "fdr")
+
+# See the range of FDR p_values
+range(meta_obj$data$diff_table$wilcox_FDR_p_value, finite = TRUE) 
+
+# Set the log2MedianRatio to 0 if the corrected p values are bigger
+# than 0.05. It's a trick for plotting purposes as you don't want to 
+# highlight unsignificant results. 
+meta_obj$data$diff_table$log2_median_ratio[meta_obj$data$diff_table$wilcox_FDR_p_value > 0.05] <- 0
+
+# Only label significant differences
+per_taxon_fold_changes <- obs(meta_obj, data = 'diff_table', value = 'log2_median_ratio')
+per_taxon_max_change <- unlist(lapply(per_taxon_fold_changes, function(tax_changes) max(abs(tax_changes))))
+meta_obj_simp <- filter_taxa(meta_obj, per_taxon_max_change !=0, supertaxa = TRUE, reassign_obs = c(diff_table = FALSE))
+
+
+# Plot the tree
+heat_tree_matrix (meta_obj,
+                  data="diff_table",
+                  node_size = n_obs, # n_obs is a function that calculates, in this case, the number of ASV per taxon
+                  node_label = taxon_names,
+                  node_color = log2_median_ratio, # A column from `obj$data$diff_table`
+                  node_color_range = diverging_palette(), # The built-in palette for diverging data                 
+                  node_color_interval = c(-10, 10), # The range of `log2_median_ratio` to display
+                  edge_color_interval = c(-10,10), # The range of `log2_median_ratio` to display
+                  node_size_axis_label = "Number of orders",
+                  node_color_axis_label = "Log2 ratio median proportions",
+                  repel_labels = TRUE,
+                  key_size = 0.8,
+                  label_small_trees = F,
+                  layout = "davidson-harel", # The primary layout algorithm
+                  initial_layout = "reingold-tilford", # The layout algorithm that initializes node locations
+                  output_file = here("Results","Figures","Watwr16S_Time_DiffTree.pdf")) # Saves the plot as a pdf file
 
