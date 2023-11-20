@@ -114,7 +114,7 @@ stack_atoms <- ggplot(long, aes(fill = atom, y = RelAbund, x = as.factor(Day))) 
   #scale_x_discrete(name = "Time in days since OSPW introduction")
 
 stack_atoms
-ggsave(filename = here("output", "figures", "stack_atoms.pdf"), stack_atoms, height = 5, width = 7)
+#ggsave(filename = here("output", "figures", "stack_atoms.pdf"), stack_atoms, height = 5, width = 7)
 ```
 
 
@@ -690,7 +690,7 @@ rda.biplot <- ggplot(data = sites, aes(x = RDA1, y = RDA2)) +
            shape = guide_legend(override.aes=list(fill = "grey40"))) 
 rda.biplot
 
-
+saveRDS(rda.biplot, file = here("RData", "iRDA_sediment16S.rds"))
 ```
 
 ```{r, include=FALSE}
@@ -734,7 +734,7 @@ rda.biplot.warm <- ggplot(data = warm, aes(x = RDA1, y = RDA2)) +
     ylim(-2.5, 1.5) +
     xlab("RDA1 = 18.66% ") +
     ylab("RDA2 = 5.87% ") +
-  labs(title = "B) Warm")+
+  labs(title = "Warm")+
     theme(panel.background = element_blank(),
           legend.position = "right",
           title = element_text(size = 10, face = "bold"),
@@ -784,7 +784,7 @@ rda.biplot.cold <- ggplot(data = cold, aes(x = RDA1, y = RDA2)) +
     ylim(-2.5, 1.5) +
       xlab("RDA1 = 18.66% ") +
     ylab("RDA2 = 5.87% ") +
-  labs(title = "A) Cold")+
+  labs(title = "Cold") +
     theme(panel.background = element_blank(),
           legend.position = "right",
           title = element_text(size = 10, face = "bold"),
@@ -809,6 +809,7 @@ p <- ggarrange(rda.biplot.cold,
                legend = "bottom", 
                nrow = 2)
 p
+saveRDS(p, file = here("RData", "split_iRDA_sediment16S.rds"))
 
 ```
 
@@ -945,8 +946,8 @@ p1
 
 ```{r}
 combined_plot <- ggarrange(p, p1, ncol = 2)
-ggsave(file = here::here("output", "figures", "test.png"), combined_plot, width =11, height = 7, units = "in", dpi = 150,bg = "white")
-ggsave(file = here::here("output", "figures", "test.eps"), combined_plot, width = 11, height = 7, units = "in", dpi = 72,bg = "white")
+#ggsave(file = here::here("output", "figures", "test.png"), combined_plot, width =11, height = 7, units = "in", dpi = 150,bg = "white")
+#ggsave(file = here::here("output", "figures", "test.eps"), combined_plot, width = 11, height = 7, units = "in", dpi = 72,bg = "white")
 ```
 
 
