@@ -6,15 +6,23 @@ library(reshape2)
 ##### Load data #### 
 
 ## ....Abundance table ####
-ab_table_raw <- read.csv(file = here("data","MesocosmExp2_AbTable_raw.tsv"), dec = ".", sep = "\t", header = T, row.names = 1, comment.char = "") #20078 objs in 299 vars
+
+#Load abundance table 
+ab_table_raw <- read.csv(file = here("data","MesocosmExp2_AbTable_raw.tsv"), 
+                         dec = ".", sep = "\t", header = T, row.names = 1, comment.char = "")
+#20078 objs in 299 vars
+
+# Remove X from sample names 
 names(ab_table_raw) <- sub("X", "", names(ab_table_raw))
 rownames(ab_table_raw) <- ab_table_raw$Sequence # replace row.names code by Sequence
-ab_table <- ab_table_raw[,!names(ab_table_raw) %in% c("Sequence", "taxonomy")]# Remove sequence and taxonomy columns to keep only ab. data 
 
-No_ctrl <- !grepl("Ctrl", names(ab_table))
+# Remove sequence and taxonomy columns to keep only ab. data 
+ab_table <- ab_table_raw[,!names(ab_table_raw) %in% c("Sequence", "taxonomy")]
+
 # The negative controls reads found in common with the rest of the dataset 
 # represented a low amount of reads. We decided that contamination wasn't an issue.
 # Further analysis were done by removing the negative controls
+No_ctrl <- !grepl("Ctrl", names(ab_table))
 ab_table <- ab_table[,No_ctrl]
 names(ab_table)
 
@@ -24,9 +32,10 @@ names(ab_table)
 
 taxo <- ab_table_raw[,"taxonomy", drop=F] 
 
-
-# Split into different columns 
-taxo_split <- with(taxo, cbind(row.names(taxo), colsplit(taxo$taxonomy, pattern = "\\;", names = c('Domain', 'Phylum','Class','Order','Family','Genus','Species'))))
+# Split each taxonomy level into different columns 
+taxo_split <- with(taxo, cbind(row.names(taxo),
+                               colsplit(taxo$taxonomy,
+                                        pattern = "\\;", names = c('Domain', 'Phylum','Class','Order','Family','Genus','Species'))))
 
 # Change row.names to ASV sequence and remove ASV sequence from dataframe
 row.names(taxo_split) <- taxo_split$`row.names(taxo)`
@@ -42,15 +51,24 @@ taxo_split_clean[taxo_split_clean == ''] <- NA
 # None in this dataset
 
 ###.... Metadata ####
+
+#Load metadeta table 
 meta.raw <- read.csv(file = here("data","metadata.tsv"), dec = ".", header = T, row.names = 1, sep = "\t", comment.char = "") #load
-str(meta.raw)
-meta.raw[sapply(meta.raw, is.character)] <- lapply(meta.raw[sapply(meta.raw, is.character)], as.factor) # did it work? Check with str(meta)
+str(meta.raw) #Check structure
+
+# Change characters to factors 
+meta.raw[sapply(meta.raw, is.character)] <- lapply(meta.raw[sapply(meta.raw, is.character)], as.factor) 
+# Did it work? Check with str(meta)
+
+# Change in rownames
 rownames(meta.raw) <- stringr::str_replace_all(rownames(meta.raw), '[-]', '.')
 
-meta <- subset(meta.raw,!grepl("Ctrl",rownames(meta.raw))) # removing the ctrl sample
+# Remove the ctrl samples
+meta <- subset(meta.raw,!grepl("Ctrl",rownames(meta.raw))) 
 rownames(meta)
+
+# Drop unused factor levels while keeping the rownames 
 meta[] <- as.data.frame(lapply(meta, function(x) if(is.factor(x)) droplevels(x) else x)) 
-# drop unused factor levels while keeping the rownames 
 levels(meta$Plant.type)# Sanity check
 
 # Reorder Time in chronological order
