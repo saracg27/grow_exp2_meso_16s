@@ -19,22 +19,23 @@ ps_sed
 ## ______ #####
 ### DIFFERENTIAL ABUNDANCE ####
 ###____####
-####Metacoder on all sed samples####
+###Metacoder ####
 
-### ....Metacoder Object####
+####Metacoder Object####
 # Taxonomic agglomeration
 ps_glom_order <- tax_glom(ps_sed,taxrank="Order")
 ps_glom_class <- tax_glom(ps_sed,taxrank="Class")
 
+# Choose which agglomeration object you want ot use
 ps_obj <- ps_glom_class
 
-    # Relative abundance transformation
+# Relative abundance transformation
 ps.relab <- transform_sample_counts(ps_obj,function(x) x/sum(x))
 
+# Transform the phyloseq object in a metacoder object
 meta_obj <- parse_phyloseq(ps.relab) 
-# transforms the phyloseq object in a metacoder object
 
-### ....Heat tree #####
+####Heat tree #####
 
 ### Sample Type ###
 meta_obj$data$tax_abund <- calc_taxon_abund(meta_obj, "otu_table")
@@ -85,18 +86,20 @@ heat_tree_matrix (meta_obj_simp,
                   layout = "davidson-harel", # The primary layout algorithm
                   initial_layout = "reingold-tilford", # The layout algorithm that initializes node locations
                   output_file = here("Results","Figures","Sed_Time_DiffTree.pdf")) # Saves the plot as a pdf file
-?heat_tree_matrix
-### Sanity check of metacoder results ###
 
+### Sanity check of metacoder results ###
 Diff_table <- as.data.frame(meta_obj$data$diff_table)
 tax <- meta_obj$data$tax_data
 tax_order <- tax[,c("taxon_id","Order")] 
+# Merge taxonomy table and diff. abundance results
 Diff_table_tax <- merge(tax_order,Diff_table,'taxon_id')
 
+#Subset D0 samples
 ps_D0 <- subset_samples(ps_sed,Time=="D0")
 ps_D0 <- prune_taxa(taxa_sums(ps_D0)>0, ps_D0)
 # 3735 Taxa in 24 samples 
 
+#Subset D62 samples
 ps_D62 <- subset_samples(ps_sed,Time=="D62")
 ps_D62 <- prune_taxa(taxa_sums(ps_D62)>0, ps_D62)
 # 13322 Taxa in 24 samples
@@ -113,7 +116,7 @@ Ab_burk_D0 <- sum(rowSums(otu_table(ps_D0_burk))) # 214 050 reads Burk in D0
 ps_D62_burk <- subset_taxa(ps_D62,Order=="Burkholderiales")
 ps_D62_burk <- prune_taxa(taxa_sums(ps_D62_burk)>0, ps_D62_burk)
 # 589 Burk in 24 samples in D62
-Ab_burk_D62 <- sum(rowSums(otu_table(ps_D62_burk))) # 78883 reads Burk in D62
+Ab_burk_D62 <- sum(rowSums(otu_table(ps_D62_burk))) # 78 883 reads Burk in D62
 
 Diff_Burk <- subset(Diff_table_tax, Order=="Burkholderiales" & wilcox_FDR_p_value<0.05)
 
@@ -227,7 +230,6 @@ meta_obj <- parse_phyloseq(ps.relab) # transforms the phyloseq object in a metac
 
 ####__Diff heat tree ##
 
-
 ### Time ###
 meta_obj$data$tax_abund <- calc_taxon_abund(meta_obj, "otu_table")
 
@@ -268,7 +270,7 @@ heat_tree_matrix (meta_obj,
 
 
 
-### Sample Type ###
+#### Sample Type Comparison ####
 
 ps.relab <- transform_sample_counts(ps_NA_list,function(x) x/sum(x))
 # First convert abundance to relative abundance
@@ -310,73 +312,43 @@ heat_tree_matrix (meta_obj,
 
 
 ####_______#####
-##### Differential ab. on D0-D62 #####
-### Deseq 2 #####
+###Differential ab. on D0-D62 #####
+##### Deseq 2 #####
 library(DESeq2)
 
+# Subset d0 and d62 samples
 ps_sed_D0D62 <- subset_samples(ps_sed,Time=="D0"|Time=="D62")
 ps_sed_D0D62 <- prune_taxa(taxa_sums(ps_sed_D0D62)>0, ps_sed_D0D62)
 
+# Phyloseq to deseq object conversion
 diagdds = phyloseq_to_deseq2(ps_sed_D0D62, ~ Time)
 
-# calculate geometric means prior to estimate size factors
-# gm_mean = function(x, na.rm=TRUE){
-#   exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
-# }
-# 
-# 
-# geoMeans = apply(counts(diagdds), 1, gm_mean)
-# geoMeansvis <- as.data.frame(geoMeans)
-# 
-# ?estimateSizeFactors
-# diagdds = estimateSizeFactors(diagdds, geoMeans = geoMeans)
-
+# Estimate size factor for normalization
 diagdds = estimateSizeFactors(diagdds, type = "poscounts")
-# For each ASV -> calculates its geometric mean. Doesn't take into account the zeros
-# exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
-# https://support.bioconductor.org/p/62246/#62250
 
-
+# Differential abundance analysis with Wald test and local fit
 diagdds = DESeq(diagdds,
                 test = "Wald",
                 fitType="local")
 plotDispEsts(diagdds)
 
-# Which fit to use ?
-# https://support.bioconductor.org/p/81094/
-
-#  dispFit <-  diagdds@rowRanges@elementMetadata@listData$dispFit
-# dispGeneEst <- diagdds@rowRanges@elementMetadata@listData$dispGeneEst
-# test <- log(dispGeneEst)-log(dispFit)
-#  med_abs_res <- median(abs(test),na.rm=TRUE)
-# ## 
-# ## 
-# diagdds2 = DESeq(diagdds,
-#                  test = "Wald",
-#                  fitType="parametric")
-# plotDispEsts(diagdds2)
-# # 
-#  dispFit2 <-  diagdds2@rowRanges@elementMetadata@listData$dispFit
-#  dispGeneEst2 <- diagdds2@rowRanges@elementMetadata@listData$dispGeneEst
-#  test2 <- log(dispGeneEst2)-log(dispFit2)
-#  med_abs_res2 <- median(abs(test2),na.rm=TRUE)
-# 
-# Take the fitType minimizing the median absolute residuals?? 
-# HERE THE LOCAL ! 
-
-res = results(diagdds, alpha=0.05) # results of the test FDR accepted = 5% 
+# Results of the test, FDR accepted = 5% 
+res = results(diagdds, alpha=0.05) 
 plotMA(res)
 
-res2 = res[order(res$padj, na.last=NA), ] # ordered and removes the ASVs which have padj = NAs 
+# Ordered and removes the ASVs which have padj = NAs 
+res2 = res[order(res$padj, na.last=NA), ] 
 plotMA(res2)
 
-summary(res2)
-sigtab = res2[(res2$padj < 0.05), ] # Select significant padj
+# Select significant ASVs
+sigtab = res2[(res2$padj < 0.05), ] 
 sigtab <- as.data.frame(sigtab)
 sigtab <- cbind(rownames(sigtab),sigtab)
 colnames(sigtab)[1] <- "OTU"
 
+#Transform phyloseq object in long format 
 ps_long <- psmelt(ps_sed_D0D62)
+# Remove unrelevant columns
 ps_long <- select(ps_long,-c("CFL_ID_Sediments",
                              "Sample.type",
                              "Experiment",
@@ -388,25 +360,34 @@ ps_long <- select(ps_long,-c("CFL_ID_Sediments",
                              "Greenhouse" ,     
                              "Temperature",      
                              "Material"))
-colnames(ps_long)
-
 ps_long$OTU <- as.factor(ps_long$OTU)
 
-ps_long_test <- ps_long %>% 
+# Abundance of every ASVs in D0 and D62
+ab_d0_D62<- ps_long %>% 
   group_by(OTU, Time) %>% 
   summarise(Sum_Abundance = sum(Abundance))%>%
   pivot_wider(names_from = Time, values_from = Sum_Abundance, values_fill = 0)
 
+# Retrieve taxonomy
 tax <- as.data.frame(tax_table(ps_sed_D0D62))
 tax$OTU <- rownames(tax)
 
-ps_obj <- merge(ps_long_test,tax,by="OTU")
+# Merge taxonomy and object
+ab_tax_d0d62 <- merge(ab_d0_D62,tax,by="OTU")
 
-sig_data <- merge(sigtab,ps_obj,by="OTU")
+# Merge previous object and significant diff. ab table 
+sig_data <- merge(sigtab,ab_tax_d0d62,by="OTU")
+
+# Change charcyers to factors
 sig_data[sapply(sig_data, is.character)] <- lapply(sig_data[sapply(sig_data, is.character)], as.factor) # did it work? Check with str(meta)
 
+# Subset D0 and D62
 sig_data_plot <- subset(sig_data,sig_data$D0!=0 & sig_data$D62!=0 )
 
+# Plot ASVs regrouped at order levels with  
+# #significant differential abundance
+# Colors is set for abundance in D62
+# size of point is set for abundance in D0
 ggplot(sig_data_plot,aes(y=Order, x=log2FoldChange,size=D0,color=D62))+
   geom_jitter(height=0.1)+
   theme_bw()+
@@ -415,23 +396,15 @@ ggplot(sig_data_plot,aes(y=Order, x=log2FoldChange,size=D0,color=D62))+
   scale_size_continuous(breaks=c(1,1000,10000,40000))+
   guides(size = guide_legend(reverse=TRUE))
 
-Delftia <- "TACGTAGGGTGCGAGCGTTAATCGGAATTACTGGGCGTAAAGCGTGCGCAGGCGGTTATGTAAGACAGATGTGAAATCCCCGGGCTCAACCTGGGAACTGCATTTGTGACTGCATGGCTAGAGTACGGTAGAGGGGGATGGAATTCCGCGTGTAGCAGTGAAATGCGTAGATATGCGGAGGAACACCGATGGCGAAGGCAATCCCCTGGACCTGTACTGACGCTCATGCACGAAAGCGTGGGGAGCAAACAGGATTAGATACCCTGGTAGTCCACGCCCTAAACGATGTCAACTGGTTGTTGGGAATTAGTTTTCTCAGTAACGAAGCTAACGCGTGAAGTTGACCGCCTGGGGAGTACGGCCGCAAGGTTG"
 
-ASV <- as.data.frame(otu_table(ps_sed_D0D62))
-check <- subset(ASV,row.names(ASV)==Delftia)
-
-
-# tax <- as.data.frame(tax_table(ps_sed))
-# ab <- as.data.frame(otu_table(ps_sed))
-# Pseudo <- subset(tax,Genus=="Pseudomonas")
-# Rhodo <- subset(tax,Genus=="Rhodococcus")
+### sanity check 
+# Check why Delftia is so abundant in D0
+# Delftia <- subset(sig_data_plot$OTU, sig_data_plot$Genus=="Delftia")
+# Delftia <- as.character(Delftia)
 # 
-# rhodo.ab <-subset(ab,row.names(ab)%in%row.names(Rhodo))
-# range(rowSums(rhodo.ab)) #[24;429]
-# 
-# pseudo.ab <-subset(ab,row.names(ab)%in%row.names(Pseudo))
-# range(rowSums(pseudo.ab)) #[4;2548]
-# range(a)
+# # Subset that summed abundance table keeping only Delftia ASV based on row.names (sequence)
+# check <- subset(ab_d0_D62,ab_d0_D62$OTU==Delftia)
+# # 40742 in D0 ; 516 in D62
 
 
 #### Metacoder ####
@@ -462,12 +435,6 @@ meta_obj$data$diff_table$log2_median_ratio[meta_obj$data$diff_table$wilcox_FDR_p
 
 res <- meta_obj$data$diff_table
 res <- res[res$log2_median_ratio!=0,]
-# 703 differential abundant. 
-tax <- meta_obj$data$tax_data
-tax <- subset(tax,tax$taxon_id%in%res$taxon_id)
-tax <- tax[,-2]
-tax <- unique(tax)
-
 
 res_tax <- merge(tax,res,by="taxon_id",all=T)
 res_tax_D0 <- res_tax[res_tax$log2_median_ratio>0,] # 90
