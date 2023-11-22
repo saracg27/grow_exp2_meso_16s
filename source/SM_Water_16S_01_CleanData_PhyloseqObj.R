@@ -3,22 +3,23 @@ library(here)
 source(here("source", "libraries.R"))
 library(phyloseq)
 library(reshape2)
+
 ##### Load data #### 
 
 ## ....Abundance table ####
 ab_table_raw <- read.csv(file = here("Data/Water/16S/","Mesocosm_Water_16S_oct2023.ASV_table_norarefaction_dnNA.tsv"), dec = ".", sep = "\t", header = T, row.names = 1, comment.char = "")
 # 2462 obs in 145 vars
 
-ab_table <- ab_table_raw[,!names(ab_table_raw) %in% c("taxonomy")]# Remove sequence and taxonomy columns to keep only ab. data 
+# Remove sequence and taxonomy columns to keep only ab. data 
+ab_table <- ab_table_raw[,!names(ab_table_raw) %in% c("taxonomy")]
 names(ab_table)
 
 ## ....Taxonomy ####
 # Put the taxonomy information in another table 
 # (drop= F trick to keep the row.names) 
-
 taxo <- ab_table_raw[,"taxonomy", drop=F] 
 
-# Split into different columns 
+# Split taxonomy wiht each taxonomy level in a separate column 
 taxo_split <- with(taxo, cbind(row.names(taxo), colsplit(taxo$taxonomy, pattern = "\\;", names = c('Domain', 'Phylum','Class','Order','Family','Genus','Species'))))
 
 # Change row.names to ASV sequence and remove ASV sequence from dataframe
