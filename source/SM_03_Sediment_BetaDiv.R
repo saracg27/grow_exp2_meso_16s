@@ -24,7 +24,7 @@ sample_names(ps_sed) <- sub("Meso.*","",sample_names(ps_sed))
 ###______#####
 ### BETA DIV ####
 
-####__ Robust Aitchison ####
+#### Robust Aitchison ####
 ps_rclr <- microbiome::transform(ps_sed, "rclr") # Robust Aitchison transformation
 
 ## Sanity check ###
@@ -35,34 +35,30 @@ ASV <- t(data.frame(otu_table(ps_sed))) # Columns as species !
 ASV_vegan_rclr <- decostand(x = ASV,method="rclr")
 ASV_vegan_rclr <- data.frame(t(ASV_vegan_rclr))# put it back into species as rows
 
-identical(ASV_phylo_rclr,ASV_vegan_rclr) # should be true 
+identical(ASV_phylo_rclr,ASV_vegan_rclr) # Should be true 
 
 ### Permanova 
-rclr_dist_matrix <- phyloseq::distance(ps_rclr, method = "euclidean") # Aitchison distance
-metadata <- as(sample_data(ps_rclr), "data.frame") # Export data
+rclr_dist_matrix <- phyloseq::distance(ps_rclr, method = "euclidean") # Robust Aitchison distance
+metadata <- as(sample_data(ps_rclr), "data.frame") # Metadata
 
 Permanova.rclr<-adonis2(rclr_dist_matrix~Plant.type*Time*Temperature,
                         data = metadata,
                         permutations = 999)
 
-# Save Permanova resutls in csv file
+# Save Permanova results in csv file
 write.table(Permanova.rclr,row.names=T,sep=";",here("Results","Tables","Sed_RCLR_Permanova.csv"))
 
-# Code if you want your table as a gg object
-# Permanova_table <- as.data.frame(Permanova.rclr)
-# Permanova_table[,c(2:4)] <- round(Permanova_table[,c(2:4)],2)
-# table.p <- ggtexttable(Permanova_table, rows = NULL)
-
-#### Ordinations 
+#### PCA plots  
 ord_rclr <- phyloseq::ordinate(ps_rclr, "RDA", distance = "euclidean")
 
 ## Plant type  
 
-# Allows to nicely anotate R2 and pvalue with geom_label_npc()
+# Code to annotate R2 and pvalue with geom_label_npc()
 df.annotations <- data.frame(
   label = paste(paste0("~italic(R)^{2} == ", round(Permanova.rclr$R2[1],3)),"~~",
                 paste0("~italic(p) == ",round(Permanova.rclr$`Pr(>F)`[1],3))))
 
+## 
 RCLR_ord_plant <- phyloseq::plot_ordination(ps_rclr, ord_rclr, type="samples",shape="Plant.type",color="Plant.type") + 
   theme_bw()+
   ggtitle(label = "Sediments - Robust Aitchison distance")+
@@ -93,7 +89,6 @@ RCLR_ord_temp <- phyloseq::plot_ordination(ps_rclr, ord_rclr, type="samples") +
 RCLR_ord_temp
 
 
-
 ### Time 
 df.annotations <- data.frame(
   label = paste(paste0("~italic(R)^{2} == ", round(Permanova.rclr$R2[2],3)),"~~",
@@ -115,7 +110,7 @@ ggsave(here("Results","Figures","Sed_RCLR_Ordination.pdf"),device='pdf',height =
 ggsave(here("Results","Figures","Sed_RCLR_Ordination.png"),device='png',height = 7.5, width = 10.5)
 
 
-#### Figure Sediment ordiantion ####
+# Time x Plant type #
 RCLR_fig<- phyloseq::plot_ordination(ps_rclr, ord_rclr, type="samples",shape='Plant.type',color='Time') + 
   theme_bw()+
   ggtitle(label = "Sediments - Robust Aitchison distance")+
@@ -130,7 +125,7 @@ RCLR_fig$layers <- RCLR_fig$layers[-1]
 RCLR_fig
 
 
-#####__ Hellinger distance #####
+####Hellinger distance #####
 ### Permanova 
 ps_hell <- microbiome::transform(ps_sed, "hellinger")    
 
@@ -143,7 +138,7 @@ Permanova.hell<-adonis2(hell_dist_matrix~Plant.type*Time*Temperature,
 
 write.table(Permanova.hell,row.names=T,sep=";",here("Results","Tables","Sed_Hellinger_Permanova.csv"))
 
-## Ordination ##
+## PCA plots
 ord_hell <- phyloseq::ordinate(ps_hell, "RDA", distance = "euclidean")
 
 
@@ -183,7 +178,7 @@ ggsave(here("Results","Figures","Sed_Hellinger_Ordination.pdf"),device='pdf',hei
 
 
 
-####__ Bray-Curtis ####  
+#### Bray-Curtis ####  
 BC_dist_matrix <- phyloseq::distance(ps_sed, method = "bray") # Bray_curtis distance
 metadata <- as(sample_data(ps_sed), "data.frame") # Export data
 
@@ -196,7 +191,7 @@ write.table(Permanova.BC,row.names=T,sep=";",here("Results","Tables","Sed_BrayCu
 head(BC_dist_matrix)
 
 
-## Ordination ##
+## PCoA plots ##
 ord_bray <- phyloseq::ordinate(ps_sed, "PCoA", distance = "bray")
 
 
@@ -222,7 +217,7 @@ BC_ord_temp
 #### Time 
 BC_ord_time <- phyloseq::plot_ordination(ps_sed, ord_bray, type="samples") + 
   theme_bw()+
-  ggtitle(label = "Bray-Curtis distance")+
+  ggtitle(label = "Sediments - Bray-Curtis distance")+
   geom_point(size=4,shape=21,aes(fill=sample_data(ps_sed)$Time),color="black")+
   scale_fill_viridis(option="magma",discrete=T,name="Time")
 BC_ord_time
@@ -231,7 +226,7 @@ BC_ord_time
 ggarrange(BC_ord_plant,BC_ord_temp,BC_ord_time,labels="AUTO",legend = "bottom")
 ggsave(here("Results","Figures","Sed_Bray_Curtis_Ordination.pdf"),device='pdf',height = 7.5, width = 10.5)
 
-
+#### ____ #####
 #### Pairwise permanova #####
 calc_pairwise_permanovas(BC_dist_matrix, metadata,"Time",999) 
 calc_pairwise_permanovas(hell_dist_matrix, metadata,"Time",999) 
