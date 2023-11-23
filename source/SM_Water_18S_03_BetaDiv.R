@@ -49,6 +49,7 @@ write.table(Permanova.rclr,row.names=T,sep=";",here("Results","Tables","18S_Wate
 # Permanova_table[,c(2:4)] <- round(Permanova_table[,c(2:4)],2)
 # table.p <- ggtexttable(Permanova_table, rows = NULL)
 
+<<<<<<< HEAD
 
 # The two treatments and the time have significant interactions between each other.
 # Calculate PERMANOVA on glom treatments and identify significant interactions with pairwise.adonis
@@ -75,11 +76,12 @@ pairwise.adonis(rclr_dist_matrix, metadata$plant_time)
 
 
 #### Ordinations 
+=======
+#### PCA 
+>>>>>>> 8a11300d0ab15e872946566f89446fc45ab6c6dd
 ord_rclr <- phyloseq::ordinate(ps_rclr, "RDA", distance = "euclidean")
 
 ## Sample type  
-
-summary(sample_data(ps_rclr))
 
 # Allows to nicely anotate R2 and pvalue with geom_label_npc()
 df.annotations <- data.frame(
@@ -176,7 +178,7 @@ Permanova.hell
 
 write.table(Permanova.hell,row.names=T,sep=";",here("Results","Tables","18S_Water_Hellinger_Permanova.csv"))
 
-## Ordination ##
+## PCA ##
 ord_hell <- phyloseq::ordinate(ps_hell, "RDA", distance = "euclidean")
 
 ## Sample type  
@@ -273,7 +275,7 @@ Permanova.bc
 
 write.table(Permanova.bc,row.names=T,sep=";",here("Results","Tables","18S_Water_Bray_Curtis_Permanova.csv"))
 
-## Ordination ##
+## PCoA ##
 ord_bc <- phyloseq::ordinate(ps, "PCoA", distance = "bray")
 
 
@@ -287,7 +289,6 @@ df.annotations <- data.frame(
 BC_ord_stype <- phyloseq::plot_ordination(ps, ord_bc, type="samples",shape="Sample_type") + 
   theme_bw()+
   ggtitle(label = "Water - Sample type effect ",subtitle = 'Bray_Curtis distance')+
- # geom_text(aes(label = sample_names(ps_root)), size = 3.5)+
   scale_shape_manual(values=c(21,22,23),name="Sample type")+
   geom_point(aes(shape=sample_data(ps)$Sample_type),size=4)+
   geom_label_npc(data= df.annotations , 
