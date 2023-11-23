@@ -6,7 +6,7 @@ library(viridis)
 library(metacoder)
 library(dplyr)
 library(ggpp)
-library(mctoolsr)
+library(pairwiseAdonis)
 
 #### Data ####
 
@@ -47,6 +47,49 @@ Permanova.rclr<-adonis2(rclr_dist_matrix~Plant.type*Time*Temperature,
 
 # Save Permanova results in csv file
 write.table(Permanova.rclr,row.names=T,sep=";",here("Results","Tables","Sed_RCLR_Permanova.csv"))
+
+
+#### Interactions - Pairwise permanova
+metadata$Temperature <- sub("10°C day 5°C night","Cold",metadata$Temperature)
+metadata$Temperature <- sub("20°C day 10°C night","Warm",metadata$Temperature)
+
+metadata$plant_temp = paste0(metadata$Plant.type, "_", metadata$Temperature)
+metadata$time_temp = paste0(metadata$Time, "_", metadata$Temperature)
+metadata$plant_time = paste0(metadata$Plant.type, "_", metadata$Time)
+
+# Characters to factor
+metadata[sapply(metadata, is.character)] <- lapply(metadata[sapply(metadata, is.character)], as.factor) # did it work? Check with str(meta)
+str(metadata)
+
+# Plant x Temperature 
+Permanova.plant_temp <- adonis2(rclr_dist_matrix~plant_temp,
+                                data = metadata, permutations = 999)
+Permanova.plant_temp
+
+Pairwise.plant_temp <- pairwise.adonis(rclr_dist_matrix, metadata$plant_temp,p.adjust.m ="bonferroni")
+Pairwise.plant_temp
+write.table(Pairwise.plant_temp,row.names=T,sep=";",here("Results","Tables","Sed_RCLR_PWP_Plant_Temp.csv"))
+
+
+# Time x Temperature 
+Permanova.time_temp <- adonis2(rclr_dist_matrix~time_temp,
+                               data = metadata, permutations = 999)
+Permanova.time_temp
+
+Pairwise.time_temp <- pairwise.adonis(rclr_dist_matrix, metadata$time_temp,p.adjust.m ="bonferroni")
+Pairwise.time_temp
+write.table(Pairwise.time_temp,row.names=T,sep=";",here("Results","Tables","Sed_RCLR_PWP_Time_Temp.csv"))
+
+# Plant x Time 
+Permanova.plant_time <- adonis2(rclr_dist_matrix~plant_time,
+                                data = metadata, permutations = 999)
+Permanova.plant_time
+
+Pairwise.plant_time <- pairwise.adonis(rclr_dist_matrix, metadata$plant_time,p.adjust.m ="bonferroni")
+Pairwise.plant_time
+write.table(Pairwise.plant_time,row.names=T,sep=";",here("Results","Tables","Sed_RCLR_PWP_Time_Plant.csv"))
+
+
 
 #### PCA plots  
 ord_rclr <- phyloseq::ordinate(ps_rclr, "RDA", distance = "euclidean")
