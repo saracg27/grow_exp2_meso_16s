@@ -301,8 +301,6 @@ Rda.plot.rclr.S2
 ggsave(here("Results","Figures","18S_Water_RDA_S2_D77_WaterChem_RCLR_OrderGlom.pdf"),device='pdf',height = 7.5, width = 10.5)
 ggsave(here("Results","Figures","18S_Water_RDA_S2_D77_WaterChem_RCLR_OrderGlom.png"),device='png',height = 7.5, width = 10.5)
 
-
-
 ### did not run d62 ##
 ### 
 ### 
