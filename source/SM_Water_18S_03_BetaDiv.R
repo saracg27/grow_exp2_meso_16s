@@ -8,6 +8,8 @@ library(dplyr)
 library(ggpp)
 library(mctoolsr)
 library(microbiome)
+devtools::install_github("pmartinezarbizu/pairwiseAdonis/pairwiseAdonis")
+library(pairwiseAdonis)
 #### Data ####
 
 load(here("Rdata","ps_18S_water_obj.RData"))
@@ -32,19 +34,45 @@ identical(ASV_phylo_rclr,ASV_vegan_rclr) # should be true
 rclr_dist_matrix <- phyloseq::distance(ps_rclr, method = "euclidean") # Aitchison distance
 metadata <- as(sample_data(ps_rclr), "data.frame") # Export data
 
+
 Permanova.rclr<-adonis2(rclr_dist_matrix~Time*Sample_type*Temperature,
                         data = metadata,
                         permutations = 999)
 Permanova.rclr
 
-
 # Save Permanova resutls in csv file
+
 write.table(Permanova.rclr,row.names=T,sep=";",here("Results","Tables","18S_Water_RCLR_Permanova.csv"))
 
 # Code if you want your table as a gg object
 # Permanova_table <- as.data.frame(Permanova.rclr)
 # Permanova_table[,c(2:4)] <- round(Permanova_table[,c(2:4)],2)
 # table.p <- ggtexttable(Permanova_table, rows = NULL)
+
+
+# The two treatments and the time have significant interactions between each other.
+# Calculate PERMANOVA on glom treatments and identify significant interactions with pairwise.adonis
+metadata$plant_temp = paste0(metadata$Sample_type, "_", metadata$Temperature)
+metadata$time_temp = paste0(metadata$Time, "_", metadata$Temperature)
+metadata$plant_time = paste0(metadata$Sample_type, "_", metadata$Time)
+
+Permanova.plant_temp <- adonis2(rclr_dist_matrix~plant_temp,
+                        data = metadata, permutations = 999)
+Permanova.plant_temp
+pairwise.adonis(rclr_dist_matrix, metadata$plant_temp)
+
+Permanova.time_temp <- adonis2(rclr_dist_matrix~time_temp,
+                                data = metadata, permutations = 999)
+Permanova.time_temp
+pairwise.adonis(rclr_dist_matrix, metadata$time_temp)
+)
+
+Permanova.plant_time <- adonis2(rclr_dist_matrix~plant_time,
+                                data = metadata, permutations = 999)
+Permanova.plant_time
+pairwise.adonis(rclr_dist_matrix, metadata$plant_time)
+
+
 
 #### Ordinations 
 ord_rclr <- phyloseq::ordinate(ps_rclr, "RDA", distance = "euclidean")
