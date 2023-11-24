@@ -30,8 +30,8 @@ ASV_vegan_rclr <- data.frame(t(ASV_vegan_rclr))# put it back into species as row
 identical(ASV_phylo_rclr,ASV_vegan_rclr) # should be true 
 
 ### Permanova 
-rclr_dist_matrix <- phyloseq::distance(ps_rclr, method = "euclidean") # Robust Aitchison distance
-metadata <- as(sample_data(ps_rclr), "data.frame") # Sample data
+rclr_dist_matrix <- phyloseq::distance(ps_rclr, method = "euclidean") # Aitchison distance
+metadata <- as(sample_data(ps_rclr), "data.frame") # Export data
 
 Permanova.rclr<-adonis2(rclr_dist_matrix~Time*Sample_type*Temperature,
                         data = metadata,
@@ -86,10 +86,12 @@ write.table(Pairwise.plant_time,row.names=T,sep=";",here("Results","Tables","16S
 
 
 
-#### PCA 
+#### Ordinations 
 ord_rclr <- phyloseq::ordinate(ps_rclr, "RDA", distance = "euclidean")
 
 ## Sample type  
+
+summary(sample_data(ps_rclr))
 
 # Allows to nicely anotate R2 and pvalue with geom_label_npc()
 df.annotations <- data.frame(
@@ -191,7 +193,7 @@ Permanova.hell
 
 write.table(Permanova.hell,row.names=T,sep=";",here("Results","Tables","16S_Water_Hellinger_Permanova.csv"))
 
-## PCA ##
+## Ordination ##
 ord_hell <- phyloseq::ordinate(ps_hell, "RDA", distance = "euclidean")
 
 ## Sample type  
@@ -287,11 +289,15 @@ Permanova.bc
 
 write.table(Permanova.bc,row.names=T,sep=";",here("Results","Tables","16S_Water_Bray_Curtis_Permanova.csv"))
 
+<<<<<<< HEAD
 
 
 
 
 ## PCoA ##
+=======
+## Ordination ##
+>>>>>>> 9ea84a873344d1a08df3b9fea3a79c4857eb9eb6
 ord_bc <- phyloseq::ordinate(ps, "PCoA", distance = "bray")
 
 

@@ -12,7 +12,7 @@ library(ggpp)
 
 ### ASV Data ####
 # load phyloseq object
-load(here("Rdata","ps_16S_water_obj.RData"))
+load(here("Rdata","ps_18S_water_obj.RData"))
 
 ### Water chemistry data ####
 water_data <- read.table(file = "Data/Env_measures/env_final_water_exp2_20220225.csv", 
@@ -30,7 +30,7 @@ colnames(water_data)[4] <- "Mesocosm"# Change name to match the colname in the s
 ### D77 ######
 ps_77 <- subset_samples(ps, Time =="D77")
 ps_77 <- prune_taxa(taxa_sums(ps_77)>0, ps_77)
-# 22 samples 840 taxa
+# 24 samples 285 taxa
 
 #### RCLR transformation #####
 
@@ -39,6 +39,7 @@ ps.order.rclr <- microbiome::transform(ps_77order, "rclr")
 
 ####  Merge datasets ####
 sdata <- data.frame(sample_data(ps_77order)) # Extract dataset from phyloseq object
+
 colnames(sdata)
 
 # We need to have matching columns between sdata and water data 
@@ -48,14 +49,11 @@ sdata$Mesocosm <- sub("M", "Mesocosm_",sdata$Mesocosm)
 sdata$Greenhouse <- str_sub(sdata$Mesocosm,-1,-1)
 sdata$Mesocosm <- str_sub(sdata$Mesocosm,end=-2)
 
-# Change temperature to cold and warm
 sdata$Temperature <- sub("10C day - 5C night","cold",sdata$Temperature)
 sdata$Temperature <- sub("20C day - 10C night","warm",sdata$Temperature)
 
 colnames(sdata)[which(names(sdata) == "Sample_type")] <- "Plant.type"
 
-# Drop samples to match number of samples in sdata
-water_data <- water_data[-which(water_data$ID %in% c("Mesocosm-7E-16","Mesocosm-9E-16")),]
 
 # Match factor name with sdata
 water_data$Plant.type<- sub("no plant", "No_plant", water_data$Plant.type)
@@ -123,6 +121,11 @@ legend("topright",
 # hardeness and dissolved solids as well
 
 
+
+
+
+
+
 #### RDA #####
 ASV_order_rclr <- data.frame(otu_table(ps.order.rclr))
 
@@ -133,26 +136,36 @@ ASV_object <- ASV_order_rclr
 RDA <- vegan::rda(t(ASV_object) ~ ., data = water_rda_data[,4:16])
 
 
-RsquareAdj(RDA) 
-# adj.r.squared = 0.11 for order agglomerated ASVs
+RsquareAdj(RDA) # adj.r.squared = x for un-agglomerated ASVs
+# adj.r.squared = x for genus agglomerated ASVs
+# adj.r.squared = 0.15 for order agglomerated ASVs
 
-# Forward selection of variables with the most explanation power 
-fwd.sel <- ordiR2step(rda(t(ASV_object) ~ 1, data = water_rda_data[,4:16]), 
-                      scope = formula(RDA), 
+
+# Forward selection of variables with the most explanating power 
+fwd.sel <- ordiR2step(rda(t(ASV_object) ~ 1, data = water_rda_data[,4:16]), # modèle le plus simple
+                      scope = formula(RDA), # modèle "complet"
                       direction = "forward",
-                      R2scope = TRUE, 
-                      trace = TRUE) 
+                      R2scope = TRUE, # limité par le R2 du modèle "complet"
+                      #pstep = 1000,
+                      trace = TRUE) # mettre TRUE pour voir le processus du sélection!
 fwd.sel$call
-# Chloride + pH for order agglomerated ASVs
 
-# Reducing the number of variables keeping the ones identified by ordiplot
-RDA_signif <- vegan::rda(t(ASV_object) ~ Chloride + pH  , data = water_rda_data[,4:16])
-RsquareAdj(RDA_signif) #adj rsquared = 0.08
+# Does not find a more parsimonous model
+
+# Checking the significance of variables
+anova.cca(RDA, permutations = 1000)
+anova.cca(RDA, permutations = 1000,by="term")
+# Magnesium and Calcium  and Total Dissolved Solid for order agglomerated
+
+# Variance inflation factors function to identify useless constraining variables
+sqrt(vif.cca(RDA)) # sqrt(vif())>2 is considered highly collinear
+
+
+RDA_signif <- vegan::rda(t(ASV_object) ~ pH  + Potassium + Chloride + Magnesium  , data = water_rda_data[,4:16])
+RsquareAdj(RDA_signif)
+sqrt(vif.cca(RDA_signif))
 anova.cca(RDA_signif, permutations = 1000,by="term")
-
-# Variance inflation factors function to identify useles constraining variables
-sqrt(vif.cca(RDA_signif)) # sqrt(vif())>2 is considered highly collinear
-
+anova.cca(RDA_signif, permutations = 1000)
 
 ##### Scaling 1 #####
 res.rda<-summary(RDA_signif,scaling = 1) # SCALING 1 
@@ -195,6 +208,7 @@ Interest <- cbind(Interest,Order_annotation)
 Rda.plot.rclr.S1<-ggplot(data=coord.sites.rda, aes(x=RDA1, y=RDA2))+
     theme_bw()+
     geom_point(aes(shape=new_sdata$Plant.type,color=new_sdata$Temperature),size=2.8)+
+    #geom_text_repel(label=rownames(coord.sites.rda))+
     geom_point(data=coord.asv.rda,aes(x=RDA1, y=RDA2),colour="purple4",shape=4, alpha=0.7)+
     geom_text_repel(data=Interest,label=Interest$Order,colour="purple4",
                     size=3.5,
@@ -219,8 +233,8 @@ Rda.plot.rclr.S1<-ggplot(data=coord.sites.rda, aes(x=RDA1, y=RDA2))+
 
 Rda.plot.rclr.S1
 
-ggsave(here("Results","Figures","16S_Water_RDA_S1_D77_WaterChem_RCLR_OrderGlom.pdf"),device='pdf',height = 7.5, width = 10.5)
-ggsave(here("Results","Figures","16S_Water_RDA_S1_D77_WaterChem_RCLR_OrderGlom.png"),device='png',height = 7.5, width = 10.5)
+ggsave(here("Results","Figures","18S_Water_RDA_S1_D77_WaterChem_RCLR_OrderGlom.pdf"),device='pdf',height = 7.5, width = 10.5)
+ggsave(here("Results","Figures","18S_Water_RDA_S1_D77_WaterChem_RCLR_OrderGlom.png"),device='png',height = 7.5, width = 10.5)
 
 
 ##### Scaling 2 #####
@@ -257,6 +271,7 @@ Interest <- cbind(Interest,Order_annotation)
 Rda.plot.rclr.S2<-ggplot(data=coord.sites.rda, aes(x=RDA1, y=RDA2))+ 
     theme_bw()+
     geom_point(aes(shape=new_sdata$Plant.type,color=new_sdata$Temperature),size=2.8)+
+    #geom_text_repel(label=rownames(coord.sites.rda))+
     geom_point(data=coord.asv.rda,aes(x=RDA1, y=RDA2),colour="purple4",shape=4, alpha=0.7)+
     geom_text_repel(data=Interest,label=Interest$Order,colour="purple4",
                     size=3.5,
@@ -283,12 +298,17 @@ Rda.plot.rclr.S2<-ggplot(data=coord.sites.rda, aes(x=RDA1, y=RDA2))+
 Rda.plot.rclr.S2
 
 
-ggsave(here("Results","Figures","16S_Water_RDA_S2_D77_WaterChem_RCLR_OrderGlom.pdf"),device='pdf',height = 7.5, width = 10.5)
-ggsave(here("Results","Figures","16S_Water_RDA_S2_D77_WaterChem_RCLR_OrderGlom.png"),device='png',height = 7.5, width = 10.5)
+ggsave(here("Results","Figures","18S_Water_RDA_S2_D77_WaterChem_RCLR_OrderGlom.pdf"),device='pdf',height = 7.5, width = 10.5)
+ggsave(here("Results","Figures","18S_Water_RDA_S2_D77_WaterChem_RCLR_OrderGlom.png"),device='png',height = 7.5, width = 10.5)
 
 
 
-
+### did not run d62 ##
+### 
+### 
+### 
+### 
+### 
 ###¸¸¸¸¸¸¸¸¸¸¸¸¸####
 
 ### D62 ######
@@ -402,7 +422,8 @@ ASV_object <- ASV_order_rclr
 RDA <- vegan::rda(t(ASV_object) ~ ., data = water_rda_data[,4:16])
 
 
-RsquareAdj(RDA) 
+RsquareAdj(RDA) # adj.r.squared = x for un-agglomerated ASVs
+# adj.r.squared = x for genus agglomerated ASVs
 # adj.r.squared = 0.1323821 for order agglomerated ASVs
 
 
@@ -414,7 +435,14 @@ fwd.sel <- ordiR2step(rda(t(ASV_object) ~ 1, data = water_rda_data[,4:16]), # mo
                       #pstep = 1000,
                       trace = TRUE) # mettre TRUE pour voir le processus du sélection!
 fwd.sel$call
+## Robust Aitchison
 # Chloride + Potassium + pH for order agglomerated ASVs
+
+# Checking the significance of variables
+anova.cca(RDA, permutations = 1000)
+anova.cca(RDA, permutations = 1000,by="term")
+
+# Calcium and pH for order agglomerated
 
 
 # Reducing the number of variables keeping the ones identified by ordiplot
@@ -467,6 +495,7 @@ Interest <- cbind(Interest,Order_annotation)
 Rda.plot.rclr.S1<-ggplot(data=coord.sites.rda, aes(x=RDA1, y=RDA2))+
     theme_bw()+
     geom_point(aes(shape=new_sdata$Plant.type,color=new_sdata$Temperature),size=2.8)+
+    #geom_text_repel(label=rownames(coord.sites.rda))+
     geom_point(data=coord.asv.rda,aes(x=RDA1, y=RDA2),colour="purple4",shape=4, alpha=0.2)+
     geom_text_repel(data=Interest,label=Interest$Order,colour="purple4",size=3.5,fontface = "italic")+ 
     geom_hline(yintercept=0, linetype="dotted") +  
@@ -527,6 +556,7 @@ Interest <- cbind(Interest,Order_annotation)
 Rda.plot.rclr.S2<-ggplot(data=coord.sites.rda, aes(x=RDA1, y=RDA2)) +
     theme_bw()+
     geom_point(aes(shape=new_sdata$Plant.type,color=new_sdata$Temperature),size=2.8)+
+    #geom_text_repel(label=rownames(coord.sites.rda))+
     geom_point(data=coord.asv.rda,aes(x=RDA1, y=RDA2),colour="purple4",shape=4, alpha=0.2)+
     geom_text_repel(data=Interest,label=Interest$Order,colour="purple4",size=3.5,fontface = "italic")+ 
     geom_hline(yintercept=0, linetype="dotted") +  

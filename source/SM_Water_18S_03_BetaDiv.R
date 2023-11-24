@@ -8,6 +8,8 @@ library(dplyr)
 library(ggpp)
 library(mctoolsr)
 library(microbiome)
+devtools::install_github("pmartinezarbizu/pairwiseAdonis/pairwiseAdonis")
+library(pairwiseAdonis)
 #### Data ####
 
 load(here("Rdata","ps_18S_water_obj.RData"))
@@ -32,13 +34,14 @@ identical(ASV_phylo_rclr,ASV_vegan_rclr) # should be true
 rclr_dist_matrix <- phyloseq::distance(ps_rclr, method = "euclidean") # Aitchison distance
 metadata <- as(sample_data(ps_rclr), "data.frame") # Export data
 
+
 Permanova.rclr<-adonis2(rclr_dist_matrix~Time*Sample_type*Temperature,
                         data = metadata,
                         permutations = 999)
 Permanova.rclr
 
-
 # Save Permanova resutls in csv file
+
 write.table(Permanova.rclr,row.names=T,sep=";",here("Results","Tables","18S_Water_RCLR_Permanova.csv"))
 
 # Code if you want your table as a gg object
@@ -46,7 +49,67 @@ write.table(Permanova.rclr,row.names=T,sep=";",here("Results","Tables","18S_Wate
 # Permanova_table[,c(2:4)] <- round(Permanova_table[,c(2:4)],2)
 # table.p <- ggtexttable(Permanova_table, rows = NULL)
 
+
+
+# The two treatments and the time have significant interactions between each other.
+# Calculate PERMANOVA on glom treatments and identify significant interactions with pairwise.adonis
+metadata$plant_temp = paste0(metadata$Sample_type, "_", metadata$Temperature)
+metadata$time_temp = paste0(metadata$Time, "_", metadata$Temperature)
+metadata$plant_time = paste0(metadata$Sample_type, "_", metadata$Time)
+
+Permanova.plant_temp <- adonis2(rclr_dist_matrix~plant_temp,
+                                data = metadata, permutations = 999)
+Permanova.plant_temp
+pairwise.Permanova.plant_temp <- pairwise.adonis(rclr_dist_matrix, metadata$plant_temp)
+write.table(pairwise.Permanova.plant_temp,
+            row.names=F,sep="\t",here("output","tables","18S_Water_RCLR_pairwise.Permanova.plant_temp.csv"))
+Permanova.time_temp <- adonis2(rclr_dist_matrix~time_temp,
+                               data = metadata, permutations = 999)
+Permanova.time_temp
+pairwise.Permanova.time_temp<-pairwise.adonis(rclr_dist_matrix, metadata$time_temp)
+write.table(pairwise.Permanova.time_temp,
+            row.names=F,sep="\t",here("output","tables","18S_Water_RCLR_pairwise.Permanova.time_temp.csv"))
+
+Permanova.plant_time <- adonis2(rclr_dist_matrix~plant_time,
+                                data = metadata, permutations = 999)
+Permanova.plant_time
+pairwise.Permanova.plant_time <- pairwise.adonis(rclr_dist_matrix, metadata$plant_time)
+write.table(pairwise.Permanova.plant_time,
+            row.names=F,sep="\t",here("output","tables","18S_Water_RCLR_pairwise.Permanova.plant_time.csv"))
+
+# Define the list of small strings you want to check for
+
+to_keep <- c("No_plant_D10 vs Triglochin_D10",
+             "No_plant_D10 vs Scirpus_D10",
+             "No_plant_D0 vs Triglochin_D0",
+             "No_plant_D0 vs Scirpus_D0",
+             "No_plant_D16 vs Scirpus_D16",
+             "No_plant_D16 vs Triglochin_D16",
+             "No_plant_D77 vs Triglochin_D77",
+             "No_plant_D77 vs Scirpus_D77",
+             "No_plant_D62 vs Triglochin_D62",
+             "No_plant_D62 vs Scirpus_D62",
+             "No_plant_D35 vs Triglochin_D35",
+             "No_plant_D35 vs Scirpus_D35",
+             "Triglochin_D10 vs Scirpus_D10",
+             "Triglochin_D0 vs Scirpus_D0",
+             "Triglochin_D77 vs Scirpus_D77",
+             "Triglochin_D62 vs Scirpus_D62",
+             "Triglochin_D35 vs Scirpus_D35",
+             "Scirpus_D16 vs Triglochin_D16")
+pairwise.Permanova.plant_time1 <- pairwise.Permanova.plant_time[pairwise.Permanova.plant_time$pairs %in% to_keep, ]
+pairwise.Permanova.plant_time1$padjusted_18 <- p.adjust(pairwise.Permanova.plant_time1$p.value, method = "fdr")
+write.table(pairwise.Permanova.plant_time1,
+            row.names=F,sep="\t",here("output","tables","18S_Water_RCLR_pairwise.Permanova.plant_time_18adjusted.csv"))
+
+
+
+
+
+#### Ordinations 
+
 #### PCA 
+
 ord_rclr <- phyloseq::ordinate(ps_rclr, "RDA", distance = "euclidean")
 
 ## Sample type  

@@ -6,7 +6,6 @@ library(viridis)
 library(metacoder)
 library(dplyr)
 library(ggpp)
-library(ggh4x)
 
 #### Data ####
 
@@ -18,14 +17,14 @@ load(here("Rdata","ps_16S_water_obj.RData"))
 ###Raw abundance ####
 
 #####Sample type ####
-alpha.div<- plot_richness(ps, x="Sample_type", measures=c("Observed","Simpson", "Shannon"))
+alpha.div<- plot_richness(ps, x="Sample_type", color="Sample_type", measures=c("Observed","Simpson", "Shannon"))
 
-#Simplified object for plotting purposes 
 plot <- select(alpha.div$data,c("samples","Time","Sample_type","Temperature","variable","value"))
 
-# Alpha div plot with Sample type as regrouping factor
+
 ggplot(plot,aes(x=variable,y=value,shape=Sample_type))+
   geom_boxplot(outlier.shape = NA)+
+  #geom_boxplot(outlier.shape = NA,position=position_dodge(width=1.5))+
   geom_point(aes(x=variable,y=value,shape=Sample_type),position=position_dodge(width=0.75),size=2.5,fill='black')+
   theme_bw()+
   theme(axis.text.x = element_blank(),
@@ -45,14 +44,15 @@ ggsave(here("Results","Figures","16S_Water_SType_AlphaDiv.png"),device='png',hei
 
 
 #####Temperature ####
-alpha.div<- plot_richness(ps, x="Temperature", measures=c("Observed","Simpson", "Shannon"))
+alpha.div<- plot_richness(ps, x="Temperature", color="Temperature", measures=c("Observed","Simpson", "Shannon"))
 
-#Simplified obje forct plotting purposes 
 plot <- select(alpha.div$data,c("samples","Time","Sample_type","Temperature","variable","value"))
 
-# Alpha div plot with Temperature as regrouping factor
+
+
 ggplot(plot,aes(x=variable,y=value,color=Temperature))+
   geom_boxplot(outlier.shape = NA)+
+  #geom_boxplot(outlier.shape = NA,position=position_dodge(width=1.5))+
   geom_point(aes(x=variable,y=value),position=position_dodge(width=0.75),size=2.5,fill='black')+
   theme_bw()+
   theme(axis.text.x = element_blank(),
@@ -72,13 +72,13 @@ ggplot(plot,aes(x=variable,y=value,color=Temperature))+
 ggsave(here("Results","Figures","16S_Water_Temp_AlphaDiv.pdf"),device='pdf',height = 7.5, width = 10.5)
 ggsave(here("Results","Figures","16S_Water_Temp_AlphaDiv.png"),device='png',height = 7.5, width = 10.5)
 
-#####Time x Sample type#####
+#####Time #####
+library(ggh4x)
 alpha.div <- plot_richness(ps, x="Time", measures=c("Observed","Simpson", "Shannon"))
 
-#Simplified objetc for plotting purposes 
 plot <- select(alpha.div$data,c("samples","Time","Sample_type","Temperature","variable","value"))
 
-# Alpha div plot with Time and Sample type as regrouping factor
+
 ggplot(plot,aes(x=variable,y=value,shape=Sample_type,color=Time))+
   geom_boxplot(outlier.shape = NA)+
   geom_point(aes(x=variable,y=value,shape=Sample_type),position=position_dodge(width=0.75),size=2,fill='grey60')+
@@ -116,15 +116,13 @@ rarecurve(rar_obj, step=100, cex=0.5)
 min(sample_sums(ps)) #4780
 max(sample_sums(ps)) #75408
 
-# Get the numer of reads per sample
 readsumsdf = data.frame(nreads = sample_sums(ps), 
                         type = "Samples")
 
-# Bind the sample data and the above table
 sdat <- data.frame(sample_data(ps))
+
 reads <- cbind(readsumsdf,sdat)
 
-# Plot the number of read spe rsample grouped by time of sampling
 ggplot(reads, aes(x = rownames(reads), y = nreads,fill=Time))+
   theme_bw()+
   geom_bar(stat = "identity",color='black',size=0.2)+
@@ -148,14 +146,14 @@ max(sample_sums(ps.rar))
 
 
 #####Sample type ####
-alpha.div<- plot_richness(ps.rar, x="Sample_type", measures=c("Observed","Simpson", "Shannon"))
+alpha.div<- plot_richness(ps.rar, x="Sample_type", color="Sample_type", measures=c("Observed","Simpson", "Shannon"))
 
-#Simplified object for plotting purposes 
 plot <- select(alpha.div$data,c("samples","Time","Sample_type","Temperature","variable","value"))
 
-# Alpha div plot with Sample type as regrouping factor
+
 ggplot(plot,aes(x=variable,y=value,shape=Sample_type))+
   geom_boxplot(outlier.shape = NA)+
+  #geom_boxplot(outlier.shape = NA,position=position_dodge(width=1.5))+
   geom_point(aes(x=variable,y=value,shape=Sample_type),position=position_dodge(width=0.75),size=2.5,fill='black')+
   theme_bw()+
   theme(axis.text.x = element_blank(),
@@ -174,16 +172,15 @@ ggplot(plot,aes(x=variable,y=value,shape=Sample_type))+
 
 
 #####Temperature ####
-alpha.div<- plot_richness(ps.rar, x="Temperature", measures=c("Observed","Simpson", "Shannon"))
+alpha.div<- plot_richness(ps.rar, x="Temperature", color="Temperature", measures=c("Observed","Simpson", "Shannon"))
 
-#Simplified object for plotting purposes 
 plot <- select(alpha.div$data,c("samples","Time","Sample_type","Temperature","variable","value"))
 
 
-# Alpha div plot with Temperature as regrouping factor
 
 ggplot(plot,aes(x=variable,y=value,color=Temperature))+
   geom_boxplot(outlier.shape = NA)+
+  #geom_boxplot(outlier.shape = NA,position=position_dodge(width=1.5))+
   geom_point(aes(x=variable,y=value),position=position_dodge(width=0.75),size=2.5,fill='black')+
   theme_bw()+
   theme(axis.text.x = element_blank(),
@@ -202,14 +199,13 @@ ggplot(plot,aes(x=variable,y=value,color=Temperature))+
 
 # No significant change
 
-#####Time x Sample Type #####
-
+#####Time #####
+library(ggh4x)
 alpha.div <- plot_richness(ps.rar, x="Time", measures=c("Observed","Simpson", "Shannon"))
 
-#Simplified object for plotting purposes 
 plot <- select(alpha.div$data,c("samples","Time","Sample_type","Temperature","variable","value"))
 
-# Alpha div plot with Time and Sample type as regrouping factor
+
 ggplot(plot,aes(x=variable,y=value,shape=Sample_type,color=Time))+
   geom_boxplot(outlier.shape = NA)+
   geom_point(aes(x=variable,y=value,shape=Sample_type),position=position_dodge(width=0.75),size=2,fill='grey60')+

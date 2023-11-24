@@ -17,11 +17,8 @@ names(ab_table)
 
 taxo <- ab_table_raw[,"taxonomy", drop=F] 
 
-# Split into different columns corresponding to the taxonomic levelc
-taxo_split <- with(taxo, cbind(row.names(taxo), 
-                               colsplit(taxo$taxonomy, 
-                                        pattern = "\\;", 
-                                        names = c('Domain', 'Phylum','Class','Order','Family','Genus','Species'))))
+# Split into different columns 
+taxo_split <- with(taxo, cbind(row.names(taxo), colsplit(taxo$taxonomy, pattern = "\\;", names = c('Domain', 'Phylum','Class','Order','Family','Genus','Species'))))
 
 # Change row.names to ASV sequence and remove ASV sequence from dataframe
 row.names(taxo_split) <- taxo_split$`row.names(taxo)`
@@ -46,11 +43,9 @@ tax_clean_filled <- taxo_split_clean |>
 ###.... Metadata ####
 meta.raw <- read.csv(file = here("Data/Water/18S","metadata.tsv"), dec = ".", header = T, row.names = 1, sep = "\t", comment.char = "") #load
 str(meta.raw)
-
-# change characters to factors
 meta.raw[sapply(meta.raw, is.character)] <- lapply(meta.raw[sapply(meta.raw, is.character)], as.factor) # did it work? Check with str(meta)
 
-#In the row.names, replace _ by . to match sample names from abundance dataset
+#replace _ by . to match sample names from abundance dataset
 rownames(meta.raw) <- stringr::str_replace_all(rownames(meta.raw), '[-]', '.')
 
 meta <- meta.raw
@@ -61,7 +56,6 @@ levels(meta$Time)
 meta$Time<- factor(meta$Time, levels=c('D-0', 'D8', 'D15', 'D34', 'D61',"D77"))
 
 summary(meta$Time)
-
 # Problem with Time D61 being labelled for January 4th when this date is D34
 for(i in 1:nrow(meta)){
     if (meta$Sampling_date[i]=="Jan_4_2022"){
@@ -69,7 +63,7 @@ for(i in 1:nrow(meta)){
 }
 summary(meta$Time)
 
-# Reordering time to have coherent dates with other datasets (sed,roots, rhizo)
+# Renq;ing time to have coherent dates with other sampling (sed,roots, rhizo)
 levels(meta$Time) <- list(D0="D-0", D10="D8", D16 = "D15", D35= "D34", D62='D61',D77="D77")
 
 #### Phyloseq object####
@@ -87,8 +81,8 @@ setdiff(sample_names(ps_intermediate),sample_names(ps))
 # Removes one sample (M7G.Jan.4.2022) 
 ab_table$M7G.Jan.4.2022 #Sample has only 5 reads
 
-# Remove Asvs with no reads
 ps <- prune_taxa(taxa_sums(ps)>0, ps)
 ps
+getwd()
 # Save object 
 save(ps, file = here("RData","ps_18S_water_obj.RData"))
