@@ -7,6 +7,7 @@ library(metacoder)
 library(dplyr)
 library(ggpp)
 library(mctoolsr)
+library(pairwiseAdonis)
 library(microbiome)
 #### Data ####
 
@@ -37,14 +38,53 @@ Permanova.rclr<-adonis2(rclr_dist_matrix~Time*Sample_type*Temperature,
                         permutations = 999)
 Permanova.rclr
 
-
 # Save Permanova resutls in csv file
 write.table(Permanova.rclr,row.names=T,sep=";",here("Results","Tables","16S_Water_RCLR_Permanova.csv"))
 
-# Code if you want your table as a gg object
-# Permanova_table <- as.data.frame(Permanova.rclr)
-# Permanova_table[,c(2:4)] <- round(Permanova_table[,c(2:4)],2)
-# table.p <- ggtexttable(Permanova_table, rows = NULL)
+
+#### Interactions - Pairwise permanova
+metadata$Temperature <- sub("10C day - 5C night","Cold",metadata$Temperature)
+metadata$Temperature <- sub("20C day - 10C night","Warm",metadata$Temperature)
+
+metadata$plant_temp = paste0(metadata$Sample_type, "_", metadata$Temperature)
+metadata$time_temp = paste0(metadata$Time, "_", metadata$Temperature)
+metadata$plant_time = paste0(metadata$Sample_type, "_", metadata$Time)
+
+# Characters to factor
+metadata[sapply(metadata, is.character)] <- lapply(metadata[sapply(metadata, is.character)], as.factor) # did it work? Check with str(meta)
+str(metadata)
+
+# Plant x Temperature 
+Permanova.plant_temp <- adonis2(rclr_dist_matrix~plant_temp,
+                                data = metadata, permutations = 999)
+Permanova.plant_temp
+
+Pairwise.plant_temp <- pairwise.adonis(rclr_dist_matrix, metadata$plant_temp,p.adjust.m ="bonferroni")
+Pairwise.plant_temp
+write.table(Pairwise.plant_temp,row.names=T,sep=";",here("Results","Tables","16S_Water_RCLR_PWP_Plant_Temp.csv"))
+
+
+# Time x Temperature 
+Permanova.time_temp <- adonis2(rclr_dist_matrix~time_temp,
+                               data = metadata, permutations = 999)
+Permanova.time_temp
+
+Pairwise.time_temp <- pairwise.adonis(rclr_dist_matrix, metadata$time_temp,p.adjust.m ="bonferroni")
+Pairwise.time_temp
+write.table(Pairwise.time_temp,row.names=T,sep=";",here("Results","Tables","16S_Water_RCLR_PWP_Time_Temp.csv"))
+
+# Plant x Time 
+Permanova.plant_time <- adonis2(rclr_dist_matrix~plant_time,
+                                data = metadata, permutations = 999)
+Permanova.plant_time
+
+Pairwise.plant_time <- pairwise.adonis(rclr_dist_matrix, metadata$plant_time,p.adjust.m ="bonferroni")
+Pairwise.plant_time
+write.table(Pairwise.plant_time,row.names=T,sep=";",here("Results","Tables","16S_Water_RCLR_PWP_Time_Plant.csv"))
+
+
+
+
 
 #### Ordinations 
 ord_rclr <- phyloseq::ordinate(ps_rclr, "RDA", distance = "euclidean")
@@ -247,10 +287,17 @@ Permanova.bc<-adonis2(bc_dist_matrix~Time*Sample_type*Temperature,
                         permutations = 999)
 Permanova.bc
 
-
 write.table(Permanova.bc,row.names=T,sep=";",here("Results","Tables","16S_Water_Bray_Curtis_Permanova.csv"))
 
+<<<<<<< HEAD
+
+
+
+
+## PCoA ##
+=======
 ## Ordination ##
+>>>>>>> 9ea84a873344d1a08df3b9fea3a79c4857eb9eb6
 ord_bc <- phyloseq::ordinate(ps, "PCoA", distance = "bray")
 
 
