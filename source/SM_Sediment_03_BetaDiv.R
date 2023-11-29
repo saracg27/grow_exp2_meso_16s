@@ -49,47 +49,6 @@ Permanova.rclr<-adonis2(rclr_dist_matrix~Plant.type*Time*Temperature,
 write.table(Permanova.rclr,row.names=T,sep=";",here("Results","Tables","Sed_RCLR_Permanova.csv"))
 
 
-#### Interactions - Pairwise permanova
-metadata$Temperature <- sub("10°C day 5°C night","Cold",metadata$Temperature)
-metadata$Temperature <- sub("20°C day 10°C night","Warm",metadata$Temperature)
-
-metadata$plant_temp = paste0(metadata$Plant.type, "_", metadata$Temperature)
-metadata$time_temp = paste0(metadata$Time, "_", metadata$Temperature)
-metadata$plant_time = paste0(metadata$Plant.type, "_", metadata$Time)
-
-# Characters to factor
-metadata[sapply(metadata, is.character)] <- lapply(metadata[sapply(metadata, is.character)], as.factor) # did it work? Check with str(meta)
-str(metadata)
-
-# Plant x Temperature 
-Permanova.plant_temp <- adonis2(rclr_dist_matrix~plant_temp,
-                                data = metadata, permutations = 999)
-Permanova.plant_temp
-
-Pairwise.plant_temp <- pairwise.adonis(rclr_dist_matrix, metadata$plant_temp,p.adjust.m ="bonferroni")
-Pairwise.plant_temp
-write.table(Pairwise.plant_temp,row.names=T,sep=";",here("Results","Tables","Sed_RCLR_PWP_Plant_Temp.csv"))
-
-
-# Time x Temperature 
-Permanova.time_temp <- adonis2(rclr_dist_matrix~time_temp,
-                               data = metadata, permutations = 999)
-Permanova.time_temp
-
-Pairwise.time_temp <- pairwise.adonis(rclr_dist_matrix, metadata$time_temp,p.adjust.m ="bonferroni")
-Pairwise.time_temp
-write.table(Pairwise.time_temp,row.names=T,sep=";",here("Results","Tables","Sed_RCLR_PWP_Time_Temp.csv"))
-
-# Plant x Time 
-Permanova.plant_time <- adonis2(rclr_dist_matrix~plant_time,
-                                data = metadata, permutations = 999)
-Permanova.plant_time
-
-Pairwise.plant_time <- pairwise.adonis(rclr_dist_matrix, metadata$plant_time,p.adjust.m ="bonferroni")
-Pairwise.plant_time
-write.table(Pairwise.plant_time,row.names=T,sep=";",here("Results","Tables","Sed_RCLR_PWP_Time_Plant.csv"))
-
-
 
 #### PCA plots  
 ord_rclr <- phyloseq::ordinate(ps_rclr, "RDA", distance = "euclidean")
@@ -166,6 +125,102 @@ RCLR_fig<- phyloseq::plot_ordination(ps_rclr, ord_rclr, type="samples",shape='Pl
 # If only fill -> legend is black.. All this because plot_ordination does not have a fill option
 RCLR_fig$layers <- RCLR_fig$layers[-1] 
 RCLR_fig
+
+
+
+###### Interactions - Pairwise permanova #####
+
+metadata$Temperature <- sub("10°C day 5°C night","Cold",metadata$Temperature)
+metadata$Temperature <- sub("20°C day 10°C night","Warm",metadata$Temperature)
+
+metadata$plant_temp = paste0(metadata$Plant.type, "_", metadata$Temperature)
+metadata$time_temp = paste0(metadata$Time, "_", metadata$Temperature)
+metadata$plant_time = paste0(metadata$Plant.type, "_", metadata$Time)
+
+# Characters to factor
+metadata[sapply(metadata, is.character)] <- lapply(metadata[sapply(metadata, is.character)], as.factor) # did it work? Check with str(meta)
+str(metadata)
+
+# Plant x Temperature 
+Permanova.plant_temp <- adonis2(rclr_dist_matrix~plant_temp,
+                                data = metadata, permutations = 999)
+Permanova.plant_temp
+
+Pairwise.plant_temp <- pairwise.adonis(rclr_dist_matrix, metadata$plant_temp,p.adjust.m ="bonferroni")
+Pairwise.plant_temp
+write.table(Pairwise.plant_temp,row.names=T,sep=";",here("Results/Tables/Interactions","Sed_RCLR_PWP_Plant_Temp.csv"))
+
+
+# Time x Temperature 
+Permanova.time_temp <- adonis2(rclr_dist_matrix~time_temp,
+                               data = metadata, permutations = 999)
+Permanova.time_temp
+
+Pairwise.time_temp <- pairwise.adonis(rclr_dist_matrix, metadata$time_temp,p.adjust.m ="bonferroni")
+Pairwise.time_temp
+write.table(Pairwise.time_temp,row.names=T,sep=";",here("Results/Tables/Interactions","Sed_RCLR_PWP_Time_Temp.csv"))
+
+# Plant x Time 
+Permanova.plant_time <- adonis2(rclr_dist_matrix~plant_time,
+                                data = metadata, permutations = 999)
+Permanova.plant_time
+
+Pairwise.plant_time <- pairwise.adonis(rclr_dist_matrix, metadata$plant_time,p.adjust.m ="bonferroni")
+Pairwise.plant_time
+write.table(Pairwise.plant_time,row.names=T,sep=";",here("Results/Tables/Interactions","Sed_RCLR_PWP_Time_Plant.csv"))
+
+#_______________________________#
+#_______________________________#
+#_______________________________#
+
+# Open the csv files and remove lines with un-relevant pairwise comparisons
+# remove padjusted and sig column 
+# Save file example "Sed_Relevant_PlantxTemp_Comp.csv" in the Interactions folder
+
+
+##### Relevant pairwise permanovas #####
+
+# Load file with the relevant pairwise comparisons
+
+# Plant Type x Temperature 
+Pairwise_relevant_PTxTemp <- read.csv(file = here("Results/Tables/Interactions","Sed_Relevant_PlantxTemp_Comp.csv"), 
+                             dec = ".", sep = ";", header = T, row.names = 1, comment.char = "")
+
+
+Pairwise_relevant_PTxTemp$p.adj.FDR <- p.adjust(Pairwise_relevant_PTxTemp$p.value,method="fdr" )
+Pairwise_relevant_PTxTemp$p.adj.Bon <- p.adjust(Pairwise_relevant_PTxTemp$p.value,method="bonferroni" )
+
+write.table(Pairwise_relevant_PTxTemp,row.names=T,sep=";",here("Results","Tables","Sed_RCLR_relevant_PWP_PTxTemp.csv"))
+
+
+# Plant Type x Time
+Pairwise_relevant_PTxTime <- read.csv(file = here("Results/Tables/Interactions","Sed_Relevant_PlantxTime_Comp.csv"), 
+                                      dec = ".", sep = ";", header = T, row.names = 1, comment.char = "")
+
+
+Pairwise_relevant_PTxTime$p.adj.FDR <- p.adjust(Pairwise_relevant_PTxTime$p.value,method="fdr" )
+Pairwise_relevant_PTxTime$p.adj.Bon <- p.adjust(Pairwise_relevant_PTxTime$p.value,method="bonferroni" )
+
+write.table(Pairwise_relevant_PTxTime,row.names=T,sep=";",here("Results","Tables","Sed_RCLR_relevant_PWP_PTxTime.csv"))
+
+# NOT REALLY RELEVANT 
+# Time x Temperature 
+# Pairwise_relevant_TimexTemp <- read.csv(file = here("Results/Tables/Interactions","Sed_Relevant_PlantxTemp_Comp.csv"), 
+#                                       dec = ".", sep = ";", header = T, row.names = 1, comment.char = "")
+# 
+# 
+# Pairwise_relevant_TimexTemp$p.adj.FDR <- p.adjust(Pairwise_relevant_TimexTemp$p.value,method="fdr" )
+# Pairwise_relevant_TimexTemp$p.adj.Bon <- p.adjust(Pairwise_relevant_TimexTemp$p.value,method="bonferroni" )
+# 
+# write.table(Pairwise_relevant_TimexTemp,row.names=T,sep=";",here("Results","Tables","Sed_RCLR_relevant_PWP_TimexTemp.csv"))
+
+
+
+
+
+
+
+
 
 
 ####Hellinger distance #####
