@@ -11,6 +11,504 @@ library(ggpp)
 
 load(here("Rdata","ps_obj.RData"))
 
+#### Separation by temperature #####
+
+ps_sed_Warm <- subset_samples(ps, Sample.type =="Sediment"& Temperature =="20°C day 10°C night")
+ps_sed_Warm <- prune_taxa(taxa_sums(ps_sed_Warm)>0, ps_sed_Warm)
+ps_sed_Warm # 61 samples - 11912 taxa
+# check to see if you kept only SEDIMENT samples in WARM condition
+str(sample_data(ps_sed_Warm)) 
+
+ps_sed_Cold <- subset_samples(ps, Sample.type =="Sediment"& Temperature =="10°C day 5°C night")
+ps_sed_Cold <- prune_taxa(taxa_sums(ps_sed_Cold)>0, ps_sed_Cold)
+ps_sed_Cold # 59 samples - 12973 taxa
+# check to see if you kept only SEDIMENT samples in COLD condition
+str(sample_data(ps_sed_Cold)) 
+
+
+
+
+##DESeq2 #####
+
+# Taxonomic agglomeration
+
+## Warm
+#ps_glom_ord_Warm<- tax_glom(ps_sed_Warm,taxrank="Order",NArm = F)
+ps_glom_gen_Warm<- tax_glom(ps_sed_Warm,taxrank="Genus",NArm = F)
+
+
+## Cold
+#ps_glom_ord_Cold <- tax_glom(ps_sed_Cold,taxrank="Order",NArm = F)
+ps_glom_gen_Cold <- tax_glom(ps_sed_Cold,taxrank="Genus",NArm = F)
+
+
+#### SAMPLE TYPE ####
+
+#####  Warm #####
+
+ps_obj <- ps_glom_gen_Warm
+
+####|Scirpus VS Unplanted ####
+
+# Filter out features (OTUs or taxa) that have more 
+#than 90% zeros across all samples
+# This is done by checking the number of zeros in each row
+#of the OTU table and comparing it to 90% of the total
+#number of columns (samples)
+
+
+ps_obj_NP_Scirpus <-  subset_samples(ps_obj, Plant.type=="no plant" | Plant.type =="Scirpus")
+ps_obj_NP_Scirpus <- prune_taxa(taxa_sums(ps_obj_NP_Scirpus)>0, ps_obj_NP_Scirpus)
+ps_obj_NP_Scirpus <- prune_taxa(rowSums(otu_table(ps_obj_NP_Scirpus) == 0) 
+                                < ncol(otu_table(ps_obj_NP_Scirpus)) * 0.9, ps_obj_NP_Scirpus)
+
+diagdds = phyloseq_to_deseq2(ps_obj_NP_Scirpus, ~ Plant.type)
+
+diagdds = estimateSizeFactors(diagdds, type = "poscounts")
+
+diagdds = DESeq(diagdds,
+                test = "Wald",
+                fitType="local")
+plotDispEsts(diagdds) # local has a better fit
+
+res = results(diagdds, alpha=0.05) # results of the test FDR accepted = 5% 
+plotMA(res)
+
+res2 = res[order(res$padj, na.last=NA), ] # ordered and removes the ASVs which have padj = NAs 
+plotMA(res2)
+summary(res2)
+
+# Volcano plots
+res2 <- as.data.frame(res2)
+tax <- data.frame(tax_table(ps_obj))
+res2_taxa <- merge(res2,tax,by='row.names')
+
+
+res2_taxa$neg_log10_pvalue <- -log10(res2_taxa$padj)
+
+# Filter signif_taxa based on cutoffs
+filtered_signif_taxa <- res2_taxa[(abs(res2_taxa$log2FoldChange) > 1) & (res2_taxa$neg_log10_pvalue > 5), ]
+# -log10 p = 5 means there's an False Discovery Rate of 0.00001  
+# In this case we had 340 observation so 340 x 0.00001 = 0.0034
+# So there is 0.0034 samples that could be false positive
+# Create a new dataframe with the relevant columns
+
+result_diff <- filtered_signif_taxa[, c("Genus", "log2FoldChange", "neg_log10_pvalue")]
+result_diff$Genus
+
+volcano_sed_NP_Scirpus_Warm <- EnhancedVolcano(res2_taxa, 
+                                               lab = res2_taxa$Genus, 
+                                               selectLab = res2_taxa$Genus,
+                                               x = 'log2FoldChange', 
+                                               y = "padj",
+                                               pCutoff = 1e-05,
+                                               title = "Differential abundance of 16S reads in sediments",
+                                               titleLabSize = 15,
+                                               subtitle = "Scirpus vs No plant - Genus level",
+                                               pointSize = 3,
+                                               labSize = 3.5,
+                                               labFace = "italic",
+                                               colAlpha = 0.5,
+                                               legendPosition = 'bottom',
+                                               legendLabSize = 10,
+                                               legendIconSize = 4.0,
+                                               drawConnectors = TRUE,
+                                               widthConnectors = 0.6,
+                                               max.overlaps = 20
+)
+
+volcano_sed_NP_Scirpus_Warm
+
+#ggsave(filename = here("Results_W&C/Figures/", "Volcano_Sed_Warm_ScirpusVSnoplant.png"),height = 7.5, width = 10.5, dpi = 300)
+#ggsave(filename = here("Results_W&C/Figures/", "Volcano_Sed_Warm_ScirpusVSnoplant.png"),height = 7.5, width = 10.5, dpi = 300)
+
+####|Triglochin VS Unplanted ####
+
+ps_obj_NP_Triglochin <-  subset_samples(ps_obj, Plant.type=="no plant" | Plant.type =="Triglochin")
+ps_obj_NP_Triglochin <- prune_taxa(taxa_sums(ps_obj_NP_Triglochin)>0, ps_obj_NP_Triglochin)
+ps_obj_NP_Triglochin <- prune_taxa(rowSums(otu_table(ps_obj_NP_Triglochin) == 0) 
+                                < ncol(otu_table(ps_obj_NP_Triglochin)) * 0.9, ps_obj_NP_Triglochin)
+
+diagdds = phyloseq_to_deseq2(ps_obj_NP_Triglochin, ~ Plant.type)
+
+diagdds = estimateSizeFactors(diagdds, type = "poscounts")
+
+diagdds = DESeq(diagdds,
+                test = "Wald",
+                fitType="local")
+plotDispEsts(diagdds) # local has a better fit
+
+res = results(diagdds, alpha=0.05) # results of the test FDR accepted = 5% 
+plotMA(res)
+
+
+res2 = res[order(res$padj, na.last=NA), ] # ordered and removes the ASVs which have padj = NAs 
+plotMA(res2)
+summary(res2)
+
+# Volcano plots
+res2 <- as.data.frame(res2)
+tax <- data.frame(tax_table(ps_obj))
+res2_taxa <- merge(res2,tax,by='row.names')
+
+
+res2_taxa$neg_log10_pvalue <- -log10(res2_taxa$padj)
+
+# Filter signif_taxa based on cutoffs
+filtered_signif_taxa <- res2_taxa[(abs(res2_taxa$log2FoldChange) > 1) & (res2_taxa$neg_log10_pvalue > 5), ]
+
+
+result_diff <- filtered_signif_taxa[, c("Genus", "log2FoldChange", "neg_log10_pvalue")]
+result_diff$Genus
+
+volcano_sed_NP_Triglochin_Warm <- EnhancedVolcano(res2_taxa, 
+                                                  lab = res2_taxa$Genus, 
+                                                  selectLab = res2_taxa$Genus,
+                                                  x = 'log2FoldChange', 
+                                                  y = "padj",
+                                                  pCutoff = 1e-05,
+                                                  title = "Differential abundance of 16S reads in sediments",
+                                                  titleLabSize = 15,
+                                                  subtitle = "Triglochin vs No plant - Genus level",
+                                                  pointSize = 3,
+                                                  labSize = 3.5,
+                                                  labFace = "italic",
+                                                  colAlpha = 0.5,
+                                                  legendPosition = 'bottom',
+                                                  legendLabSize = 10,
+                                                  legendIconSize = 4.0,
+                                                  drawConnectors = TRUE,
+                                                  widthConnectors = 0.6,
+                                                  max.overlaps = 20
+)
+
+volcano_sed_NP_Triglochin_Warm
+
+#ggsave(filename = here("Results_W&C/Figures/", "Volcano_Sed_Warm_TriglochinVSnoplant.png"),height = 7.5, width = 10.5, dpi = 300)
+#ggsave(filename = here("Results_W&C/Figures/", "Volcano_Sed_Warm_TriglochinVSnoplant.png"),height = 7.5, width = 10.5, dpi = 300)
+
+####|Triglochin VS Scirpus ####
+
+ps_obj_Scirpus_Triglochin <-  subset_samples(ps_obj, Plant.type=="Scirpus" | Plant.type =="Triglochin")
+ps_obj_Scirpus_Triglochin <- prune_taxa(taxa_sums(ps_obj_Scirpus_Triglochin)>0, ps_obj_Scirpus_Triglochin)
+ps_obj_Scirpus_Triglochin <- prune_taxa(rowSums(otu_table(ps_obj_Scirpus_Triglochin) == 0) 
+                                   < ncol(otu_table(ps_obj_Scirpus_Triglochin)) * 0.9, ps_obj_Scirpus_Triglochin)
+
+diagdds = phyloseq_to_deseq2(ps_obj_Scirpus_Triglochin, ~ Plant.type)
+
+diagdds = estimateSizeFactors(diagdds, type = "poscounts")
+
+diagdds = DESeq(diagdds,
+                test = "Wald",
+                fitType="local")
+plotDispEsts(diagdds) # local has a better fit
+
+res = results(diagdds, alpha=0.05) # results of the test FDR accepted = 5% 
+plotMA(res)
+
+
+res2 = res[order(res$padj, na.last=NA), ] # ordered and removes the ASVs which have padj = NAs 
+plotMA(res2)
+summary(res2)
+
+
+# Volcano plots
+res2 <- as.data.frame(res2)
+tax <- data.frame(tax_table(ps_obj))
+res2_taxa <- merge(res2,tax,by='row.names')
+
+
+res2_taxa$neg_log10_pvalue <- -log10(res2_taxa$padj)
+
+# Filter signif_taxa based on cutoffs
+filtered_signif_taxa <- res2_taxa[(abs(res2_taxa$log2FoldChange) > 1) & (res2_taxa$neg_log10_pvalue > 5), ]
+
+
+result_diff <- filtered_signif_taxa[, c("Genus", "log2FoldChange", "neg_log10_pvalue")]
+result_diff$Genus
+
+volcano_sed_Scirpus_Triglochin_Warm <- EnhancedVolcano(res2_taxa, 
+                                                       lab = res2_taxa$Genus, 
+                                                       selectLab = res2_taxa$Genus,
+                                                       x = 'log2FoldChange', 
+                                                       y = "padj",
+                                                       pCutoff = 1e-05,
+                                                       title = "Differential abundance of 16S reads in sediments",
+                                                       titleLabSize = 15,
+                                                       subtitle = "Triglochin vs Scirpus - Genus level",
+                                                       pointSize = 3,
+                                                       labSize = 3.5,
+                                                       labFace = "italic",
+                                                       colAlpha = 0.5,
+                                                       legendPosition = 'bottom',
+                                                       legendLabSize = 10,
+                                                       legendIconSize = 4.0,
+                                                       drawConnectors = TRUE,
+                                                       widthConnectors = 0.6,
+                                                       max.overlaps = 20
+)
+
+volcano_sed_Scirpus_Triglochin_Warm
+
+#ggsave(filename = here("Results_W&C/Figures/", "Volcano_Sed_Warm_TriglochinVSScirpus.png"),height = 7.5, width = 10.5, dpi = 300)
+#ggsave(filename = here("Results_W&C/Figures/", "Volcano_Sed_Warm_TriglochinVSScirpus.png"),height = 7.5, width = 10.5, dpi = 300)
+
+
+#####  Cold #####
+
+ps_obj <- ps_glom_gen_Cold
+
+####|Scirpus VS Unplanted ####
+
+# Filter out features (OTUs or taxa) that have more 
+#than 90% zeros across all samples
+# This is done by checking the number of zeros in each row
+#of the OTU table and comparing it to 90% of the total
+#number of columns (samples)
+
+
+ps_obj_NP_Scirpus <-  subset_samples(ps_obj, Plant.type=="no plant" | Plant.type =="Scirpus")
+ps_obj_NP_Scirpus <- prune_taxa(taxa_sums(ps_obj_NP_Scirpus)>0, ps_obj_NP_Scirpus)
+ps_obj_NP_Scirpus <- prune_taxa(rowSums(otu_table(ps_obj_NP_Scirpus) == 0) 
+                                < ncol(otu_table(ps_obj_NP_Scirpus)) * 0.9, ps_obj_NP_Scirpus)
+
+diagdds = phyloseq_to_deseq2(ps_obj_NP_Scirpus, ~ Plant.type)
+
+diagdds = estimateSizeFactors(diagdds, type = "poscounts")
+
+diagdds = DESeq(diagdds,
+                test = "Wald",
+                fitType="local")
+plotDispEsts(diagdds) # local has a better fit
+
+res = results(diagdds, alpha=0.05) # results of the test FDR accepted = 5% 
+plotMA(res)
+
+res2 = res[order(res$padj, na.last=NA), ] # ordered and removes the ASVs which have padj = NAs 
+plotMA(res2)
+summary(res2)
+
+# Volcano plots
+res2 <- as.data.frame(res2)
+tax <- data.frame(tax_table(ps_obj))
+res2_taxa <- merge(res2,tax,by='row.names')
+
+
+res2_taxa$neg_log10_pvalue <- -log10(res2_taxa$padj)
+
+# Filter signif_taxa based on cutoffs
+filtered_signif_taxa <- res2_taxa[(abs(res2_taxa$log2FoldChange) > 1) & (res2_taxa$neg_log10_pvalue > 5), ]
+
+result_diff <- filtered_signif_taxa[, c("Genus", "log2FoldChange", "neg_log10_pvalue")]
+result_diff$Genus
+
+volcano_sed_NP_Scirpus_Cold <- EnhancedVolcano(res2_taxa, 
+                                               lab = res2_taxa$Genus, 
+                                               selectLab = res2_taxa$Genus,
+                                               x = 'log2FoldChange', 
+                                               y = "padj",
+                                               pCutoff = 1e-05,
+                                               title = "Differential abundance of 16S reads in sediments",
+                                               titleLabSize = 15,
+                                               subtitle = "Scirpus vs No plant - Genus level",
+                                               pointSize = 3,
+                                               labSize = 3.5,
+                                               labFace = "italic",
+                                               colAlpha = 0.5,
+                                               legendPosition = 'bottom',
+                                               legendLabSize = 10,
+                                               legendIconSize = 4.0,
+                                               drawConnectors = TRUE,
+                                               widthConnectors = 0.6,
+                                               max.overlaps = 20
+)
+
+volcano_sed_NP_Scirpus_Cold
+
+#ggsave(filename = here("Results_W&C/Figures/", "Volcano_Sed_Cold_ScirpusVSnoplant.png"),height = 7.5, width = 10.5, dpi = 300)
+#ggsave(filename = here("Results_W&C/Figures/", "Volcano_Sed_Cold_ScirpusVSnoplant.png"),height = 7.5, width = 10.5, dpi = 300)
+
+####|Triglochin VS Unplanted ####
+
+ps_obj_NP_Triglochin <-  subset_samples(ps_obj, Plant.type=="no plant" | Plant.type =="Triglochin")
+ps_obj_NP_Triglochin <- prune_taxa(taxa_sums(ps_obj_NP_Triglochin)>0, ps_obj_NP_Triglochin)
+ps_obj_NP_Triglochin <- prune_taxa(rowSums(otu_table(ps_obj_NP_Triglochin) == 0) 
+                                   < ncol(otu_table(ps_obj_NP_Triglochin)) * 0.9, ps_obj_NP_Triglochin)
+
+diagdds = phyloseq_to_deseq2(ps_obj_NP_Triglochin, ~ Plant.type)
+
+diagdds = estimateSizeFactors(diagdds, type = "poscounts")
+
+diagdds = DESeq(diagdds,
+                test = "Wald",
+                fitType="local")
+plotDispEsts(diagdds) # local has a better fit
+
+res = results(diagdds, alpha=0.05) # results of the test FDR accepted = 5% 
+plotMA(res)
+
+
+res2 = res[order(res$padj, na.last=NA), ] # ordered and removes the ASVs which have padj = NAs 
+plotMA(res2)
+summary(res2)
+
+# Volcano plots
+res2 <- as.data.frame(res2)
+tax <- data.frame(tax_table(ps_obj))
+res2_taxa <- merge(res2,tax,by='row.names')
+
+
+res2_taxa$neg_log10_pvalue <- -log10(res2_taxa$padj)
+
+# Filter signif_taxa based on cutoffs
+filtered_signif_taxa <- res2_taxa[(abs(res2_taxa$log2FoldChange) > 1) & (res2_taxa$neg_log10_pvalue > 5), ]
+
+
+result_diff <- filtered_signif_taxa[, c("Genus", "log2FoldChange", "neg_log10_pvalue")]
+result_diff$Genus
+
+volcano_sed_NP_Triglochin_Cold <- EnhancedVolcano(res2_taxa, 
+                                                  lab = res2_taxa$Genus, 
+                                                  selectLab = res2_taxa$Genus,
+                                                  x = 'log2FoldChange', 
+                                                  y = "padj",
+                                                  pCutoff = 1e-05,
+                                                  title = "Differential abundance of 16S reads in sediments",
+                                                  titleLabSize = 15,
+                                                  subtitle = "Triglochin vs No plant - Genus level",
+                                                  pointSize = 3,
+                                                  labSize = 3.5,
+                                                  labFace = "italic",
+                                                  colAlpha = 0.5,
+                                                  legendPosition = 'bottom',
+                                                  legendLabSize = 10,
+                                                  legendIconSize = 4.0,
+                                                  drawConnectors = TRUE,
+                                                  widthConnectors = 0.6,
+                                                  max.overlaps = 20
+)
+
+volcano_sed_NP_Triglochin_Cold
+
+#ggsave(filename = here("Results_W&C/Figures/", "Volcano_Sed_Cold_TriglochinVSnoplant.png"),height = 7.5, width = 10.5, dpi = 300)
+#ggsave(filename = here("Results_W&C/Figures/", "Volcano_Sed_Cold_TriglochinVSnoplant.png"),height = 7.5, width = 10.5, dpi = 300)
+
+####|Triglochin VS Scirpus ####
+
+ps_obj_Scirpus_Triglochin <-  subset_samples(ps_obj, Plant.type=="Scirpus" | Plant.type =="Triglochin")
+ps_obj_Scirpus_Triglochin <- prune_taxa(taxa_sums(ps_obj_Scirpus_Triglochin)>0, ps_obj_Scirpus_Triglochin)
+ps_obj_Scirpus_Triglochin <- prune_taxa(rowSums(otu_table(ps_obj_Scirpus_Triglochin) == 0) 
+                                        < ncol(otu_table(ps_obj_Scirpus_Triglochin)) * 0.9, ps_obj_Scirpus_Triglochin)
+
+diagdds = phyloseq_to_deseq2(ps_obj_Scirpus_Triglochin, ~ Plant.type)
+
+diagdds = estimateSizeFactors(diagdds, type = "poscounts")
+
+diagdds = DESeq(diagdds,
+                test = "Wald",
+                fitType="local")
+plotDispEsts(diagdds) # local has a better fit
+
+res = results(diagdds, alpha=0.05) # results of the test FDR accepted = 5% 
+plotMA(res)
+
+
+res2 = res[order(res$padj, na.last=NA), ] # ordered and removes the ASVs which have padj = NAs 
+plotMA(res2)
+summary(res2)
+
+
+# Volcano plots
+res2 <- as.data.frame(res2)
+tax <- data.frame(tax_table(ps_obj))
+res2_taxa <- merge(res2,tax,by='row.names')
+
+
+res2_taxa$neg_log10_pvalue <- -log10(res2_taxa$padj)
+
+# Filter signif_taxa based on cutoffs
+filtered_signif_taxa <- res2_taxa[(abs(res2_taxa$log2FoldChange) > 1) & (res2_taxa$neg_log10_pvalue > 5), ]
+
+
+result_diff <- filtered_signif_taxa[, c("Genus", "log2FoldChange", "neg_log10_pvalue")]
+result_diff$Genus
+
+volcano_sed_Scirpus_Triglochin_Cold <- EnhancedVolcano(res2_taxa, 
+                                                       lab = res2_taxa$Genus, 
+                                                       selectLab = res2_taxa$Genus,
+                                                       x = 'log2FoldChange', 
+                                                       y = "padj",
+                                                       pCutoff = 1e-05,
+                                                       title = "Differential abundance of 16S reads in sediments",
+                                                       titleLabSize = 15,
+                                                       subtitle = "Triglochin vs Scirpus - Genus level",
+                                                       pointSize = 3,
+                                                       labSize = 3.5,
+                                                       labFace = "italic",
+                                                       colAlpha = 0.5,
+                                                       legendPosition = 'bottom',
+                                                       legendLabSize = 10,
+                                                       legendIconSize = 4.0,
+                                                       drawConnectors = TRUE,
+                                                       widthConnectors = 0.6,
+                                                       max.overlaps = 20
+)
+
+volcano_sed_Scirpus_Triglochin_Cold
+
+#ggsave(filename = here("Results_W&C/Figures/", "Volcano_Sed_Cold_TriglochinVSScirpus.png"),height = 7.5, width = 10.5, dpi = 300)
+#ggsave(filename = here("Results_W&C/Figures/", "Volcano_Sed_Cold_TriglochinVSScirpus.png"),height = 7.5, width = 10.5, dpi = 300)
+
+
+#####Common plots #####
+
+
+Scirpus_NP <- ggarrange(volcano_sed_NP_Scirpus_Warm,volcano_sed_NP_Scirpus_Cold,
+                        ncol=2,
+                        labels=c("Warm","Cold"))
+
+
+Triglo_NP <- ggarrange(volcano_sed_NP_Triglochin_Warm,volcano_sed_NP_Triglochin_Cold,
+                        ncol=2,
+                        labels=c("Warm","Cold"))
+
+Triglo_Scirpus <- ggarrange(volcano_sed_Scirpus_Triglochin_Warm,volcano_sed_Scirpus_Triglochin_Cold,
+                            ncol=2,
+                            labels=c("Warm","Cold"))
+
+Volcano_PlantType <- ggarrange(Scirpus_NP,
+                              Triglo_NP,
+                              Triglo_Scirpus,
+                              nrow=3)
+
+
+ggsave(filename = here("Results_W&C/Figures/", "Volcano_Sed_PlantTypes.pdf"),
+       plot=Volcano_PlantType, height = 15, width = 12, dpi = 300)
+
+ggsave(filename = here("Results_W&C/Figures/", "Volcano_Sed_PlantTypes.png"),
+       plot=Volcano_PlantType, height = 15, width = 12, dpi = 300)
+
+
+
+####~~~~~~~~~~~~~~~~####
+
+#### TIME ???  ####
+
+####~~~~~~~~~~~~~~~~####
+####~~~~~~~~~~~~~~~~####
+########~~~~~~~~~~~~~~~~####
+####~~~~~~~~~~~~~~~~####
+########~~~~~~~~~~~~~~~~####
+####~~~~~~~~~~~~~~~~####
+########~~~~~~~~~~~~~~~~####
+####~~~~~~~~~~~~~~~~####
+
+#### Not separated by temperature #####
+####~~~~~~~~~~~~~~~~####
+#### Data ####
+
+load(here("Rdata","ps_obj.RData"))
+
 ps_sed <-  subset_samples(ps, Sample.type =="Sediment")
 ps_sed <- prune_taxa(taxa_sums(ps_sed)>0, ps_sed)
 ps_sed
