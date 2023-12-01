@@ -13,13 +13,225 @@ library(EnhancedVolcano)
 
 load(here("Rdata","ps_obj.RData"))
 
+#### Separation by temperature #####
+
+ps_rhizo_Warm <- subset_samples(ps, Sample.type =="Rhizosphere"& Temperature =="20°C day 10°C night")
+ps_rhizo_Warm <- prune_taxa(taxa_sums(ps_rhizo_Warm)>0, ps_rhizo_Warm)
+ps_rhizo_Warm # 43 samples - 4630  taxa
+# check to see if you kept only RHIZOSPHERE samples in WARM condition
+str(sample_data(ps_rhizo_Warm)) 
+
+ps_rhizo_Cold <- subset_samples(ps, Sample.type =="Rhizosphere"& Temperature =="10°C day 5°C night")
+ps_rhizo_Cold <- prune_taxa(taxa_sums(ps_rhizo_Cold)>0, ps_rhizo_Cold)
+ps_rhizo_Cold # 38 samples - 4522 taxa
+# check to see if you kept only RHIZOSPHERE samples in COLD condition
+str(sample_data(ps_rhizo_Cold)) 
+
+
+
+
+##DESeq2 #####
+
+# Taxonomic agglomeration
+
+## Warm
+#ps_glom_ord_Warm<- tax_glom(ps_rhizo_Warm,taxrank="Order",NArm = F)
+ps_glom_gen_Warm<- tax_glom(ps_rhizo_Warm,taxrank="Genus",NArm = F)
+
+
+## Cold
+#ps_glom_ord_Cold <- tax_glom(ps_rhizo_Cold,taxrank="Order",NArm = F)
+ps_glom_gen_Cold <- tax_glom(ps_rhizo_Cold,taxrank="Genus",NArm = F)
+
+
+#### SAMPLE TYPE ####
+
+#####  Warm #####
+
+ps_obj <- ps_glom_gen_Warm
+
+
+####|Triglochin VS Scirpus ####
+
+ps_obj_Scirpus_Triglochin <-  subset_samples(ps_obj, Plant.type=="Scirpus" | Plant.type =="Triglochin")
+ps_obj_Scirpus_Triglochin <- prune_taxa(taxa_sums(ps_obj_Scirpus_Triglochin)>0, ps_obj_Scirpus_Triglochin)
+ps_obj_Scirpus_Triglochin <- prune_taxa(rowSums(otu_table(ps_obj_Scirpus_Triglochin) == 0) 
+                                        < ncol(otu_table(ps_obj_Scirpus_Triglochin)) * 0.9, ps_obj_Scirpus_Triglochin)
+
+diagdds = phyloseq_to_deseq2(ps_obj_Scirpus_Triglochin, ~ Plant.type)
+
+diagdds = estimateSizeFactors(diagdds, type = "poscounts")
+
+diagdds = DESeq(diagdds,
+                test = "Wald",
+                fitType="local")
+plotDispEsts(diagdds) # local has a better fit
+
+res = results(diagdds, alpha=0.05) # results of the test FDR accepted = 5% 
+plotMA(res)
+
+
+res2 = res[order(res$padj, na.last=NA), ] # ordered and removes the ASVs which have padj = NAs 
+plotMA(res2)
+summary(res2)
+
+
+# Volcano plots
+res2 <- as.data.frame(res2)
+tax <- data.frame(tax_table(ps_obj))
+res2_taxa <- merge(res2,tax,by='row.names')
+
+
+res2_taxa$neg_log10_pvalue <- -log10(res2_taxa$padj)
+
+# Filter signif_taxa barhizo on cutoffs
+filtered_signif_taxa <- res2_taxa[(abs(res2_taxa$log2FoldChange) > 1) & (res2_taxa$neg_log10_pvalue > 5), ]
+
+
+result_diff <- filtered_signif_taxa[, c("Genus", "log2FoldChange", "neg_log10_pvalue")]
+result_diff$Genus
+
+volcano_rhizo_Scirpus_Triglochin_Warm <- EnhancedVolcano(res2_taxa, 
+                                                       lab = res2_taxa$Genus, 
+                                                       selectLab = res2_taxa$Genus,
+                                                       x = 'log2FoldChange', 
+                                                       y = "padj",
+                                                       pCutoff = 1e-05,
+                                                       title = "Differential ab. of 16S reads in rhizosphere",
+                                                       titleLabSize = 15,
+                                                       subtitle = "Triglochin vs Scirpus - Genus level",
+                                                       pointSize = 3,
+                                                       labSize = 3.5,
+                                                       labFace = "italic",
+                                                       colAlpha = 0.5,
+                                                       legendPosition = 'bottom',
+                                                       legendLabSize = 10,
+                                                       legendIconSize = 4.0,
+                                                       drawConnectors = TRUE,
+                                                       widthConnectors = 0.6,
+                                                       max.overlaps = 20
+)
+
+volcano_rhizo_Scirpus_Triglochin_Warm
+
+#ggsave(filename = here("Results_W&C/Figures/", "Volcano_rhizo_Warm_TriglochinVSScirpus.png"),height = 7.5, width = 10.5, dpi = 300)
+#ggsave(filename = here("Results_W&C/Figures/", "Volcano_rhizo_Warm_TriglochinVSScirpus.png"),height = 7.5, width = 10.5, dpi = 300)
+
+
+#####  Cold #####
+
+ps_obj <- ps_glom_gen_Cold
+
+
+####|Triglochin VS Scirpus ####
+
+ps_obj_Scirpus_Triglochin <-  subset_samples(ps_obj, Plant.type=="Scirpus" | Plant.type =="Triglochin")
+ps_obj_Scirpus_Triglochin <- prune_taxa(taxa_sums(ps_obj_Scirpus_Triglochin)>0, ps_obj_Scirpus_Triglochin)
+ps_obj_Scirpus_Triglochin <- prune_taxa(rowSums(otu_table(ps_obj_Scirpus_Triglochin) == 0) 
+                                        < ncol(otu_table(ps_obj_Scirpus_Triglochin)) * 0.9, ps_obj_Scirpus_Triglochin)
+
+diagdds = phyloseq_to_deseq2(ps_obj_Scirpus_Triglochin, ~ Plant.type)
+
+diagdds = estimateSizeFactors(diagdds, type = "poscounts")
+
+diagdds = DESeq(diagdds,
+                test = "Wald",
+                fitType="local")
+plotDispEsts(diagdds) # local has a better fit
+
+res = results(diagdds, alpha=0.05) # results of the test FDR accepted = 5% 
+plotMA(res)
+
+
+res2 = res[order(res$padj, na.last=NA), ] # ordered and removes the ASVs which have padj = NAs 
+plotMA(res2)
+summary(res2)
+
+
+# Volcano plots
+res2 <- as.data.frame(res2)
+tax <- data.frame(tax_table(ps_obj))
+res2_taxa <- merge(res2,tax,by='row.names')
+
+
+res2_taxa$neg_log10_pvalue <- -log10(res2_taxa$padj)
+
+# Filter signif_taxa barhizo on cutoffs
+filtered_signif_taxa <- res2_taxa[(abs(res2_taxa$log2FoldChange) > 1) & (res2_taxa$neg_log10_pvalue > 5), ]
+
+
+result_diff <- filtered_signif_taxa[, c("Genus", "log2FoldChange", "neg_log10_pvalue")]
+result_diff$Genus
+
+volcano_rhizo_Scirpus_Triglochin_Cold <- EnhancedVolcano(res2_taxa, 
+                                                       lab = res2_taxa$Genus, 
+                                                       selectLab = res2_taxa$Genus,
+                                                       x = 'log2FoldChange', 
+                                                       y = "padj",
+                                                       pCutoff = 1e-05,
+                                                       title = "Differential ab. of 16S reads in rhizosphere",
+                                                       titleLabSize = 15,
+                                                       subtitle = "Triglochin vs Scirpus - Genus level",
+                                                       pointSize = 3,
+                                                       labSize = 3.5,
+                                                       labFace = "italic",
+                                                       colAlpha = 0.5,
+                                                       legendPosition = 'bottom',
+                                                       legendLabSize = 10,
+                                                       legendIconSize = 4.0,
+                                                       drawConnectors = TRUE,
+                                                       widthConnectors = 0.6,
+                                                       max.overlaps = 20
+)
+
+volcano_rhizo_Scirpus_Triglochin_Cold
+
+#ggsave(filename = here("Results_W&C/Figures/", "Volcano_rhizo_Cold_TriglochinVSScirpus.png"),height = 7.5, width = 10.5, dpi = 300)
+#ggsave(filename = here("Results_W&C/Figures/", "Volcano_rhizo_Cold_TriglochinVSScirpus.png"),height = 7.5, width = 10.5, dpi = 300)
+
+
+#####Common plots #####
+
+
+Triglo_Scirpus <- ggarrange(volcano_rhizo_Scirpus_Triglochin_Warm,volcano_rhizo_Scirpus_Triglochin_Cold,
+                            ncol=2,
+                            labels=c("Warm","Cold"))
+
+
+ggsave(filename = here("Results_W&C/Figures/", "Volcano_rhizo_PlantTypes.pdf"),
+       plot=Triglo_Scirpus, height = 7.5, width = 10.5, dpi = 300)
+
+ggsave(filename = here("Results_W&C/Figures/", "Volcano_rhizo_PlantTypes.png"),
+       plot=Triglo_Scirpus, height = 7.5, width = 10.5, dpi = 300)
+
+
+
+####~~~~~~~~~~~~~~~~####
+
+#### TIME ???  ####
+
+####~~~~~~~~~~~~~~~~####
+####~~~~~~~~~~~~~~~~####
+########~~~~~~~~~~~~~~~~####
+####~~~~~~~~~~~~~~~~####
+########~~~~~~~~~~~~~~~~####
+####~~~~~~~~~~~~~~~~####
+########~~~~~~~~~~~~~~~~####
+#### Not separated by temp ####
+####~~~~~~~~~~~~~~~~####
+
+
+
+### DIFFERENTIAL ABUNDANCE ####
+#### Data ####
+
+load(here("Rdata","ps_obj.RData"))
+
 ps_rhizo <-  subset_samples(ps, Sample.type =="Rhizosphere")
 ps_rhizo <- prune_taxa(taxa_sums(ps_rhizo)>0, ps_rhizo)
 ps_rhizo
 # 81 samples 5954 taxa
 
-## ______ #####
-### DIFFERENTIAL ABUNDANCE ####
 ###____####
 ####Metacoder on all sed samples####
 
