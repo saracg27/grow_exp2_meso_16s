@@ -7,6 +7,220 @@ library(metacoder)
 library(dplyr)
 library(ggpp)
 library(EnhancedVolcano)
+
+
+#### Data ####
+
+load(here("Rdata","ps_obj.RData"))
+
+#### Separation by temperature #####
+
+ps_root_Warm <- subset_samples(ps, Sample.type =="Roots"& Temperature =="20°C day 10°C night")
+ps_root_Warm <- prune_taxa(taxa_sums(ps_root_Warm)>0, ps_root_Warm)
+ps_root_Warm # 42 samples - 2050  taxa
+# check to see if you kept only Roots samples in WARM condition
+str(sample_data(ps_root_Warm)) 
+
+ps_root_Cold <- subset_samples(ps, Sample.type =="Roots"& Temperature =="10°C day 5°C night")
+ps_root_Cold <- prune_taxa(taxa_sums(ps_root_Cold)>0, ps_root_Cold)
+ps_root_Cold # 39 samples - 1587 taxa
+# check to see if you kept only Roots samples in COLD condition
+str(sample_data(ps_root_Cold))  
+
+
+##DESeq2 #####
+
+# Taxonomic agglomeration
+
+## Warm
+#ps_glom_ord_Warm<- tax_glom(ps_root_Warm,taxrank="Order",NArm = F)
+ps_glom_gen_Warm<- tax_glom(ps_root_Warm,taxrank="Genus",NArm = F)
+
+
+## Cold
+#ps_glom_ord_Cold <- tax_glom(ps_root_Cold,taxrank="Order",NArm = F)
+ps_glom_gen_Cold <- tax_glom(ps_root_Cold,taxrank="Genus",NArm = F)
+
+
+#### SAMPLE TYPE ####
+
+#####  Warm #####
+
+ps_obj <- ps_glom_gen_Warm
+
+
+####|Triglochin VS Scirpus ####
+
+ps_obj_Scirpus_Triglochin <-  subset_samples(ps_obj, Plant.type=="Scirpus" | Plant.type =="Triglochin")
+ps_obj_Scirpus_Triglochin <- prune_taxa(taxa_sums(ps_obj_Scirpus_Triglochin)>0, ps_obj_Scirpus_Triglochin)
+ps_obj_Scirpus_Triglochin <- prune_taxa(rowSums(otu_table(ps_obj_Scirpus_Triglochin) == 0) 
+                                        < ncol(otu_table(ps_obj_Scirpus_Triglochin)) * 0.9, ps_obj_Scirpus_Triglochin)
+
+diagdds = phyloseq_to_deseq2(ps_obj_Scirpus_Triglochin, ~ Plant.type)
+
+diagdds = estimateSizeFactors(diagdds, type = "poscounts")
+
+diagdds = DESeq(diagdds,
+                test = "Wald",
+                fitType="local")
+plotDispEsts(diagdds) # local has a better fit
+
+res = results(diagdds, alpha=0.05) # results of the test FDR accepted = 5% 
+plotMA(res)
+
+
+res2 = res[order(res$padj, na.last=NA), ] # ordered and removes the ASVs which have padj = NAs 
+plotMA(res2)
+summary(res2)
+
+
+# Volcano plots
+res2 <- as.data.frame(res2)
+tax <- data.frame(tax_table(ps_obj))
+res2_taxa <- merge(res2,tax,by='row.names')
+
+
+res2_taxa$neg_log10_pvalue <- -log10(res2_taxa$padj)
+
+# Filter signif_taxa baroot on cutoffs
+filtered_signif_taxa <- res2_taxa[(abs(res2_taxa$log2FoldChange) > 1) & (res2_taxa$neg_log10_pvalue > 5), ]
+
+
+result_diff <- filtered_signif_taxa[, c("Genus", "log2FoldChange", "neg_log10_pvalue")]
+result_diff$Genus
+
+volcano_root_Scirpus_Triglochin_Warm <- EnhancedVolcano(res2_taxa, 
+                                                         lab = res2_taxa$Genus, 
+                                                         selectLab = res2_taxa$Genus,
+                                                         x = 'log2FoldChange', 
+                                                         y = "padj",
+                                                         pCutoff = 1e-05,
+                                                         title = "Differential ab. of 16S reads in roots",
+                                                         titleLabSize = 15,
+                                                         subtitle = "Triglochin vs Scirpus - Genus level",
+                                                         pointSize = 3,
+                                                         labSize = 3.5,
+                                                         labFace = "italic",
+                                                         colAlpha = 0.5,
+                                                         legendPosition = 'bottom',
+                                                         legendLabSize = 10,
+                                                         legendIconSize = 4.0,
+                                                         drawConnectors = TRUE,
+                                                         widthConnectors = 0.6,
+                                                         max.overlaps = 20
+)
+
+volcano_root_Scirpus_Triglochin_Warm
+
+#ggsave(filename = here("Results_W&C/Figures/", "Volcano_root_Warm_TriglochinVSScirpus.png"),height = 7.5, width = 10.5, dpi = 300)
+#ggsave(filename = here("Results_W&C/Figures/", "Volcano_root_Warm_TriglochinVSScirpus.png"),height = 7.5, width = 10.5, dpi = 300)
+
+
+#####  Cold #####
+
+ps_obj <- ps_glom_gen_Cold
+
+
+####|Triglochin VS Scirpus ####
+
+ps_obj_Scirpus_Triglochin <-  subset_samples(ps_obj, Plant.type=="Scirpus" | Plant.type =="Triglochin")
+ps_obj_Scirpus_Triglochin <- prune_taxa(taxa_sums(ps_obj_Scirpus_Triglochin)>0, ps_obj_Scirpus_Triglochin)
+ps_obj_Scirpus_Triglochin <- prune_taxa(rowSums(otu_table(ps_obj_Scirpus_Triglochin) == 0) 
+                                        < ncol(otu_table(ps_obj_Scirpus_Triglochin)) * 0.9, ps_obj_Scirpus_Triglochin)
+
+diagdds = phyloseq_to_deseq2(ps_obj_Scirpus_Triglochin, ~ Plant.type)
+
+diagdds = estimateSizeFactors(diagdds, type = "poscounts")
+
+diagdds = DESeq(diagdds,
+                test = "Wald",
+                fitType="local")
+plotDispEsts(diagdds) # local has a better fit
+
+res = results(diagdds, alpha=0.05) # results of the test FDR accepted = 5% 
+plotMA(res)
+
+
+res2 = res[order(res$padj, na.last=NA), ] # ordered and removes the ASVs which have padj = NAs 
+plotMA(res2)
+summary(res2)
+
+
+# Volcano plots
+res2 <- as.data.frame(res2)
+tax <- data.frame(tax_table(ps_obj))
+res2_taxa <- merge(res2,tax,by='row.names')
+
+
+res2_taxa$neg_log10_pvalue <- -log10(res2_taxa$padj)
+
+# Filter signif_taxa baroot on cutoffs
+filtered_signif_taxa <- res2_taxa[(abs(res2_taxa$log2FoldChange) > 1) & (res2_taxa$neg_log10_pvalue > 5), ]
+
+
+result_diff <- filtered_signif_taxa[, c("Genus", "log2FoldChange", "neg_log10_pvalue")]
+result_diff$Genus
+
+volcano_root_Scirpus_Triglochin_Cold <- EnhancedVolcano(res2_taxa, 
+                                                         lab = res2_taxa$Genus, 
+                                                         selectLab = res2_taxa$Genus,
+                                                         x = 'log2FoldChange', 
+                                                         y = "padj",
+                                                         pCutoff = 1e-05,
+                                                         title = "Differential ab. of 16S reads in roots",
+                                                         titleLabSize = 15,
+                                                         subtitle = "Triglochin vs Scirpus - Genus level",
+                                                         pointSize = 3,
+                                                         labSize = 3.5,
+                                                         labFace = "italic",
+                                                         colAlpha = 0.5,
+                                                         legendPosition = 'bottom',
+                                                         legendLabSize = 10,
+                                                         legendIconSize = 4.0,
+                                                         drawConnectors = TRUE,
+                                                         widthConnectors = 0.6,
+                                                         max.overlaps = 20
+)
+
+volcano_root_Scirpus_Triglochin_Cold
+
+#ggsave(filename = here("Results_W&C/Figures/", "Volcano_root_Cold_TriglochinVSScirpus.png"),height = 7.5, width = 10.5, dpi = 300)
+#ggsave(filename = here("Results_W&C/Figures/", "Volcano_root_Cold_TriglochinVSScirpus.png"),height = 7.5, width = 10.5, dpi = 300)
+
+
+#####Common plots #####
+
+
+Triglo_Scirpus <- ggarrange(volcano_root_Scirpus_Triglochin_Warm,volcano_root_Scirpus_Triglochin_Cold,
+                            ncol=2,
+                            labels=c("Warm","Cold"))
+
+
+ggsave(filename = here("Results_W&C/Figures/", "Volcano_Root_PlantTypes.pdf"),
+       plot=Triglo_Scirpus, height = 7.5, width = 10.5, dpi = 300)
+
+ggsave(filename = here("Results_W&C/Figures/", "Volcano_Root_PlantTypes.png"),
+       plot=Triglo_Scirpus, height = 7.5, width = 10.5, dpi = 300)
+
+
+
+####~~~~~~~~~~~~~~~~####
+
+#### TIME ???  ####
+
+####~~~~~~~~~~~~~~~~####
+####~~~~~~~~~~~~~~~~####
+########~~~~~~~~~~~~~~~~####
+####~~~~~~~~~~~~~~~~####
+########~~~~~~~~~~~~~~~~####
+####~~~~~~~~~~~~~~~~####
+########~~~~~~~~~~~~~~~~####
+#### Not separated by temp ####
+####~~~~~~~~~~~~~~~~####
+
+
+
+### DIFFERENTIAL ABUNDANCE ####
 #### Data ####
 
 load(here("Rdata","ps_obj.RData"))
@@ -19,8 +233,6 @@ ps_root
 #sample_names(ps_root) <- sub("Meso.*","",sample_names(ps_root))
 
 ## ______ #####
-### DIFFERENTIAL ABUNDANCE ####
-###____####
 
 ### ....Metacoder Object####
 # Order agglomeration
