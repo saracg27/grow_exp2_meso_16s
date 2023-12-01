@@ -7,6 +7,7 @@ library(metacoder)
 library(dplyr)
 library(ggpp)
 library(mctoolsr)
+library(pairwiseAdonis)
 
 #### Data ####
 
