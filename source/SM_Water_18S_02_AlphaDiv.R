@@ -6,6 +6,324 @@ library(viridis)
 library(metacoder)
 library(dplyr)
 library(ggpp)
+library(ggh4x)
+
+#### Data ####
+
+load(here("Rdata","ps_18S_water_obj.RData"))
+
+sample_data((ps))
+
+#### Separation by temperature #####
+
+ps_water_18S_Warm <- subset_samples(ps, Temperature =="20C day - 10C night")
+ps_water_18S_Warm <- prune_taxa(taxa_sums(ps_water_18S_Warm)>0, ps_water_18S_Warm)
+ps_water_18S_Warm # 70 samples - 637 taxa
+# check to see if you kept only water_18S samples in WARM condition
+str(sample_data(ps_water_18S_Warm)) 
+
+ps_water_18S_Cold <- subset_samples(ps, Temperature =="10C day - 5C night")
+ps_water_18S_Cold <- prune_taxa(taxa_sums(ps_water_18S_Cold)>0, ps_water_18S_Cold)
+ps_water_18S_Cold # 70 samples - 627 taxa
+# check to see if you kept only water_18S samples in COLD condition
+str(sample_data(ps_water_18S_Cold)) 
+
+####~~~~~~~~~~~~~~~~####
+### ALPHA DIV ####
+#### Raw abundance ####
+
+#####Plant type ####
+######| Warm ####
+alpha.div.warm<- plot_richness(ps_water_18S_Warm, x="Sample_type", measures=c("Observed","Simpson", "Shannon"))
+
+# Simplified data for plotting
+plot <- select(alpha.div.warm$data,c("samples","Time","Sample_type","variable","value"))
+
+Warm_PlantType <- ggplot(plot,aes(x=variable,y=value,shape=Sample_type))+
+    geom_boxplot(outlier.shape = NA)+
+    geom_point(aes(x=variable,y=value,shape=Sample_type),position=position_dodge(width=0.75),size=2.5,fill='black')+
+    theme_bw()+
+    theme(title = element_text(size=20),
+          axis.text.x =element_blank(),
+          axis.text.y =element_text(size=12),
+          axis.title.x = element_blank(), 
+          axis.title.y = element_text(size=15),
+          legend.text.align = 0,
+          axis.ticks.x = element_blank(),
+          legend.text=element_text(size=20),
+          legend.position = "bottom",
+          strip.text = element_text(size=15),
+          strip.background = element_rect(fill='white'))+
+    stat_pwc(method="wilcox_test",hide.ns=T,
+             p.adjust.method="fdr",
+             label="p.adj.signif",
+             tip.length = 0, 
+             step.increase = 0.05,
+             vjust=0)+
+    # Computes pairwise wilcoxon rank-sum test in each facet
+    scale_shape_manual(values=c(19,22,23),name="Plant type",
+                       labels=c("No plant",expression(paste(italic("Scirpus"))),expression(italic("Triglochin"))))+
+    facet_wrap(~variable,scales="free")+
+    ylab("Alpha diversity score")
+
+# Save generated figure
+# ggsave(here("Results_W&C","Figures","water_18S_Warm_SType_AlphaDiv.pdf"), plot = Warm_PlantType ,device='pdf',height = 7.5, width = 10.5)
+# ggsave(here("Results_W&C","Figures","water_18S_Warm_SType_AlphaDiv.png"), plot = Warm_PlantType, device='png',height = 7.5, width = 10.5)
+
+######| Cold ####
+alpha.div.Cold<- plot_richness(ps_water_18S_Cold, x="Sample_type", measures=c("Observed","Simpson", "Shannon"))
+
+# Simplified data for plotting
+plot <- select(alpha.div.Cold$data,c("samples","Time","Sample_type","variable","value"))
+
+Cold_PlantType <- ggplot(plot,aes(x=variable,y=value,shape=Sample_type))+
+    geom_boxplot(outlier.shape = NA)+
+    geom_point(aes(x=variable,y=value,shape=Sample_type),position=position_dodge(width=0.75),size=2.5,fill='black')+
+    theme_bw()+
+    theme(title = element_text(size=20),
+          axis.text.x =element_blank(),
+          axis.text.y =element_text(size=12),
+          axis.title.x = element_blank(), 
+          axis.title.y = element_text(size=15),
+          legend.text.align = 0,
+          axis.ticks.x = element_blank(),
+          legend.text=element_text(size=20),
+          legend.position = "bottom",
+          strip.text = element_text(size=15),
+          strip.background = element_rect(fill='white'))+
+    stat_pwc(method="wilcox_test",hide.ns=T,
+             p.adjust.method="fdr",
+             label="p.adj.signif",
+             tip.length = 0, 
+             step.increase = 0.05,
+             vjust=0)+
+    # Computes pairwise wilcoxon rank-sum test in each facet
+    scale_shape_manual(values=c(19,22,23),name="Plant type",
+                       labels=c("No plant",expression(paste(italic("Scirpus"))),expression(italic("Triglochin"))))+
+    facet_wrap(~variable,scales="free")+
+    ylab("Alpha diversity score")
+
+# Save generated figure
+# ggsave(here("Results_W&C","Figures","water_18S_Cold_SType_AlphaDiv.pdf"), plot = Cold_PlantType ,device='pdf',height = 7.5, width = 10.5)
+# ggsave(here("Results_W&C","Figures","water_18S_Cold_SType_AlphaDiv.png"), plot = Cold_PlantType, device='png',height = 7.5, width = 10.5)
+
+Plant_type_alpha <- ggarrange(Warm_PlantType,Cold_PlantType,
+                              nrow = 2,common.legend = T,
+                              legend = "bottom",
+                              labels = c("Warm","Cold"),
+                              hjust = -0.1)
+
+ggsave(here("Results_W&C","Figures","Water_18S_SType_AlphaDiv.pdf"), plot = Plant_type_alpha ,device='pdf',height = 7.5, width = 10.5)
+ggsave(here("Results_W&C","Figures","Water_18S_SType_AlphaDiv.png"), plot = Plant_type_alpha, device='png',height = 7.5, width = 10.5)
+
+
+#####Time ####
+######| Warm ####
+alpha.div.warm<- plot_richness(ps_water_18S_Warm, x="Time", measures=c("Observed","Simpson", "Shannon"))
+
+# Simplified data for plotting
+plot <- select(alpha.div.warm$data,c("samples","Time","Sample_type","variable","value"))
+
+Warm_Time <- ggplot(plot,aes(x=variable,y=value,color=Time))+
+    geom_boxplot(outlier.shape = NA)+
+    geom_point(aes(x=variable,y=value),position=position_dodge(width=0.75),size=2.5,fill='black')+
+    theme_bw()+
+    theme(title = element_text(size=20),
+          axis.text.x =element_blank(),
+          axis.text.y =element_text(size=12),
+          axis.title.x = element_blank(), 
+          axis.title.y = element_text(size=15),
+          legend.text.align = 0,
+          axis.ticks.x = element_blank(),
+          legend.text=element_text(size=20),
+          legend.position = "bottom",
+          strip.text = element_text(size=15),
+          strip.background = element_rect(fill='white'))+
+    stat_pwc(method="wilcox_test",
+             hide.ns=T,
+             p.adjust.method="fdr",
+             label="p.adj.signif",
+             tip.length = 0, 
+             step.increase = 0.1,
+             vjust=0.5,
+             size = 0.5,
+             label.size=4.2)+
+    # Computes pairwise wilcoxon rank-sum test in each facet
+    scale_colour_viridis(option="magma",discrete=T,name="Time")+
+    facet_wrap(~variable,scales="free")+
+    ylab("Alpha diversity score")
+
+# Save generated figure
+# ggsave(here("Results_W&C","Figures","water_18S_Warm_Time_AlphaDiv.pdf"), plot = Warm_PlantType ,device='pdf',height = 7.5, width = 10.5)
+# ggsave(here("Results_W&C","Figures","water_18S_Warm_Time_AlphaDiv.png"), plot = Warm_PlantType, device='png',height = 7.5, width = 10.5)
+
+######| Cold ####
+alpha.div.Cold<- plot_richness(ps_water_18S_Cold, x="Time", measures=c("Observed","Simpson", "Shannon"))
+
+# Simplified data for plotting
+plot <- select(alpha.div.Cold$data,c("samples","Time","Sample_type","variable","value"))
+
+Cold_Time <- ggplot(plot,aes(x=variable,y=value,color=Time))+
+    geom_boxplot(outlier.shape = NA)+
+    geom_point(aes(x=variable,y=value),position=position_dodge(width=0.75),size=2.5,fill='black')+
+    theme_bw()+
+    theme(title = element_text(size=20),
+          axis.text.x =element_blank(),
+          axis.text.y =element_text(size=12),
+          axis.title.x = element_blank(), 
+          axis.title.y = element_text(size=15),
+          legend.text.align = 0,
+          axis.ticks.x = element_blank(),
+          legend.text=element_text(size=20),
+          legend.position = "bottom",
+          strip.text = element_text(size=15),
+          strip.background = element_rect(fill='white'))+
+    stat_pwc(method="wilcox_test",
+             hide.ns=T,
+             p.adjust.method="fdr",
+             label="p.adj.signif",
+             tip.length = 0, 
+             step.increase = 0.1,
+             vjust=0.5,
+             size = 0.5,
+             label.size=4.2)+
+    # Computes pairwise wilcoxon rank-sum test in each facet
+    scale_colour_viridis(option="magma",discrete=T,name="Time")+
+    facet_wrap(~variable,scales="free")+
+    ylab("Alpha diversity score")
+
+# Save generated figure
+# ggsave(here("Results_W&C","Figures","water_18S_Cold_Time_AlphaDiv.pdf"), plot = Cold_PlantType ,device='pdf',height = 7.5, width = 10.5)
+# ggsave(here("Results_W&C","Figures","water_18S_Cold_Time_AlphaDiv.png"), plot = Cold_PlantType, device='png',height = 7.5, width = 10.5)
+
+Time_alpha <- ggarrange(Warm_Time,Cold_Time,
+                        nrow = 2,common.legend = T,
+                        legend = "bottom",
+                        labels = c("Warm","Cold"),
+                        hjust = -0.1)
+
+ggsave(here("Results_W&C","Figures","water_18S_Time_AlphaDiv.pdf"), 
+       plot = Time_alpha ,
+       device='pdf',height = 7.5, width = 10.5)
+
+ggsave(here("Results_W&C","Figures","water_18S_Time_AlphaDiv.png"), 
+       plot = Time_alpha, 
+       device='png',height = 7.5, width = 10.5)
+
+
+##### Time & Plant type####
+######| Warm ####
+alpha.div.warm<- plot_richness(ps_water_18S_Warm, x="Time", measures=c("Observed","Simpson", "Shannon"))
+
+# Simplified data for plotting
+plot <- select(alpha.div.warm$data,c("samples","Time","Sample_type","variable","value"))
+
+# Rename plant labels
+Plant_labs <- c("No Plant","Scirpus", "Triglochin")
+names(Plant_labs) <- c("No_plant","Scirpus", "Triglochin")
+
+
+Warm_PT_Time <- ggplot(plot,aes(x=variable,y=value,color=Time))+
+    geom_boxplot(outlier.shape = NA)+
+    geom_point(aes(x=variable,y=value),position=position_dodge(width=0.75),size=2.5,fill='black')+
+    theme_bw()+
+    theme(title = element_text(size=20),
+          axis.text.x =element_blank(),
+          axis.text.y =element_text(size=12),
+          axis.title.x = element_blank(), 
+          axis.title.y = element_text(size=15),
+          legend.text.align = 0,
+          axis.ticks.x = element_blank(),
+          legend.text=element_text(size=20),
+          legend.position = "bottom",
+          strip.text = element_text(size=15),
+          strip.text.x = element_text(face="italic"),
+          strip.background = element_rect(fill='white'))+
+    stat_pwc(method="wilcox_test",
+             hide.ns=T,
+             p.adjust.method="fdr",
+             label="p.adj.signif",
+             tip.length = 0, 
+             step.increase = 0.1,
+             vjust=0.5,
+             size = 0.5,
+             label.size=4.2)+
+    # Computes pairwise wilcoxon rank-sum test in each facet
+    scale_colour_viridis(option="magma",discrete=T,name="Time")+
+    facet_nested(variable~Sample_type,scales="free",
+                 drop=T,independent = "all",shrink = F,
+                 labeller = labeller(Sample_type=Plant_labs))+
+    ylab("Alpha diversity score")
+
+# Save generated figure
+# ggsave(here("Results_W&C","Figures","water_18S_Warm_PT_Time_AlphaDiv.pdf"), plot = Warm_PlantType ,device='pdf',height = 7.5, width = 10.5)
+# ggsave(here("Results_W&C","Figures","water_18S_Warm_PT_Time_AlphaDiv.png"), plot = Warm_PlantType, device='png',height = 7.5, width = 10.5)
+
+######| Cold ####
+alpha.div.Cold<- plot_richness(ps_water_18S_Cold, x="Time", measures=c("Observed","Simpson", "Shannon"))
+
+# Simplified data for plotting
+plot <- select(alpha.div.Cold$data,c("samples","Time","Sample_type","variable","value"))
+
+Cold_PT_Time <- ggplot(plot,aes(x=variable,y=value,color=Time))+
+    geom_boxplot(outlier.shape = NA)+
+    geom_point(aes(x=variable,y=value),position=position_dodge(width=0.75),size=2.5,fill='black')+
+    theme_bw()+
+    theme(title = element_text(size=20),
+          axis.text.x =element_blank(),
+          axis.text.y =element_text(size=12),
+          axis.title.x = element_blank(), 
+          axis.title.y = element_text(size=15),
+          legend.text.align = 0,
+          axis.ticks.x = element_blank(),
+          legend.text=element_text(size=20),
+          legend.position = "bottom",
+          strip.text = element_text(size=15),
+          strip.text.x = element_text(face="italic"),
+          strip.background = element_rect(fill='white'))+
+    stat_pwc(method="wilcox_test",
+             hide.ns=T,
+             p.adjust.method="fdr",
+             label="p.adj.signif",
+             tip.length = 0, 
+             step.increase = 0.1,
+             vjust=0.5,
+             size = 0.5,
+             label.size=4.2)+
+    # Computes pairwise wilcoxon rank-sum test in each facet
+    scale_colour_viridis(option="magma",discrete=T,name="Time")+
+    facet_nested(variable~Sample_type,scales="free",
+                 drop=T,independent = "all",shrink = F,
+                 labeller = labeller(Sample_type=Plant_labs))+
+    ylab("Alpha diversity score")
+
+# Save generated figure
+# ggsave(here("Results_W&C","Figures","water_18S_Cold_PT_Time_AlphaDiv.pdf"), plot = Cold_PlantType ,device='pdf',height = 7.5, width = 10.5)
+# ggsave(here("Results_W&C","Figures","water_18S_Cold_PT_Time_AlphaDiv.png"), plot = Cold_PlantType, device='png',height = 7.5, width = 10.5)
+
+Time_PT_alpha <- ggarrange(Warm_PT_Time,Cold_PT_Time,
+                           nrow = 2,common.legend = T,
+                           legend = "bottom",
+                           labels = c("Warm","Cold"),
+                           hjust = -0.1)
+
+ggsave(here("Results_W&C","Figures","water_18S_PT_Time_AlphaDiv.pdf"), 
+       plot = Time_PT_alpha ,
+       device='pdf',height = 7.5, width = 10.5)
+
+ggsave(here("Results_W&C","Figures","water_18S_PT_Time_AlphaDiv.png"), 
+       plot = Time_PT_alpha, 
+       device='png',height = 7.5, width = 10.5)
+
+
+
+
+####~~~~~~~~~~~~~~~~####
+####~~~~~~~~~~~~~~~~####
+
+#### Not separated by temperature #####
+####~~~~~~~~~~~~~~~~####
+
 
 #### Data ####
 
