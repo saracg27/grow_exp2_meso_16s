@@ -70,6 +70,52 @@ Warm_PlantType <- ggplot(plot,aes(x=variable,y=value,shape=Plant.type))+
 # ggsave(here("Results_W&C","Figures","root_Warm_SType_AlphaDiv.pdf"), plot = Warm_PlantType ,device='pdf',height = 7.5, width = 10.5)
 # ggsave(here("Results_W&C","Figures","root_Warm_SType_AlphaDiv.png"), plot = Warm_PlantType, device='png',height = 7.5, width = 10.5)
 
+#### Check significant results with rarefied data ##
+#sample_sums(ps_root_Warm)
+#plot(sample_sums(ps_root_Warm))
+#
+## Remove low abundance samples in order to rarefy 
+## to an acceptable depth
+#ps_root_Warm_sub <- subset_samples(ps_root_Warm,sample_sums(ps_root_Warm)>5000)
+#
+#ps_root_Warm_rar <- rarefy_even_depth(ps_root_Warm_sub)
+#sample_sums(ps_root_Warm_rar)
+#alpha.div.Warm.rar<- plot_richness(ps_root_Warm_rar, x="Plant.type", measures=c("Observed","Simpson", "Shannon"))
+#
+## Simplified data for plotting
+#plot <- select(alpha.div.Warm.rar$data,c("samples","Time","Plant.type","variable","value"))
+#
+#Warm_PlantType_rar <- ggplot(plot,aes(x=variable,y=value,shape=Plant.type))+
+#    geom_boxplot(outlier.shape = NA)+
+#    geom_point(aes(x=variable,y=value,shape=Plant.type),position=position_dodge(width=0.75),size=2.5,fill='black')+
+#    theme_bw()+
+#    theme(title = element_text(size=20),
+#          axis.text.x =element_blank(),
+#          axis.text.y =element_text(size=12),
+#          axis.title.x = element_blank(), 
+#          axis.title.y = element_text(size=15),
+#          legend.text.align = 0,
+#          axis.ticks.x = element_blank(),
+#          legend.text=element_text(size=20),
+#          legend.position = "bottom",
+#           strip.text = element_text(size=15),
+#           strip.background = element_rect(fill='white'))+
+#     stat_pwc(method="wilcox_test",hide.ns=T,
+#              p.adjust.method="fdr",
+#              label="p.adj.signif",
+#              tip.length = 0, 
+#              step.increase = 0.05,
+#              vjust=0)+
+#     # Computes pairwise wilcoxon rank-sum test in each facet
+#     scale_shape_manual(values=c(22,23),name="Plant type :",
+#                        labels=c(expression(paste(italic("Scirpus"))),expression(italic("Triglochin"))))+
+#     facet_wrap(~variable,scales="free")+
+#     ylab("Alpha diversity score")
+# Richness difference not significant anymore #
+
+
+
+
 ######| Cold ####
 alpha.div.Cold<- plot_richness(ps_root_Cold, x="Plant.type", measures=c("Observed","Simpson", "Shannon"))
 
@@ -107,6 +153,52 @@ Cold_PlantType <- ggplot(plot,aes(x=variable,y=value,shape=Plant.type))+
 # ggsave(here("Results_W&C","Figures","root_Cold_SType_AlphaDiv.pdf"), plot = Cold_PlantType ,device='pdf',height = 7.5, width = 10.5)
 # ggsave(here("Results_W&C","Figures","root_Cold_SType_AlphaDiv.png"), plot = Cold_PlantType, device='png',height = 7.5, width = 10.5)
 
+#### Check significant resutls with rarefied data ##
+#
+# sample_sums(ps_root_Cold)
+# plot(sample_sums(ps_root_Cold))
+#  
+#
+# ps_root_Cold_rar <- rarefy_even_depth(ps_root_Cold)
+# 
+# alpha.div.Cold.rar<- plot_richness(ps_root_Cold_rar, x="Plant.type", measures=c("Observed","Simpson", "Shannon"))
+# 
+# # Simplified data for plotting
+# plot <- select(alpha.div.Cold.rar$data,c("samples","Time","Plant.type","variable","value"))
+# 
+# Cold_PlantType_rar <- ggplot(plot,aes(x=variable,y=value,shape=Plant.type))+
+#     geom_boxplot(outlier.shape = NA)+
+#     geom_point(aes(x=variable,y=value,shape=Plant.type),position=position_dodge(width=0.75),size=2.5,fill='black')+
+#     theme_bw()+
+#     theme(title = element_text(size=20),
+#           axis.text.x =element_blank(),
+#           axis.text.y =element_text(size=12),
+#           axis.title.x = element_blank(), 
+#           axis.title.y = element_text(size=15),
+#           legend.text.align = 0,
+#           axis.ticks.x = element_blank(),
+#           legend.text=element_text(size=20),
+#           legend.position = "bottom",
+#           strip.text = element_text(size=15),
+#           strip.background = element_rect(fill='white'))+
+#     stat_pwc(method="wilcox_test",hide.ns=T,
+#              p.adjust.method="fdr",
+#              label="p.adj.signif",
+#              tip.length = 0, 
+#              step.increase = 0.05,
+#              vjust=0)+
+#     # Computes pairwise wilcoxon rank-sum test in each facet
+#     scale_shape_manual(values=c(22,23),name="Plant type :",
+#                        labels=c(expression(paste(italic("Scirpus"))),expression(italic("Triglochin"))))+
+#     facet_wrap(~variable,scales="free")+
+#     ylab("Alpha diversity score")
+## Result still significant #
+
+
+
+
+
+### Common plot ###
 Plant_type_alpha <- ggarrange(Warm_PlantType,Cold_PlantType,
                               nrow = 2,common.legend = T,
                               legend = "bottom",
@@ -156,6 +248,47 @@ Warm_Time <- ggplot(plot,aes(x=variable,y=value,color=Time))+
 # Save generated figure
 # ggsave(here("Results_W&C","Figures","root_Warm_Time_AlphaDiv.pdf"), plot = Warm_PlantType ,device='pdf',height = 7.5, width = 10.5)
 # ggsave(here("Results_W&C","Figures","root_Warm_Time_AlphaDiv.png"), plot = Warm_PlantType, device='png',height = 7.5, width = 10.5)
+
+## Check results with rarefied data ##
+# sample_sums(ps_root_Warm_rar)
+# alpha.div.Warm.rar<- plot_richness(ps_root_Warm_rar, x="Time", measures=c("Observed","Simpson", "Shannon"))
+# plot <- select(alpha.div.Warm.rar$data,c("samples","Time","Plant.type","variable","value"))
+# 
+# Warm_Time_rar <- ggplot(plot,aes(x=variable,y=value,color=Time))+
+# geom_boxplot(outlier.shape = NA)+
+#     geom_point(aes(x=variable,y=value),position=position_dodge(width=0.75),size=2.5,fill='black')+
+#     theme_bw()+
+#     theme(title = element_text(size=20),
+#           axis.text.x =element_blank(),
+#           axis.text.y =element_text(size=12),
+#           axis.title.x = element_blank(), 
+#           axis.title.y = element_text(size=15),
+#           legend.text.align = 0,
+#           axis.ticks.x = element_blank(),
+#           legend.text=element_text(size=20),
+#           legend.position = "bottom",
+#           strip.text = element_text(size=15),
+#           strip.background = element_rect(fill='white'))+
+#     stat_pwc(method="wilcox_test",
+#              hide.ns=T,
+#              p.adjust.method="fdr",
+#              label="p.adj.signif",
+#              tip.length = 0, 
+#              step.increase = 0.1,
+#              vjust=0.5,
+#              size = 0.5,
+#              label.size=4.2)+
+#     # Computes pairwise wilcoxon rank-sum test in each facet
+#     scale_colour_viridis(option="magma",discrete=T,name="Time")+
+#     facet_wrap(~variable,scales="free")+
+#     ylab("Alpha diversity score")
+
+# Differences in significance 
+
+
+
+
+
 
 ######| Cold ####
 alpha.div.Cold<- plot_richness(ps_root_Cold, x="Time", measures=c("Observed","Simpson", "Shannon"))
