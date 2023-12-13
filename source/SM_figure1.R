@@ -7,6 +7,7 @@ library(metacoder)
 library(dplyr)
 library(ggpp)
 library(pairwiseAdonis)
+library(gridExtra)
 
 ##### Data ####
 
@@ -48,7 +49,8 @@ ord_Warm_rclr <- phyloseq::ordinate(ps_Warm_rclr, "RDA", distance = "euclidean")
 
 Sed_warm_fig<- phyloseq::plot_ordination(ps_Warm_rclr, ord_Warm_rclr, type="samples",shape='Plant.type',color='Time') + 
     theme_bw()+
-    theme(legend.text.align = 0,
+    theme(legend.position = "bottom",
+          legend.text.align = 0,
           text = element_text(size=17))+
     ggtitle(label = "Sediments - Warm temperatures")+
     geom_point(size=4,aes(fill=sample_data(ps_Warm_rclr)$Time))+
@@ -60,6 +62,14 @@ Sed_warm_fig<- phyloseq::plot_ordination(ps_Warm_rclr, ord_Warm_rclr, type="samp
 # If only fill -> legend is black..  plot_ordination does not have a fill option
 Sed_warm_fig$layers <- Sed_warm_fig$layers[-1] 
 Sed_warm_fig
+
+g_legend<-function(a.gplot){
+    tmp <- ggplot_gtable(ggplot_build(a.gplot))
+    leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+    legend <- tmp$grobs[[leg]]
+    return(legend)}
+
+mylegend<-g_legend(Sed_warm_fig)
 
 #### | Cold ####
 ps_Cold_rclr <- microbiome::transform(ps_sed_Cold, "rclr") # Robust Aitchison transformation
@@ -90,7 +100,7 @@ Sed_cold_fig<- phyloseq::plot_ordination(ps_Cold_rclr, ord_Cold_rclr, type="samp
 Sed_cold_fig$layers <- Sed_cold_fig$layers[-1] 
 Sed_cold_fig
 
-Sed_beta_div <- ggarrange(Sed_warm_fig,Sed_cold_fig,ncol=2,common.legend = T,legend = "bottom")
+Sed_beta_div <- ggarrange(Sed_warm_fig,Sed_cold_fig,ncol=2,common.legend = T,legend = "none")
 
 ## RHIZOSPHERE #####
 
@@ -171,7 +181,7 @@ rhizo_cold_fig$layers <- rhizo_cold_fig$layers[-1]
 rhizo_cold_fig
 
 
-rhizo_beta_div <- ggarrange(rhizo_warm_fig,rhizo_cold_fig,ncol=2,common.legend = T,legend = "bottom")
+rhizo_beta_div <- ggarrange(rhizo_warm_fig,rhizo_cold_fig,ncol=2,common.legend = T,legend = "none")
 
 
 
@@ -252,12 +262,17 @@ root_cold_fig<- phyloseq::plot_ordination(ps_Cold_rclr, ord_Cold_rclr, type="sam
 root_cold_fig$layers <- root_cold_fig$layers[-1] 
 root_cold_fig
 
-root_beta_div <- ggarrange(root_warm_fig,root_cold_fig,ncol=2,common.legend = T,legend = "bottom")
+root_beta_div <- ggarrange(root_warm_fig,root_cold_fig,ncol=2,common.legend = T,legend = "none")
 
 
 ## Figure 1#####
 
-Beta_div <- ggarrange(Sed_beta_div,rhizo_beta_div,root_beta_div,nrow=3)
+#Beta_div <- ggarrange(Sed_beta_div,rhizo_beta_div,root_beta_div,nrow=3)
+
+
+#### FIGURE 1#####
+Beta_div <- grid.arrange(arrangeGrob(Sed_beta_div,rhizo_beta_div,root_beta_div,nrow=3),
+                   mylegend, nrow=2,heights=c(10, 1))
 
 
 ggsave(filename = here("Results_W&C/Figures/", "Figure_1.pdf"),
@@ -265,4 +280,5 @@ ggsave(filename = here("Results_W&C/Figures/", "Figure_1.pdf"),
 
 ggsave(filename = here("Results_W&C/Figures/", "Figure_1.png"),
        plot=Beta_div, height = 15, width = 12, dpi = 300)
+
 
