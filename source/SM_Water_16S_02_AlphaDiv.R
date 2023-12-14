@@ -312,6 +312,108 @@ ggsave(here("Results_W&C","Figures","Water_16S_PT_Time_AlphaDiv.png"),
        plot = Time_PT_alpha, 
        device='png',height = 7.5, width = 10.5)
 
+
+#### Supp Figure ######
+
+######| Warm ####
+alpha.div.warm<- plot_richness(ps_water_16S_Warm, x="Time", measures= "Shannon")
+
+# Simplified data for plotting
+plot <- select(alpha.div.warm$data,c("samples","Time","Sample_type","variable","value"))
+
+Warm <- ggplot(plot,aes(x=Time,y=value,fill=Time))+
+    geom_point(aes(x=Time,y=value,shape=Sample_type,fill=Time),size=4,position=position_dodge(width=0.5))+
+    geom_boxplot(outlier.shape = NA,alpha=0.6)+
+    theme_bw()+
+    theme(title = element_text(size=20),
+          axis.text.x =element_blank(),
+          axis.text.y =element_text(size=12),
+          axis.title.x = element_blank(), 
+          axis.title.y = element_text(size=15),
+          legend.text.align = 0,
+          axis.ticks.x = element_blank(),
+          legend.text=element_text(size=18),
+          legend.title = element_text(size=20),
+          legend.position = "bottom",
+          legend.box = "vertical",
+          legend.margin=margin())+
+    stat_pwc(method="wilcox_test",
+             hide.ns=T,
+             p.adjust.method="fdr",
+             label="p.adj.signif",
+             tip.length = 0, 
+             step.increase = 0.05,
+             vjust=0.5,
+             size = 0.5,
+             label.size=4.2)+
+    # Computes pairwise wilcoxon rank-sum test in each facet
+    scale_colour_viridis(option="magma",discrete=T,name="Time")+
+    scale_fill_viridis(option="magma",discrete=T,name="Time")+
+    scale_shape_manual(name="Plant type :",
+                       labels=c("No plant",expression(italic(Scirpus)),expression(italic(Triglochin))),
+                       values = c(21,22,23))+
+    ylab("Alpha diversity score")
+Warm
+
+
+
+######| Cold ####
+alpha.div.cold<- plot_richness(ps_water_16S_Cold, x="Time", measures= "Shannon")
+
+# Simplified data for plotting
+plot <- select(alpha.div.cold$data,c("samples","Time","Sample_type","variable","value"))
+
+Cold <- ggplot(plot,aes(x=Time,y=value,fill=Time))+
+    geom_point(aes(x=Time,y=value,shape=Sample_type,fill=Time),size=4,position=position_dodge(width=0.5))+
+    geom_boxplot(outlier.shape = NA,alpha=0.6)+
+    theme_bw()+
+    theme(title = element_text(size=20),
+          axis.text.x =element_blank(),
+          axis.text.y =element_text(size=12),
+          axis.title.x = element_blank(), 
+          axis.title.y = element_text(size=15),
+          legend.text.align = 0,
+          axis.ticks.x = element_blank(),
+          legend.text=element_text(size=18),
+          legend.title = element_text(size=20),
+          legend.position = "bottom",
+          legend.box = "vertical",
+          legend.margin=margin())+
+    stat_pwc(method="wilcox_test",
+             hide.ns=T,
+             p.adjust.method="fdr",
+             label="p.adj.signif",
+             tip.length = 0, 
+             step.increase = 0.05,
+             vjust=0.5,
+             size = 0.5,
+             label.size=4.2)+
+    # Computes pairwise wilcoxon rank-sum test in each facet
+    scale_colour_viridis(option="magma",discrete=T,name="Time")+
+    scale_fill_viridis(option="magma",discrete=T,name="Time")+
+    scale_shape_manual(name="Plant type :",
+                       labels=c("No plant",expression(italic(Scirpus)),expression(italic(Triglochin))),
+                       values = c(21,22,23))+
+    ylab("Alpha diversity score")
+Cold
+
+Alpha <- ggarrange(Warm,Cold,
+                   ncol = 2,common.legend = T,
+                   legend = "bottom", labels=c("A","B"))
+
+
+ggsave(here("Results_W&C","Figures","SupFig_Water16SAlphaDiv.pdf"), 
+       plot = Alpha ,
+       device='pdf',height = 7.5, width = 10.5)
+
+ggsave(here("Results_W&C","Figures","SupFig_Water16SAlphaDiv.png"), 
+       plot = Alpha, 
+       device='png',height = 7.5, width = 10.5)
+
+
+
+
+
 ####~~~~~~~~~~~~~~~~####
 ####~~~~~~~~~~~~~~~~####
 
