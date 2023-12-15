@@ -38,7 +38,8 @@ phylum_sed_abund <- phylum_sed[, (colSums(phylum_sed) > 0)]
 ```{r}
 meta_sed <- droplevels(meta_sed)
 levels(meta_sed$Time)
-meta_sed$Time <- factor(meta_sed$Time, levels = c("D4", "D13", "D20", "D40", "D66"))
+meta_sed$Time <- factor(meta_sed$Time, levels = c("D4", "D13", "D20", "D40", "D66"),
+                        labels = c("D0", "D10", "D16", "D35", "D62"))
 meta_sed$Plant.type <- factor(meta_sed$Plant.type, levels = c("no plant", "Scirpus", "Triglochin"))
 meta_sed$Temperature <- factor(meta_sed$Temperature, 
                                   levels = c("10°C day 5°C night", "10°C day/ 5°C night", "20°C day 10°C night", "20°C day/ 10°C night"),
@@ -104,9 +105,9 @@ pal3 <- c("#F2D696","#BDFFF0","#F59C9B","#71ACD6","#7B9E81","#CDC0B0","#968EC2",
 ```
 
 ## Create the stack bar chart
-## Warmen plot
+## Warm plot
 ```{r}
-phylum_long$Time <- factor(x = phylum_long$Time, levels = c("D4", "D13", "D20", "D40", "D66"), labels = c("0", "10", "16", "35", "62"))
+phylum_long$Time <- factor(x = phylum_long$Time, levels = c("D0", "D10", "D16", "D35", "D62"), labels = c("0", "10", "16", "35", "62"))
 
 warm <- droplevels(phylum_long[phylum_long$Temperature == "warm",])
 warm$Taxa <- fct_relevel(warm$Taxa, "Alphaproteobacteria", after = 0L)
@@ -115,7 +116,7 @@ warm$Taxa <- fct_relevel(warm$Taxa, "Gammaproteobacteria", after = Inf)
 stack_phylum_warm <- ggplot(warm, aes(fill = Taxa, y = RelAbund, x = Time)) + 
   geom_bar(stat = "identity", position = "fill") +
   labs( y = "Relative abundance",
-        title = "20\u00B0C day / 10\u00B0C night") + 
+        title = "Warm") + 
   theme_minimal() +
   theme(strip.text.x = element_text(face = "bold.italic", size = 16),
         axis.text.x = element_text(size = 12, angle = 360, hjust = 0.5, face = "bold"),
@@ -144,7 +145,7 @@ cold$Taxa <- fct_relevel(cold$Taxa, "Gammaproteobacteria", after = Inf)
 stack_phylum_cold <- ggplot(cold, aes(fill = Taxa, y = RelAbund, x = Time)) + 
   geom_bar(stat = "identity", position = "fill") +
   labs( y = "Relative abundance",
-        title = "10\u00B0C day / 5\u00B0C night") + 
+        title = "Cold") + 
   theme_minimal() +
   theme(strip.text.x = element_text(face = "bold.italic", size = 16),
         axis.text.x = element_text(size = 12, angle = 360, hjust = 0.5, face = "bold"),
@@ -343,7 +344,7 @@ genus_long$Plant.type <- factor(genus_long$Plant.type, levels = c("no plant", "S
 #high_contrast = c("#FF8C00","#440154", "#CD0000","#545361FF", "#009ACD") 
 viridis::magma(7, alpha = 1) # extract colors from magma to match naphthenic acid figure PCA
 #"#000004FF" "#2D1160FF" "#721F81FF" "#B63679FF" "#F1605DFF" "#FEAF77FF" "#FCFDBFFF"
-high_contrast <- c("#000004FF", "#721F81FF" ,"#B63679FF" ,"#F1605DFF", "#FEAF77FF") 
+high_contrast <- c("#000004FF", "#721F81FF" ,"#B63679FF" ,"#F1605DFF", "#FFEC8B", "#FEAF77FF") 
 # Step 3: Create the plot
 p1 <- ggplot(data = genus_long, aes(y = Taxa, x = RelAbund, color = Time)) +
     geom_vline(xintercept = c(0.001, 0.01, 0.1, 0.4), color = "lightgrey", size = 0.1) +
@@ -377,10 +378,149 @@ p1 <- ggplot(data = genus_long, aes(y = Taxa, x = RelAbund, color = Time)) +
 p1
 
 # Save plots
-#ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops.pdf"), p1, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
-#ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops.eps"), p1, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
-ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops.png"), p1, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops-yellow.pdf"), p1, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops-yellow.eps"), p1, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops-yellow.png"), p1, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
 ```
+
+
+
+# Create stacked bars genus
+## Create the stack bar chart
+## Warm plot
+```{r}
+genus_long$Time <- factor(x = genus_long$Time, levels = c("D0", "D10", "D16", "D35", "D62"), labels = c("0", "10", "16", "35", "62"))
+
+warm <- droplevels(genus_long[genus_long$Temperature == "warm",])
+warm$Taxa <- fct_relevel(warm$Taxa, "Others", after = 0L)
+#warm$Taxa <- fct_relevel(warm$Taxa, "Gammaproteobacteria", after = Inf)
+
+pal40 <- c("#FFE4C4", "#C1CDCD", "#8B8378", "#8EE5EE", "#E9967A", "#FFF8DC", "#CD9B1D", "#FFF68F", "#FFC125", "#A2CD5A", "#EE7600", "#008B8B", "#7AC5CD", "#EE3B3B", "#FFAEB9", "#DA70D6", "#6E6E6E", "#1874CD", "#698B22", "#CDAF95", "#C0FF3E", "#DDA0DD", "#7A67EE", "#EE9A49", "#4EEE94", "#FF3E96", "#40E0D0", "#36648B", "#8B2252", "#CD9B9B", "#BFEFFF", "#FFFF00", "#0000EE", "#00CD00", "#F7F7F7", "#FFE4E1", "#7D26CD", "#050505", "#00FF00", "#CD3278")
+
+stack_genus_warm <- ggplot(warm, aes(fill = Taxa, y = RelAbund, x = Time)) + 
+  geom_bar(stat = "identity", position = "fill") +
+  labs( y = "Relative abundance",
+        title = "Warm") + 
+  theme_minimal() +
+  theme(strip.text.x = ggtext::element_markdown(face = "bold", size = 16),
+        axis.text.x = element_text(size = 12, angle = 360, hjust = 0.5, face = "bold"),
+        axis.text.y = element_text(size = 12, face = "bold"),
+        plot.title = element_text(face = "bold", size = 16),
+        legend.title = element_text(size = 14, color = "black", face = "bold"),
+        legend.text = element_text(size = 10, face ="bold", color ="black"),
+        axis.title.y = element_text(size = 16, face = "bold"),
+        axis.title.x = element_blank(),
+        legend.position = "none",
+        rect = element_rect(fill = "white")) +
+  scale_fill_manual(values = pal40, guide = guide_legend(label.theme = element_text(face = "italic", size = 12))) +
+  scale_color_manual(values = pal40, guide = guide_legend(label.theme = element_text(face = "italic", size = 12))) +
+  facet_grid(.~ Sample.type*Plant.type,  scales = "free_x", space = "free_x") + 
+  scale_y_continuous(limits = c(0,1), expand = c(0,0)) + 
+  guides(fill = guide_legend(ncol = 1))
+  #scale_x_discrete(name = "Time in days since OSPW introduction")
+
+stack_genus_warm
+```
+
+## Cold plot
+```{r}
+cold <- droplevels(genus_long[genus_long$Temperature == "cold",])
+cold$Taxa <- fct_relevel(cold$Taxa, "Others", after = 0L)
+#cold$Taxa <- fct_relevel(cold$Taxa, "Gammaproteobacteria", after = Inf)
+stack_genus_cold <- ggplot(cold, aes(fill = Taxa, y = RelAbund, x = Time)) + 
+  geom_bar(stat = "identity", position = "fill") +
+  labs( y = "Relative abundance",
+        title = "Cold") + 
+  theme_minimal() +
+  theme(strip.text.x = ggtext::element_markdown(face = "bold", size = 16),
+        axis.text.x = element_text(size = 12, angle = 360, hjust = 0.5, face = "bold"),
+        axis.text.y = element_text(size = 12, face = "bold"),
+        plot.title = element_text(face = "bold", size = 16),
+        legend.title = element_text(size = 14, color = "black", face = "bold"),
+        legend.text = ggtext::element_markdown(size = 10, face ="bold", color ="black"),
+        legend.position = "none",
+        axis.title = element_text(size = 16, face = "bold"),
+        rect = element_rect(fill = "white")) +
+  scale_fill_manual(values = pal40, guide = guide_legend(label.theme = element_text(face = "italic", size = 12))) +
+  scale_color_manual(values = pal40, guide = guide_legend(label.theme = element_text(face = "italic", size = 12))) +
+  facet_grid(.~ Sample.type*Plant.type,  scales = "free_x", space = "free_x") + 
+  scale_y_continuous(limits = c(0,1), expand = c(0,0)) +
+  scale_x_discrete(name = "Time in days since OSPW introduction") + 
+  guides(fill = guide_legend(ncol = 1))
+
+stack_genus_cold
+#Get legend
+```
+
+## Legend
+```{r}
+library(ggtext)
+
+
+legend <- get_legend(ggplot(cold, aes(fill = Taxa, y = RelAbund, x = Time)) + 
+  geom_bar(stat = "identity", position = "fill") + 
+      scale_fill_manual(values = pal40, guide = guide_legend(label.theme = element_text(face = "italic", size = 12))) +
+  scale_color_manual(values = pal40, guide = guide_legend(label.theme = element_text(face = "italic", size = 12))) +
+  theme(strip.text.x = ggtext::element_markdown(face = "bold", size = 16),
+        axis.text.x = element_text(size = 12, angle = 360, hjust = 0.5, face = "bold"),
+        axis.text.y = element_text(size = 12, face = "bold"),
+        plot.title = element_text(face = "bold", size = 16),
+        legend.title = element_text(size = 14, color = "black", face = "bold"),
+        legend.text = ggtext::element_markdown(size = 10, face ="bold", color ="black"),
+        axis.title = element_text(size = 16, face = "bold"),
+        rect = element_rect(fill = "white")) + 
+  guides(fill = guide_legend(ncol = 1)))
+
+```
+
+## Combine plots
+```{r}
+combined_plot <- ggdraw() +
+  draw_plot(stack_genus_warm, x = 0, y = 0.5, width = 0.8, height = 0.5) +
+  draw_plot(stack_genus_cold, x = 0, y = 0, width = 0.8, height = 0.5) +
+  draw_plot(legend, x = 0.75, y = 0.25, width = 0.3, height = 0.5) +
+  draw_label("A)", x = 0.02, y = 0.98, size = 17, fontface ="bold") +  
+  draw_label("B)", x = 0.02, y = 0.48, size = 17, fontface ="bold") 
+combined_plot
+
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_stackbars.pdf"), combined_plot, width = 9, height = 9, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_stackbars.png"), combined_plot, width = 9, height = 9, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_stackbars.eps"), combined_plot, width = 9, height = 9, units = "in", dpi = 300,bg = "white")
+
+```
+
+
+Single plot
+```{r}
+# genus_long$Taxa <- fct_relevel(genus_long$Taxa, "Others", after = 0L)
+# stack_genus <- ggplot(genus_long, aes(fill = Taxa, y = RelAbund, x = Time)) + 
+#   geom_bar(stat = "identity", position = "fill") +
+#   labs( y = "Relative abundance",
+#         title = "Relative abundance of most abundant genera - 16S Sediments all timepoints") + 
+#   theme_minimal() +
+#   theme(strip.text.x = element_markdown(face = "bold", size = 10),
+#         axis.text.x = element_text(size = 10, face = "bold"),
+#         axis.text.y = element_text(size = 10, face = "bold"),
+#         plot.title = element_text(face = "bold", size = 10),
+#         legend.title = element_text(size = 10, color = "black"),
+#         legend.text = element_markdown(size = 10, color = "black"),
+#         legend.position = "right",
+#         axis.title = element_text(size = 10, face = "bold"),
+#         rect = element_rect(fill = "white")) +
+#   scale_fill_manual(values = pal40, guide = guide_legend(label.theme = element_text(face = "italic", size = 10))) +
+#   scale_color_manual(values = pal40, guide = guide_legend(label.theme = element_text(face = "italic", size = 10))) +
+#   facet_wrap(Plant.type ~ Sample.type, scales = "free") + 
+#   scale_y_continuous(limits = c(0,1), expand = c(0,0)) +
+#   scale_x_discrete(name = "Timepoints") +
+#       guides(fill = guide_legend(ncol = 1))
+# 
+# stack_genus
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_stackbars.pdf"), stack_genus, width = 6, height = 9, units = "in", dpi = 300,bg = "white")
+# 
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_stackbars.eps"), stack_genus, width = 6, height = 8.5, units = "in", dpi = 300,bg = "white")
+```
+
+
 
 
 # -------------------------------------------------------
@@ -485,7 +625,7 @@ genus_long$RelAbund <- genus_long$RelAbund + 1e-6
 genus_long$Plant.type <- factor(genus_long$Plant.type, levels = c("no plant", "Scirpus", "Triglochin"),
                                 labels = c("no plant", "*Scirpus*", "*Triglochin*") )
 levels(as.factor(genus_long$Time))
-genus_long$Time <- factor(genus_long$Time, levels = c("D4", "D13", "D20", "D40", "D66"))
+genus_long$Time <- factor(genus_long$Time, levels = c("D0", "D10", "D16", "D35", "D62"))
 #high_contrast = c("#FF8C00","#440154", "#CD0000","#545361FF", "#009ACD") 
 viridis::magma(7, alpha = 1) # extract colors from magma to match naphthenic acid figure PCA
 #"#000004FF" "#2D1160FF" "#721F81FF" "#B63679FF" "#F1605DFF" "#FEAF77FF" "#FCFDBFFF"
@@ -523,9 +663,9 @@ p1 <- ggplot(data = genus_long, aes(y = Genus, x = RelAbund, color = Plant.type)
 p1
 
 # Save plots
-ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops_0.01top_plant_effect.pdf"), p1, width = 9, height = 9, units = "in", dpi = 300,bg = "white")
-ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops0.01top_plant_effect.eps"), p1, width = 9, height = 9, units = "in", dpi = 300,bg = "white")
-ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops0.01top_plant_effect.png"), p1, width = 9, height = 9, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops_0.01top_plant_effect.pdf"), p1, width = 9, height = 9, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops0.01top_plant_effect.eps"), p1, width = 9, height = 9, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops0.01top_plant_effect.png"), p1, width = 9, height = 9, units = "in", dpi = 300,bg = "white")
 ```
 
 ## Create the lolipop chart contrast time
@@ -545,7 +685,7 @@ ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops
 #high_contrast = c("#FF8C00","#440154", "#CD0000","#545361FF", "#009ACD") 
 #viridis::magma(7, alpha = 1) # extract colors from magma to match naphthenic acid figure PCA
 #"#000004FF" "#2D1160FF" "#721F81FF" "#B63679FF" "#F1605DFF" "#FEAF77FF" "#FCFDBFFF"
-high_contrast <- c("#000004FF", "#721F81FF" ,"#B63679FF" ,"#F1605DFF", "#FEAF77FF") 
+high_contrast <- c("#000004FF", "#721F81FF" ,"#B63679FF" ,"#F1605DFF", "#FFEC8B","#FEAF77FF") 
 # Step 3: Create the plot
 p2 <- ggplot(data = genus_long, aes(y = Genus, x = RelAbund, color = Time)) +
     geom_vline(xintercept = c(0.001, 0.01, 0.1, 0.4), color = "lightgrey", size = 0.1) +
@@ -579,7 +719,7 @@ p2 <- ggplot(data = genus_long, aes(y = Genus, x = RelAbund, color = Time)) +
 p2
 
 # Save plots
-ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops_0.01top_time_effect.pdf"), p2, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
-ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops0.01top_time_effect.eps"), p2, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
-ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops0.01top_time_effect.png"), p2, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops_0.01top_time_effect.pdf"), p2, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops0.01top_time_effect.eps"), p2, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops0.01top_time_effect.png"), p2, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
 ```
