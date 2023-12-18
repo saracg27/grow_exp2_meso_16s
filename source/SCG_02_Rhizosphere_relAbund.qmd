@@ -1,0 +1,580 @@
+---
+title: "Rhizosphere_relAbund"
+author: "Sara Correa Garcia"
+format: html
+editor: source
+---
+
+# Environment objects
+
+```{r}
+library(here)
+source(here("source", "libraries.R"))
+load(file = here::here("RData", "RelAbund_tables.RData"))
+```
+
+# Color palette
+
+```{r}
+pal3 <- c("#F2D696","#BDFFF0","#F59C9B","#71ACD6","#7B9E81","#CDC0B0","#968EC2","#B2D2E8","#F7C6EC", "#C7DBC5","#C1CDCD", "#FFC125")
+pal40 <- c("#FFE4C4", "#C1CDCD", "#8B8378", "#8EE5EE", "#E9967A", "#FFF8DC", "#CD9B1D", "#FFF68F", "#FFC125", "#A2CD5A", "#EE7600", "#008B8B", "#7AC5CD", "#EE3B3B", "#FFAEB9", "#DA70D6", "#6E6E6E", "#1874CD", "#698B22", "#CDAF95", "#C0FF3E", "#DDA0DD", "#7A67EE", "#EE9A49", "#4EEE94", "#FF3E96", "#40E0D0", "#36648B", "#8B2252", "#CD9B9B", "#BFEFFF", "#FFFF00", "#0000EE", "#00CD00", "#F7F7F7", "#FFE4E1", "#7D26CD", "#050505", "#00FF00", "#CD3278")
+```
+
+
+# Subset Rhizos
+```{r}
+meta_Rhizo <- meta_sorted[meta_sorted$Sample.type == "Rhizosphere",] # metadata
+phylum_Rhizo <- phylum_sorted[rownames(phylum_sorted) %in% rownames(meta_Rhizo),]
+genus_Rhizo <- genus_sorted[rownames(genus_sorted) %in% rownames(meta_Rhizo),]
+
+rownames(phylum_Rhizo) == rownames(genus_Rhizo)
+rownames(genus_Rhizo) == rownames(meta_Rhizo)
+```
+
+## Rearrange factor levels in meta_Rhizo
+```{r}
+meta_Rhizo <- droplevels(meta_Rhizo)
+levels(meta_Rhizo$Time)
+meta_Rhizo$Time <- factor(meta_Rhizo$Time, levels = c("D4", "D13", "D20", "D40", "D66"),
+                          labels = c("D0", "D10", "D16", "D35", "D62"))
+meta_Rhizo$Plant.type <- factor(meta_Rhizo$Plant.type, levels = c("no plant", "Scirpus", "Triglochin"),
+                                labels = c("no plant", "*Scirpus*", "*Triglochin*"))
+meta_Rhizo$Temperature <- factor(meta_Rhizo$Temperature, 
+                                  levels = c("10°C day 5°C night", "10°C day/ 5°C night", "20°C day 10°C night", "20°C day/ 10°C night"),
+                                  labels = c("cold", "cold", "warm", "warm"))
+treat <- meta_Rhizo
+```
+
+# -------------------------------------------------------
+# WARM 
+# -------------------------------------------------------
+
+## Wrangling PHYLUM
+```{r}
+#Subset rhizo dataset to keep only warm
+meta_w <- meta_Rhizo[meta_Rhizo$Temperature == "warm",] # 43 obs in warm
+phylum_w <- phylum_Rhizo[rownames(phylum_Rhizo) %in% rownames(meta_w),]
+genus_w <- genus_Rhizo[rownames(genus_Rhizo) %in% rownames(meta_w),]
+# Check rownames
+rownames(phylum_w) == rownames(genus_w)
+rownames(genus_w) == rownames(meta_w)
+## Keep only present genera and phyla
+genus_w_abund <- genus_w[, (colSums(genus_w) > 0)] # 43 1261
+dim(genus_w_abund)
+phylum_w_abund <- phylum_w[, (colSums(phylum_w) > 0)]
+dim(phylum_w_abund) # 43 34
+```
+
+
+### Remove low abundances
+
+```{r}
+phylum <- phylum_w
+
+colsums_phylum <- as.data.frame(colSums(phylum_w))
+sum(colsums_phylum$`colSums(phylum_w)` == 0) # 11 phylum have a relative abundance of 0 in w warm  samples
+
+
+abund <- as.data.frame(phylum[, colMeans(phylum) > 0.01]) # 11
+abund$Others = 1 - rowSums(abund)#Add an "Other" category
+colnames(abund) # there are empty spaces in column names
+colnames(abund) <- gsub(" ", "", colnames(abund)) # trim empty spaces
+colnames(abund)[colnames(abund) == "Actinobacteriota"] <- "Actinomycetota"
+colnames(abund)[colnames(abund) == "Firmicutes"] <- "Bacillota"
+colnames(abund)[colnames(abund) == "Chloroflexi"] <- "Chloroflexota"
+```
+
+Only 11 phyla/groups had a relative abundance higher than 1%: Acidobacteriota, Actinomycetota, Bacteroidota, Chloroflexota, Cyanobacteria, Deinococcota, Desulfobacterota, Bacillota, Planctomycetota and Proteobacterial classes Alphaproteobacteria and Gammaproteobacteria. 
+
+
+### Bind treatments and abundances
+```{r}
+rownames(abund) == rownames(meta_w)
+abund_treat <- cbind(meta_w,abund)
+dim(abund_treat) # 43 16 
+```
+
+### Gather in long format for ggplot
+
+```{r}
+long <- gather(abund_treat,Taxa,RelAbund,5:ncol(abund_treat)) #change the column index value to match the first column that contains a Taxa name and not a treatment
+head(long) # It looks ok!
+phylum_long <- long
+```
+
+
+
+## Stacked bars PHYLUM
+
+### Relevel groups 
+Put the largest group at the bottom, and the second largest at the top
+```{r}
+phylum_long$Taxa <- fct_relevel(phylum_long$Taxa, "Alphaproteobacteria", after = 0L)
+phylum_long$Taxa <-fct_relevel(phylum_long$Taxa, "Cyanobacteria", after = 1L)
+phylum_long$Taxa <-fct_relevel(phylum_long$Taxa, "Actinomycetota", after = 2L)
+phylum_long$Taxa <- fct_relevel(phylum_long$Taxa, "Bacteroidota", after = 3L)
+phylum_long$Taxa <- fct_relevel(phylum_long$Taxa, "Gammaproteobacteria", after = Inf)
+```
+
+### Warm plot
+```{r}
+stack_phylum_warm <- ggplot(phylum_long, aes(fill = Taxa, y = RelAbund, x = Time)) + 
+  geom_bar(stat = "identity", position = "fill") +
+  labs( y = "Relative abundance",
+        x = "Days since OSPW introduction",
+        title = "Warm - Bacterial community - Phylum rank") + 
+  theme_minimal() +
+  theme(strip.text.x = element_markdown(face = "bold", size = 10),
+        axis.text.x = element_text(size = 8, angle = 360, hjust = 0.5, face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"),
+        plot.title = element_text(face = "bold", size = 10),
+        legend.title = element_text(size = 10, color = "black", face = "bold"),
+        #legend.text = element_text(size = 8, face = "bold", color = "black"),
+        axis.title.y = element_text(size = 10, face = "bold"),
+        axis.title.x = element_text(size = 10, face = "bold"),
+        legend.position = "right",
+        rect = element_rect(fill = "white")) +
+  scale_fill_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 9))) +
+  scale_color_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 9))) +
+  facet_grid(.~ Sample.type*Plant.type,  scales = "free_x", space = "free_x") + 
+  scale_y_continuous(limits = c(0,1), expand = c(0,0)) 
+
+stack_phylum_warm
+# Save plots
+# ggsave(file = here::here("output", "figures", "relAbund_phylum_16S_Rhizos-warm.pdf"), stack_phylum_warm, width = 5, height = 4, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_phylum_16S_Rhizos-warm.eps"), stack_phylum_warm, width = 5, height = 4, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_phylum_16S_Rhizos-warm.png"), stack_phylum_warm, width = 5, height = 4, units = "in", dpi = 300,bg = "white")
+```
+
+## Wrangling GENUS
+```{r}
+#Subset rhizo dataset to keep only warm
+genus_w <- genus_Rhizo[rownames(genus_Rhizo) %in% rownames(meta_w),]
+# Check rownames
+rownames(genus_w) == rownames(meta_w)
+## Keep only present genera and phyla
+genus_w_abund <- genus_w[, (colSums(genus_w) > 0)] # 43 1261
+dim(genus_w_abund)
+```
+
+
+### Remove low abundances
+
+```{r}
+genus <- genus_w
+dim(genus) # 43 2389
+colsums_genus <- as.data.frame(colSums(genus_w))
+sum(colsums_genus$`colSums(genus_w)` == 0) # 1128 genera have a relative abundance of 0 in w  samples
+genus <- genus_w[, colSums(genus_w) != 0] # drop genera that are not present in w samples
+dim(genus) # 43 1261
+abund <- as.data.frame(genus[, colMeans(genus) > 0.005]) # 44 genera with a relative abundance over 0.5%
+abund <- as.data.frame(genus[, colMeans(genus) > 0.01]) # 15 genera with a relative abundance over 1%
+abund$Others = 1 - rowSums(abund)#Add an "Other" category
+```
+
+### Clean col names
+```{r}
+colnames(abund) # there are empty spaces in column names
+colnames(abund) <- gsub(" ", "", colnames(abund)) # trim empty spaces
+
+colnames(abund)<- gsub("d__Bacteria;p__Acidobacteriota;c__Acidobacteriae;o__Subgroup_2;f__Subgroup_2;g__Subgroup_2;s__uncultured_Acidobacteria","uncultured *Acidobacteria*",colnames(abund))#trimemptyspaces
+colnames(abund)<-gsub("d__Bacteria;p__Acidobacteriota;c__Blastocatellia;o__Pyrinomonadales;f__Pyrinomonadaceae;g__RB41","RB41",colnames(abund))#trimemptyspaces
+colnames(abund)<-gsub("d__Bacteria;p__Acidobacteriota;c__Vicinamibacteria;o__Vicinamibacterales;f__Vicinamibacteraceae;g__uncultured","uncultured *Vicinamibacteraceae*",colnames(abund))#trimemptyspaces
+#colnames(abund)<-gsub("d__Bacteria;p__Bacteroidota;c__Bacteroidia;o__Chitinophagales;f__Chitinophagaceae;g__Niastella;s__uncultured_bacterium","*Niastella*",colnames(abund))
+colnames(abund)<-gsub("d__Bacteria;p__Bacteroidota;c__Bacteroidia;o__Chitinophagales;f__Chitinophagaceae;g__Segetibacter","*Segetibacter*",colnames(abund))#trimemptyspaces
+colnames(abund)<-gsub("d__Bacteria;p__Bacteroidota;c__Bacteroidia;o__Chitinophagales;f__Chitinophagaceae;g__Terrimonas","*Terrimonas*",colnames(abund))
+colnames(abund)<-gsub("d__Bacteria;p__Bdellovibrionota;c__Oligoflexia;o__0319-6G20;f__0319-6G20;g__0319-6G20","*Oligoflexia* 0319-6G20",colnames(abund))#trimemptyspaces
+#colnames(abund)<-gsub("d__Bacteria;p__Planctomycetota;c__Planctomycetes;o__Pirellulales;f__Pirellulaceae;g__Pirellula","*Pirellula*",colnames(abund))
+colnames(abund)<-gsub("d__Bacteria;p__Planctomycetota;c__Planctomycetes;o__Pirellulales;f__Pirellulaceae;g__uncultured","uncultured *Pirellulaceae*",colnames(abund))#trimemptyspaces
+colnames(abund)<-gsub("d__Bacteria;p__Planctomycetota;c__Planctomycetes;o__Planctomycetales;f__uncultured;g__uncultured;s__metagenome","uncultured *Planctomycetales*",colnames(abund))
+colnames(abund)<-gsub("d__Bacteria;p__Proteobacteria;c__Alphaproteobacteria;o__Rhizobiales;f__Rhizobiaceae","uncultured *Rhizobiaceae*",colnames(abund))#trimemptyspaces
+colnames(abund)<-gsub("d__Bacteria;p__Proteobacteria;c__Alphaproteobacteria;o__Rhizobiales;f__Rhizobiales_Incertae_Sedis;g__Bauldia","*Bauldia*",colnames(abund))
+colnames(abund)<-gsub("d__Bacteria;p__Proteobacteria;c__Alphaproteobacteria;o__Sphingomonadales;f__Sphingomonadaceae;g__Sphingomonas","*Sphingomonas*",colnames(abund))#trimemptyspaces
+colnames(abund)<-gsub("d__Bacteria;p__Proteobacteria;c__Gammaproteobacteria;o__Acidithiobacillales;f__Acidithiobacillaceae;g__Acidithiobacillus","*Acidithiobacillus*",colnames(abund))
+#colnames(abund)<-gsub("d__Bacteria;p__Proteobacteria;c__Gammaproteobacteria;o__Burkholderiales;f__Comamonadaceae","uncultured *Comamonadaceae*",colnames(abund))#trimemptyspaces
+colnames(abund)<-gsub("d__Bacteria;p__Proteobacteria;c__Gammaproteobacteria;o__Diplorickettsiales;f__Diplorickettsiaceae;g__uncultured;s__uncultured_bacterium","uncultured *Diplorickettsiaceae*",colnames(abund))
+colnames(abund) # there are empty spaces in column names
+colnames(abund) <- gsub("d__Bacteria;p__Proteobacteria;c__Alphaproteobacteria;o__Rhizobiales;f__Xanthobacteraceae;g__Pseudolabrys", 
+                       "*Pseudolabrys*",colnames(abund))
+colnames(abund) # there are empty spaces in column names
+colnames(abund) <- gsub("d__Bacteria;p__Proteobacteria;c__Alphaproteobacteria;o__Rhizobiales;f__Xanthobacteraceae",
+                        "uncultured *Xanthobacteraceae*", colnames(abund))
+
+colnames(abund) # there are empty spaces in column names
+
+```
+
+### Bind treatments and abundances
+```{r}
+rownames(abund) == rownames(meta_w)
+abund_treat = cbind(meta_w,abund)
+dim(abund_treat) # 43 20
+```
+
+### Gather in long format for ggplot
+
+```{r}
+long <- gather(abund_treat,Taxa,RelAbund,5:ncol(abund_treat)) #change the column index value to match the first column that contains a Taxa name and not a treatment
+head(long) # It looks ok!
+genus_long <- long
+dim(genus_long) # 688   6 OK
+```
+
+## Stacked bars GENUS
+
+### Relevel groups 
+Put the largest group at the bottom, and the second largest at the top
+```{r}
+genus_long$Taxa <- fct_relevel(genus_long$Taxa, "Others", after = 0L)
+genus_long$Taxa <- fct_relevel(genus_long$Taxa, "RB41", after = Inf)
+```
+
+### Warm plot
+```{r}
+stack_genus_warm <- ggplot(genus_long, aes(fill = Taxa, y = RelAbund, x = Time)) + 
+  geom_bar(stat = "identity", position = "fill") +
+  labs( y = "Relative abundance",
+        x = "Days since OSPW introduction",
+        title = "Warm - Bacterial community - Genus rank") + 
+  theme_minimal() +
+  theme(strip.text.x = element_markdown(face = "bold", size = 10),
+        axis.text.x = element_text(size = 8, angle = 360, hjust = 0.5, face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"),
+        plot.title = element_text(face = "bold", size = 10),
+        legend.title = element_text(size = 10, color = "black", face = "bold"),
+        #legend.text = element_markdown(size = 8, face = "bold", color = "black"),
+        axis.title.y = element_text(size = 10, face = "bold"),
+        axis.title.x = element_text(size = 10, face = "bold"),
+        legend.position = "right",
+        rect = element_rect(fill = "white")) +
+  scale_fill_manual(values = pal40, guide = guide_legend(label.theme = element_markdown( size = 8))) +
+  scale_color_manual(values = pal40, guide = guide_legend(label.theme = element_markdown( size = 8))) +
+  facet_grid(.~ Sample.type*Plant.type,  scales = "free_x", space = "free_x") + 
+  scale_y_continuous(limits = c(0,1), expand = c(0,0)) 
+
+stack_genus_warm
+# Save plots
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_Rhizos-warm.pdf"), stack_genus_warm, width = 6, height = 5.5, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_Rhizos-warm.eps"), stack_genus_warm, width = 6, height = 5.5, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_Rhizos-warm.png"), stack_genus_warm, width = 6, height = 5.5, units = "in", dpi = 300,bg = "white")
+
+```
+
+## Lolipops GENUS
+
+## Create the lolipop chart
+```{r}
+# Step 1: Calculate the mean values with ave()
+mean_values <- ave(genus_long$RelAbund, genus_long$Time, genus_long$Taxa, FUN = mean)
+
+# Reorder the levels baRhizo on mean values
+genus_long$Taxa <- reorder(genus_long$Taxa, mean_values, FUN = mean)
+
+# Add small value to prevent inf error when log transforming
+genus_long$RelAbund <- genus_long$RelAbund + 1e-6
+
+high_contrast <- c("#000004FF", "#721F81FF" ,"#B63679FF" ,"#F1605DFF", "#FEAF77FF") 
+# Step 3: Create the plot
+p1 <- ggplot(data = genus_long, aes(y = Taxa, x = RelAbund, color = Time)) +
+    geom_vline(xintercept = c(0.001, 0.01, 0.1, 0.4), color = "lightgrey", size = 0.1) +
+  stat_summary(fun.data = median_hilow, geom = "pointrange", fun.args = list(conf.int = 0.5),
+               position = position_dodge(width = 0.4),
+               linewidth = 0.25) +
+  coord_trans(x = "log10") +
+    ylab("Taxonomic group") + 
+    xlab("log10 Relative abundance") +
+    scale_color_manual(values = high_contrast) + 
+  theme_classic() +
+  theme(
+    axis.text.y = element_markdown(),
+    legend.text = element_markdown(),
+    legend.title = element_blank(),
+    legend.position = "bottom",
+    legend.spacing = unit(0.1, "cm"),
+    #legend.position = c(0.92, 0.15),
+    legend.background = element_rect(color = "darkgrey", fill = "white"),
+    #legend.margin = margin(t = -5, r = 3, b = 3),
+    strip.text.x = element_markdown(size = 12),
+    strip.text.y = element_markdown(size = 12)
+    
+  ) +
+    
+    scale_x_continuous(limits = c(NA, 1.5), 
+                       breaks = c(0.001,0.01, 0.1, 0.4),
+                       labels = c(".001", ".01", ".1", ".4")) +
+  facet_grid(Temperature ~ Plant.type)
+
+p1
+# Save plots
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_Rhizos_lolipops-warm.pdf"), p1, width = 6, height = 6, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_Rhizos_lolipops-warm.eps"), p1, width = 6, height = 6, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_Rhizos_lolipops-warm.png"), p1, width = 6, height = 6, units = "in", dpi = 300,bg = "white")
+```
+
+
+# -------------------------------------------------------
+# COLD
+# -------------------------------------------------------
+
+## Wrangling PHYLUM
+```{r}
+#Subset rhizo dataset to keep only cold
+meta_c <- meta_Rhizo[meta_Rhizo$Temperature == "cold",] # 38 obs in cold
+phylum_c <- phylum_Rhizo[rownames(phylum_Rhizo) %in% rownames(meta_c),]
+genus_c <- genus_Rhizo[rownames(genus_Rhizo) %in% rownames(meta_c),]
+# Check rownames
+rownames(phylum_c) == rownames(genus_c)
+rownames(genus_c) == rownames(meta_c)
+## Keep only present genera and phyla
+genus_c_abund <- genus_c[, (colSums(genus_c) > 0)] # 38 1227
+dim(genus_c_abund)
+phylum_c_abund <- phylum_c[, (colSums(phylum_c) > 0)]
+dim(phylum_c_abund) # 38 34
+```
+
+
+### Remove low abundances
+
+```{r}
+phylum <- phylum_c
+
+colsums_phylum <- as.data.frame(colSums(phylum_c))
+sum(colsums_phylum$`colSums(phylum_c)` == 0) # 11 phylum have a relative abundance of 0 in w cold  samples
+
+
+abund <- as.data.frame(phylum_c[, colMeans(phylum_c) > 0.01]) # 10
+abund$Others = 1 - rowSums(abund)#Add an "Other" category
+colnames(abund) # there are empty spaces in column names
+colnames(abund) <- gsub(" ", "", colnames(abund)) # trim empty spaces
+colnames(abund)[colnames(abund) == "Actinobacteriota"] <- "Actinomycetota"
+colnames(abund)[colnames(abund) == "Firmicutes"] <- "Bacillota"
+colnames(abund)[colnames(abund) == "Chloroflexi"] <- "Chloroflexota"
+```
+
+Only 11 phyla/groups had a relative abundance higher than 1%: Acidobacteriota, Actinomycetota, Bacteroidota, Chloroflexota, Cyanobacteria, Deinococcota, Desulfobacterota, Bacillota, Planctomycetota and Proteobacterial classes Alphaproteobacteria and Gammaproteobacteria. 
+
+
+### Bind treatments and abundances
+```{r}
+rownames(abund) == rownames(meta_c)
+abund_treat <- cbind(meta_c,abund)
+dim(abund_treat) # 38 15
+```
+
+### Gather in long format for ggplot
+
+```{r}
+long <- gather(abund_treat,Taxa,RelAbund,5:ncol(abund_treat)) #change the column index value to match the first column that contains a Taxa name and not a treatment
+head(long) # It looks ok!
+phylum_long <- long
+```
+
+
+
+## Stacked bars PHYLUM
+
+### Relevel groups 
+Put the largest group at the bottom, and the second largest at the top
+```{r}
+phylum_long$Taxa <- fct_relevel(phylum_long$Taxa, "Alphaproteobacteria", after = 0L)
+phylum_long$Taxa <-fct_relevel(phylum_long$Taxa, "Cyanobacteria", after = 1L)
+phylum_long$Taxa <-fct_relevel(phylum_long$Taxa, "Actinomycetota", after = 2L)
+phylum_long$Taxa <- fct_relevel(phylum_long$Taxa, "Bacteroidota", after = 3L)
+phylum_long$Taxa <- fct_relevel(phylum_long$Taxa, "Gammaproteobacteria", after = Inf)
+```
+
+### cold plot
+```{r}
+stack_phylum_cold <- ggplot(phylum_long, aes(fill = Taxa, y = RelAbund, x = Time)) + 
+  geom_bar(stat = "identity", position = "fill") +
+  labs( y = "Relative abundance",
+        x = "Days since OSPW introduction",
+        title = "Cold - Bacterial community - Phylum") + 
+  theme_minimal() +
+  theme(strip.text.x = element_markdown(face = "bold", size = 10),
+        axis.text.x = element_text(size = 8, angle = 360, hjust = 0.5, face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"),
+        plot.title = element_text(face = "bold", size = 10),
+        legend.title = element_text(size = 10, color = "black", face = "bold"),
+        #legend.text = element_text(size = 8, face = "bold", color = "black"),
+        axis.title.y = element_text(size = 10, face = "bold"),
+        axis.title.x = element_text(size = 10, face = "bold"),
+        legend.position = "right",
+        rect = element_rect(fill = "white")) +
+  scale_fill_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 9))) +
+  scale_color_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 9))) +
+  facet_grid(.~ Sample.type*Plant.type,  scales = "free_x", space = "free_x") + 
+  scale_y_continuous(limits = c(0,1), expand = c(0,0)) 
+
+stack_phylum_cold
+# Save plots
+# ggsave(file = here::here("output", "figures", "relAbund_phylum_16S_Rhizos-cold.pdf"), stack_phylum_cold, width = 5, height = 4, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_phylum_16S_Rhizos-cold.eps"), stack_phylum_cold, width = 5, height = 4, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_phylum_16S_Rhizos-cold.png"), stack_phylum_cold, width = 5, height = 4, units = "in", dpi = 300,bg = "white")
+```
+
+## Wrangling GENUS
+```{r}
+#Subset rhizo dataset to keep only cold
+genus_c <- genus_Rhizo[rownames(genus_Rhizo) %in% rownames(meta_c),]
+# Check rownames
+rownames(genus_c) == rownames(meta_c)
+## Keep only present genera and phyla
+genus_c_abund <- genus_c[, (colSums(genus_c) > 0)] # 38 1227
+dim(genus_c_abund)
+```
+
+
+### Remove low abundances
+
+```{r}
+genus <- genus_c_abund
+dim(genus) # 38 1227
+colsums_genus <- as.data.frame(colSums(genus_c))
+sum(colsums_genus$`colSums(genus_c)` == 0) # 1162 genera have a relative abundance of 0 in w  samples
+genus <- genus_c[, colSums(genus_c) != 0] # drop genera that are not present in w samples
+dim(genus) # 38 1227
+abund <- as.data.frame(genus[, colMeans(genus) > 0.005]) # 46 genera with a relative abundance over 0.5%
+abund <- as.data.frame(genus[, colMeans(genus) > 0.01]) # 19 genera with a relative abundance over 1%
+abund$Others = 1 - rowSums(abund)#Add an "Other" category
+```
+
+### Clean col names
+```{r}
+colnames(abund) # there are empty spaces in column names
+colnames(abund) <- gsub(" ", "", colnames(abund)) # trim empty spaces
+
+colnames(abund)<- gsub("d__Bacteria;p__Acidobacteriota;c__Acidobacteriae;o__Subgroup_2;f__Subgroup_2;g__Subgroup_2;s__uncultured_Acidobacteria","uncultured *Acidobacteria*",colnames(abund))#trimemptyspaces
+colnames(abund)<-gsub("d__Bacteria;p__Acidobacteriota;c__Blastocatellia;o__Pyrinomonadales;f__Pyrinomonadaceae;g__RB41","RB41",colnames(abund))#trimemptyspaces
+colnames(abund)<-gsub("d__Bacteria;p__Acidobacteriota;c__Vicinamibacteria;o__Vicinamibacterales;f__Vicinamibacteraceae;g__uncultured","uncultured *Vicinamibacteraceae*",colnames(abund))#trimemptyspaces
+colnames(abund)<-gsub("d__Bacteria;p__Bacteroidota;c__Bacteroidia;o__Chitinophagales;f__Chitinophagaceae;g__Niastella;s__uncultured_bacterium","*Niastella*",colnames(abund))
+colnames(abund)<-gsub("d__Bacteria;p__Bacteroidota;c__Bacteroidia;o__Chitinophagales;f__Chitinophagaceae;g__Segetibacter","*Segetibacter*",colnames(abund))#trimemptyspaces
+colnames(abund)<-gsub("d__Bacteria;p__Bacteroidota;c__Bacteroidia;o__Chitinophagales;f__Chitinophagaceae;g__Terrimonas","*Terrimonas*",colnames(abund))
+#colnames(abund)<-gsub("d__Bacteria;p__Bdellovibrionota;c__Oligoflexia;o__0319-6G20;f__0319-6G20;g__0319-6G20","*Oligoflexia* 0319-6G20",colnames(abund))#trimemptyspaces
+colnames(abund)<-gsub("d__Bacteria;p__Planctomycetota;c__Planctomycetes;o__Pirellulales;f__Pirellulaceae;g__Pirellula","*Pirellula*",colnames(abund))
+colnames(abund)<-gsub("d__Bacteria;p__Planctomycetota;c__Planctomycetes;o__Pirellulales;f__Pirellulaceae;g__uncultured","uncultured *Pirellulaceae*",colnames(abund))#trimemptyspaces
+colnames(abund)<-gsub("d__Bacteria;p__Planctomycetota;c__Planctomycetes;o__Planctomycetales;f__uncultured;g__uncultured;s__metagenome","uncultured *Planctomycetales*",colnames(abund))
+colnames(abund)<-gsub("d__Bacteria;p__Proteobacteria;c__Alphaproteobacteria;o__Rhizobiales;f__Rhizobiaceae","uncultured *Rhizobiaceae*",colnames(abund))#trimemptyspaces
+colnames(abund)<-gsub("d__Bacteria;p__Proteobacteria;c__Alphaproteobacteria;o__Rhizobiales;f__Rhizobiales_Incertae_Sedis;g__Bauldia","*Bauldia*",colnames(abund))
+colnames(abund)<-gsub("d__Bacteria;p__Proteobacteria;c__Alphaproteobacteria;o__Sphingomonadales;f__Sphingomonadaceae;g__Sphingomonas","*Sphingomonas*",colnames(abund))#trimemptyspaces
+colnames(abund)<-gsub("d__Bacteria;p__Proteobacteria;c__Alphaproteobacteria;o__uncultured;f__uncultured;g__uncultured;s__uncultured_Rhizobiales", "uncultured *Rhizobiales*", colnames(abund))
+colnames(abund)<-gsub("d__Bacteria;p__Proteobacteria;c__Gammaproteobacteria;o__Acidithiobacillales;f__Acidithiobacillaceae;g__Acidithiobacillus","*Acidithiobacillus*",colnames(abund))
+colnames(abund)<-gsub("d__Bacteria;p__Proteobacteria;c__Gammaproteobacteria;o__Burkholderiales;f__Comamonadaceae","uncultured *Comamonadaceae*",colnames(abund))#trimemptyspaces
+colnames(abund)<-gsub("d__Bacteria;p__Proteobacteria;c__Gammaproteobacteria;o__Diplorickettsiales;f__Diplorickettsiaceae;g__uncultured;s__uncultured_bacterium","uncultured *Diplorickettsiaceae*",colnames(abund))
+colnames(abund) # there are empty spaces in column names
+colnames(abund) <- gsub("d__Bacteria;p__Proteobacteria;c__Alphaproteobacteria;o__Rhizobiales;f__Xanthobacteraceae;g__Pseudolabrys", 
+                       "*Pseudolabrys*",colnames(abund))
+colnames(abund) # there are empty spaces in column names
+colnames(abund) <- gsub("d__Bacteria;p__Proteobacteria;c__Alphaproteobacteria;o__Rhizobiales;f__Xanthobacteraceae",
+                        "uncultured *Xanthobacteraceae*", colnames(abund))
+colnames(abund) <- gsub("d__Bacteria;p__Proteobacteria;c__Gammaproteobacteria;o__Pseudomonadales;f__Pseudomonadaceae;g__Pseudomonas",
+                        "*Pseudomonas*", colnames(abund))
+colnames(abund) # there are empty spaces in column names
+```
+
+### Bind treatments and abundances
+```{r}
+rownames(abund) == rownames(meta_c)
+abund_treat = cbind(meta_c,abund)
+dim(abund_treat) # 38 24
+```
+
+### Gather in long format for ggplot
+
+```{r}
+long <- gather(abund_treat,Taxa,RelAbund,5:ncol(abund_treat)) #change the column index value to match the first column that contains a Taxa name and not a treatment
+head(long) # It looks ok!
+genus_long <- long
+dim(genus_long) # 760   6 OK
+```
+
+## Stacked bars GENUS
+
+### Relevel groups 
+Put the largest group at the bottom, and the second largest at the top
+```{r}
+genus_long$Taxa <- fct_relevel(genus_long$Taxa, "Others", after = 0L)
+genus_long$Taxa <- fct_relevel(genus_long$Taxa, "RB41", after = Inf)
+```
+
+### cold plot
+```{r}
+
+stack_genus_cold <- ggplot(genus_long, aes(fill = Taxa, y = RelAbund, x = Time)) + 
+  geom_bar(stat = "identity", position = "fill") +
+  labs( y = "Relative abundance",
+        x = "Days since OSPW introduction",
+        title = "Cold - Bacterial community - Genus rank") + 
+  theme_minimal() +
+  theme(strip.text.x = element_markdown(face = "bold", size = 10),
+        axis.text.x = element_text(size = 8, angle = 360, hjust = 0.5, face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"),
+        plot.title = element_text(face = "bold", size = 10),
+        legend.title = element_text(size = 10, color = "black", face = "bold"),
+        #legend.text = element_markdown(size = 8, face = "bold", color = "black"),
+        axis.title.y = element_text(size = 10, face = "bold"),
+        axis.title.x = element_text(size = 10, face = "bold"),
+        legend.position = "right",
+        rect = element_rect(fill = "white")) +
+  scale_fill_manual(values = pal40, guide = guide_legend(label.theme = element_markdown( size = 8))) +
+  scale_color_manual(values = pal40, guide = guide_legend(label.theme = element_markdown( size = 8))) +
+  facet_grid(.~ Sample.type*Plant.type,  scales = "free_x", space = "free_x") + 
+  scale_y_continuous(limits = c(0,1), expand = c(0,0)) 
+
+stack_genus_cold
+# Save plots
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_Rhizos-cold.pdf"), stack_genus_cold, width = 6, height = 5.5, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_Rhizos-cold.eps"), stack_genus_cold, width = 6, height = 5.5, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_Rhizos-cold.png"), stack_genus_cold, width = 6, height = 5.5, units = "in", dpi = 300,bg = "white")
+```
+
+## Lolipops GENUS
+
+## Create the lolipop chart
+```{r}
+# Step 1: Calculate the mean values with ave()
+mean_values <- ave(genus_long$RelAbund, genus_long$Time, genus_long$Taxa, FUN = mean)
+
+# Reorder the levels baRhizo on mean values
+genus_long$Taxa <- reorder(genus_long$Taxa, mean_values, FUN = mean)
+
+# Add small value to prevent inf error when log transforming
+genus_long$RelAbund <- genus_long$RelAbund + 1e-6
+
+high_contrast <- c("#000004FF", "#721F81FF" ,"#B63679FF" ,"#F1605DFF", "#FEAF77FF") 
+# Step 3: Create the plot
+p1 <- ggplot(data = genus_long, aes(y = Taxa, x = RelAbund, color = Time)) +
+    geom_vline(xintercept = c(0.001, 0.01, 0.1, 0.4), color = "lightgrey", size = 0.1) +
+  stat_summary(fun.data = median_hilow, geom = "pointrange", fun.args = list(conf.int = 0.5),
+               position = position_dodge(width = 0.4),
+               linewidth = 0.25) +
+  coord_trans(x = "log10") +
+    ylab("Taxonomic group") + 
+    xlab("log10 Relative abundance") +
+    scale_color_manual(values = high_contrast) + 
+  theme_classic() +
+  theme(
+    axis.text.y = element_markdown(),
+    legend.text = element_markdown(),
+    legend.title = element_blank(),
+    legend.position = "bottom",
+    legend.spacing = unit(0.1, "cm"),
+    #legend.position = c(0.92, 0.15),
+    legend.background = element_rect(color = "darkgrey", fill = "white"),
+    #legend.margin = margin(t = -5, r = 3, b = 3),
+    strip.text.x = element_markdown(size = 12),
+    strip.text.y = element_markdown(size = 12)
+    
+  ) +
+    
+    scale_x_continuous(limits = c(NA, 1.5), 
+                       breaks = c(0.001,0.01, 0.1, 0.4),
+                       labels = c(".001", ".01", ".1", ".4")) +
+  facet_grid(Temperature ~ Plant.type)
+
+p1
+# Save plots
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_Rhizos_lolipops-cold.pdf"), p1, width = 6, height = 6, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_Rhizos_lolipops-cold.eps"), p1, width = 6, height = 6, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_Rhizos_lolipops-cold.png"), p1, width = 6, height = 6, units = "in", dpi = 300,bg = "white")
+```
