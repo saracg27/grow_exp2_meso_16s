@@ -578,3 +578,9 @@ p1
 # ggsave(file = here::here("output", "figures", "relAbund_genus_16S_Rhizos_lolipops-cold.eps"), p1, width = 6, height = 6, units = "in", dpi = 300,bg = "white")
 # ggsave(file = here::here("output", "figures", "relAbund_genus_16S_Rhizos_lolipops-cold.png"), p1, width = 6, height = 6, units = "in", dpi = 300,bg = "white")
 ```
+
+------------------------------------------------------------------------
+
+# END OF SCRIPT
+
+# ------------------------------------------------------------------------
