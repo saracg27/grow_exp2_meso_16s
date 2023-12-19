@@ -1,0 +1,785 @@
+---
+title: "Water_16S_relAbund"
+author: "Sara Correa Garcia"
+format: html
+editor: source
+---
+
+# Environment objects
+
+```{r}
+library(here)
+source(here("source", "libraries.R"))
+```
+
+# Color palette
+
+```{r}
+pal3 <- c("#F2D696","#BDFFF0","#F59C9B","#71ACD6","#7B9E81","#CDC0B0","#968EC2","#B2D2E8","#F7C6EC", "#C7DBC5","#C1CDCD", "#FFC125")
+pal40 <- c("#FFE4C4", "#C1CDCD", "#8B8378", "#8EE5EE", "#E9967A", "#FFF8DC", "#CD9B1D", "#FFF68F", "#FFC125", "#A2CD5A", "#EE7600", "#008B8B", "#7AC5CD", "#EE3B3B", "#FFAEB9", "#DA70D6", "#6E6E6E", "#1874CD", "#698B22", "#CDAF95", "#C0FF3E", "#DDA0DD", "#7A67EE", "#EE9A49", "#4EEE94", "#FF3E96", "#40E0D0", "#36648B", "#8B2252", "#CD9B9B", "#BFEFFF", "#FFFF00", "#0000EE", "#00CD00", "#F7F7F7", "#FFE4E1", "#7D26CD", "#050505", "#00FF00", "#CD3278")
+```
+
+#Load Metadata
+```{r}
+meta <- read.csv(file = here("data","raw", "16S_water", "metadata.tsv"), dec = ".", header = T, row.names = 1, sep = "\t", comment.char = "") # 144 obs 6 vars load
+str(meta)
+meta[sapply(meta, is.character)] <- lapply(meta[sapply(meta, is.character)], as.factor) ## Convert character vectors to factors
+rownames(meta) <- stringr::str_replace_all(rownames(meta), '[-]', '.') # quick name clean up
+```
+
+## Rearrange factor levels in meta
+```{r}
+meta <- droplevels(meta)
+levels(meta$Time)
+meta$Time <- factor(meta$Time, levels = c("D-0", "D8", "D15", "D34", "D61", "D77"),
+                          labels = c("D0", "D10", "D16", "D35", "D62", "D77"))
+meta$Sample_type <- factor(meta$Sample_type, levels = c("No_plant", "Scirpus", "Triglochin"),
+                                labels = c("no plant", "*Scirpus*", "*Triglochin*"))
+meta$Temperature <- factor(meta$Temperature, 
+                                  levels = c("10C day - 5C night", "20C day - 10C night"),
+                                  labels = c("cold", "warm"))
+treat <- meta
+```
+
+
+## 16S ASV table
+Raw filtered counts
+```{r}
+raw <- read.csv(file = here("data", "raw", "16S_water", "Mesocosm_Water_16S_oct2023.ASV_table_norarefaction_dnNA.tsv"), dec = ".", sep = "\t", header = T, row.names = 1, comment.char = "") #2462 objs in 145 vars
+```
+To be consistent with the other water treatment analyses of the 16S community, we need to filter out samples where the library is smaller than 4000 reads. 
+
+
+# Wrangling
+# -------------------------------------------
+## LIBRARY SIZE
+Evaluate the clean library sizes to filter any samples with too low DNA counts.
+```{r}
+raw_libsize <- as.data.frame(colSums(raw[,1:ncol(raw)-1]))
+names(raw_libsize) <- c("lib_size")
+summary(raw_libsize)
+```
+
+ Min.   :    6                  
+ 1st Qu.:42124                  
+ Median :48850                  
+ Mean   :46845                  
+ 3rd Qu.:53589                  
+ Max.   :75408 
+ 
+There seems to be certain libraries that have a small size (min = 6). 
+```{r}
+small_libs <-  raw_libsize %>% filter_at(vars(1), any_vars(. < 4000))
+small_libs
+```
+
+                    lib_size
+M10E.Jan.31.2022         177
+M12E.10.12.21            189
+M2G.30.11.21               6
+M7E.432.Feb.16.2022      421
+M9E.434.Feb.16.2022      361
+
+There are 5 problematically low libraries. Check what are these in the metadata
+
+### Subset meta and raw
+```{r}
+meta <- meta[!rownames(meta) %in% rownames(small_libs), ] # left with 139 samples
+# Transfer taxonomy to another dataframe to cbind later with good samples
+taxonomy <- as.data.frame(raw$taxonomy)
+rownames(taxonomy) <- rownames(raw)
+raw <- raw[ , colnames(raw) %in% rownames(meta)]
+#raw <- cbind(raw, taxonomy)
+rm(raw_libsize)
+rm(small_libs)
+```
+
+## TAXONOMY (RAW COUNTS)
+
+### Separate taxonomy into groups
+```{r}
+
+names(taxonomy) <- c("taxonomy")
+taxonomy$taxonomy <- gsub("\\; s__.*", "", taxonomy$taxonomy)
+raw <- cbind(raw, taxonomy)
+tax_raw_clean <- separate(taxonomy, taxonomy, into = c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species", "Strain"), sep = ";")
+tax_raw_clean <- tax_raw_clean[,-which(names(tax_raw_clean) %in% c("Species", "Strain"))]
+tax_raw_clean <- as.data.frame(tax_raw_clean)
+levels(as.factor(tax_raw_clean$Domain)) #  Bacteria, all ok
+levels(as.factor(tax_raw_clean$Phylum)) #  24 Phyla 
+levels(as.factor(tax_raw_clean$Class)) # 57 classes
+levels(as.factor(tax_raw_clean$Order)) # 139 orders
+levels(as.factor(tax_raw_clean$Family)) # 202 Families
+levels(as.factor(tax_raw_clean$Genus)) # 342 genus
+str(tax_raw_clean)
+```
+
+### Clean taxonomy names
+```{r}
+# eliminate the characters  -----
+pattern <- "[a-z]__"
+replacement <- ""
+tax_clean <- as.data.frame(apply(tax_raw_clean, 2, function(col) gsub(pattern, replacement, col)))
+pattern <- " "
+replacement <- ""
+tax_clean <- as.data.frame(apply(tax_clean, 2, function(col) gsub(pattern, replacement, col)))
+rm(pattern)
+rm(replacement)
+```
+
+### Fill NAs with last available taxon rank
+```{r}
+tax_clean <- tax_clean |> 
+   t() |> 
+   as.data.frame() |> 
+   fill(everything(), .direction = "down") |> 
+   t() |> 
+   as.data.frame()
+rm(tax_raw_clean)
+```
+
+### Create clean count table no tax
+```{r}
+counts <- raw[, sapply(raw, is.numeric)]
+```
+
+# ABUNDANCE TABLES (RAW) - PHYLUM
+
+# ------------------------------------------------------------------------
+
+## Create clean count table no tax
+```{r}
+counts_clean_tax <- merge(raw, tax_clean, by = "row.names")
+rownames(counts_clean_tax) <- counts_clean_tax$Row.names
+counts_clean_tax$Row.names <- NULL
+counts_clean_tax$`raw$taxonomy` <- NULL
+counts <- counts_clean_tax[ , sapply(counts_clean_tax, is.numeric)]
+```
+
+## Phylum
+### Aggregate by phylum
+```{r}
+phylum <- cbind(counts_clean_tax$Phylum, counts)
+names(phylum)[names(phylum) == "counts_clean_tax$Phylum"] <- "phylum"
+phylum <- aggregate(. ~ phylum, data = phylum, sum)
+phylum <- phylum[-grep("Proteobacteria", phylum$phylum),] # eliminate proteobacteria to then attach proteobacteria classes
+str(phylum)
+rownames(phylum) <- phylum$phylum # set row names with first column containing phylum names
+phylum$phylum <- NULL # remove column with tax rank
+phylum <- as.matrix(t(phylum)) # transpose
+```
+
+### Aggregate by class 
+to find all proteobacteria classes
+```{r}
+class <- cbind(counts_clean_tax$Class, counts)
+names(class)[names(class) == "counts_clean_tax$Class"] <- "class"
+class <- aggregate(. ~ class, data = class, sum)
+str(class)
+rownames(class) <- class$class # set row names with first column containing class names
+class$class <- NULL # remove column with tax rank
+class <- as.matrix(t(class))  # it yields 58 classes in 138 
+
+phylum <- cbind(phylum, class[,grep("proteobacteria", colnames(class))]) # it yields 26 phyla in 138 samples
+
+```
+
+## Genus
+```{r}
+#substitute unculture by ""
+pattern <- "uncultured"
+replacement <- ""
+counts_clean_tax <- as.data.frame(apply(counts_clean_tax, 2, function(col) gsub(pattern, replacement, col)))
+rm(pattern)
+rm(replacement)
+
+# Eliminate empty spaces
+pattern <- " "
+replacement <- ""
+counts_clean_tax <- as.data.frame(apply(counts_clean_tax, 2, function(col) gsub(pattern, replacement, col)))
+rm(pattern)
+rm(replacement)
+
+# Switch empty strings by NA
+counts_clean_tax[counts_clean_tax == ''] <- NA
+
+# substitute NA with last available taxonomy
+counts_clean_tax <- counts_clean_tax |> 
+   t() |> 
+   as.data.frame() |> 
+   fill(everything(), .direction = "down") |> 
+   t() |> 
+   as.data.frame()
+
+```
+
+### Aggregate table
+```{r}
+genus <- cbind(counts_clean_tax$Genus, counts)
+names(genus)[names(genus) == "counts_clean_tax$Genus"] <- "genus"
+genus <- aggregate(. ~ genus, data = genus, sum)
+rownames(genus) <- genus$genus # set row names with first column containing genus names
+genus$genus <- NULL # remove column with tax rank
+genus <- as.matrix(t(genus)) # transpose yields 430 genera
+```
+
+
+## Calculate relative abundances
+```{r}
+genus_rel <- (genus/rowSums(genus))
+#Check
+if (all(round(rowSums(genus_rel),6) == 1)) { #Sanity check all 1 - round() reduces the risk of floating-point errors
+  print("Sanity check ok = all sum to 1")
+} else {
+  print("ERROR: not all columns sum to 1")
+}
+#Check
+phylum_rel <- (phylum/rowSums(phylum))
+if (all(round(rowSums(phylum_rel),6) == 1)) { #Sanity check all 1 - round() reduces the risk of floating-point errors
+  print("Sanity check ok = all sum to 1")
+} else {
+  print("ERROR: not all columns sum to 1")
+}
+```
+
+## Order by row names
+```{r}
+meta_sorted <- meta[order(row.names(meta)),] 
+phylum_sorted <- phylum_rel[order(row.names(phylum_rel)),] 
+genus_sorted <- genus_rel[order(row.names(genus_rel)),] # order 
+
+# Sanity check for phylum
+if (all(row.names(meta_sorted) == rownames(phylum_sorted) )) {
+  print("Sanity check ok")
+} else {
+  print("ERROR: not all row names are the same")
+}
+
+# Sanity check for genus
+if (all(row.names(meta_sorted) == rownames(genus_sorted) )) {
+  print("Sanity check ok")
+} else {
+  print("ERROR: not all row names are the same")
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+# -------------------------------------------------------
+# WARM 
+# -------------------------------------------------------
+
+## Wrangling PHYLUM
+```{r}
+#Subset Water dataset to keep only warm
+meta_w <- meta_sorted[meta_sorted$Temperature == "warm",] # 68 obs in warm
+phylum_w <- phylum_sorted[rownames(phylum_sorted) %in% rownames(meta_w),]
+# Check rownames
+rownames(phylum_w) == rownames(meta_w)
+# Keep only present phyla
+phylum_w_abund <- phylum_w[, (colSums(phylum_w) > 0)]
+dim(phylum_w_abund) # 68 26
+```
+
+### Remove low abundances
+
+```{r}
+phylum <- phylum_w
+colsums_phylum <- as.data.frame(colSums(phylum_w))
+sum(colsums_phylum$`colSums(phylum_w)` == 0) # 0 phylum have a relative abundance of 0 in w warm  samples
+abund <- as.data.frame(phylum[, colMeans(phylum) > 0.01]) # 6
+abund$Others = 1 - rowSums(abund)#Add an "Other" category
+colnames(abund) # there are empty spaces in column names
+colnames(abund) <- gsub(" ", "", colnames(abund)) # trim empty spaces
+colnames(abund)[colnames(abund) == "Actinobacteriota"] <- "Actinomycetota"
+colnames(abund)[colnames(abund) == "Firmicutes"] <- "Bacillota"
+```
+
+Only 6 phyla/groups had a relative abundance higher than 1%: Actinomycetota, Bacteroidota,  Cyanobacteria, Planctomycetota and Proteobacterial classes Alphaproteobacteria and Gammaproteobacteria. 
+
+### Bind treatments and abundances
+```{r}
+rownames(abund) == rownames(meta_w)
+abund_treat <- cbind(meta_w,abund)
+dim(abund_treat) # 68 13
+```
+
+### Gather in long format for ggplot
+
+```{r}
+long <- gather(abund_treat,Taxa,RelAbund,7:ncol(abund_treat)) #change the column index value to match the first column that contains a Taxa name and not a treatment
+head(long) # It looks ok!
+phylum_long <- long
+```
+
+## Stacked bars PHYLUM
+
+### Relevel groups 
+Put the largest group at the bottom, and the second largest at the top
+```{r}
+phylum_long$Taxa <- fct_relevel(phylum_long$Taxa, "Alphaproteobacteria", after = 0L)
+phylum_long$Taxa <-fct_relevel(phylum_long$Taxa, "Actinomycetota", after = 1L)
+phylum_long$Taxa <-fct_relevel(phylum_long$Taxa, "Cyanobacteria", after = 2L)
+phylum_long$Taxa <- fct_relevel(phylum_long$Taxa, "Gammaproteobacteria", after = Inf)
+```
+
+### Warm plot
+```{r}
+stack_phylum_warm <- ggplot(phylum_long, aes(fill = Taxa, y = RelAbund, x = Time)) + 
+  geom_bar(stat = "identity", position = "fill") +
+  labs( y = "Relative abundance",
+        x = "Days since OSPW introduction",
+        title = "Warm - Bacterial community - Phylum rank") + 
+  theme_minimal() +
+  theme(strip.text.x = element_markdown(face = "bold", size = 10),
+        axis.text.x = element_text(size = 8, angle = 360, hjust = 0.5, face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"),
+        plot.title = element_text(face = "bold", size = 10),
+        legend.title = element_text(size = 10, color = "black", face = "bold"),
+        #legend.text = element_text(size = 8, face = "bold", color = "black"),
+        axis.title.y = element_text(size = 10, face = "bold"),
+        axis.title.x = element_text(size = 10, face = "bold"),
+        legend.position = "right",
+        rect = element_rect(fill = "white")) +
+  scale_fill_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 9))) +
+  scale_color_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 9))) +
+  facet_grid(.~ Compartment*Sample_type,  scales = "free_x", space = "free_x") + 
+  scale_y_continuous(limits = c(0,1), expand = c(0,0)) 
+
+stack_phylum_warm
+# Save plots
+# ggsave(file = here::here("output", "figures", "relAbund_phylum_16S_water_16S-warm.pdf"), stack_phylum_warm, width = 7, height = 4, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_phylum_16S_water_16S-warm.eps"), stack_phylum_warm, width = 6, height = 4, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_phylum_16S_water_16S-warm.png"), stack_phylum_warm, width = 6, height = 4, units = "in", dpi = 300,bg = "white")
+```
+
+## Wrangling GENUS
+```{r}
+#Subset Water dataset to keep only warm
+genus_w <- genus_sorted[rownames(genus_water_16S) %in% rownames(meta_w),]
+# Check rownames
+rownames(genus_w) == rownames(meta_w)
+## Keep only present genera and phyla
+genus_w_abund <- genus_w[, (colSums(genus_w) > 0)] # 68 415
+dim(genus_w_abund)
+```
+
+### Remove low abundances
+
+```{r}
+genus <- genus_w
+dim(genus) # 68 430
+colsums_genus <- as.data.frame(colSums(genus_w))
+sum(colsums_genus$`colSums(genus_w)` == 0) # 15 genera have a relative abundance of 0 in w  samples
+genus <- genus_w[, colSums(genus_w) != 0] # drop genera that are not present in w samples
+dim(genus) #  68 415
+abund <- as.data.frame(genus[, colMeans(genus) > 0.005]) # 37 genera with a relative abundance over 0.5%
+abund <- as.data.frame(genus[, colMeans(genus) > 0.01]) # 22 genera with a relative abundance over 1%
+abund$Others = 1 - rowSums(abund)#Add an "Other" category
+```
+
+### Clean col names
+#### Add uncultured
+```{r}
+colnames(abund) # there are family names in column names. Create function to add "uncultured " at the beggining of those names
+modifyColumnNames <- function(df) {
+  # Using gsub to modify column names
+  colnames(df) <- sapply(colnames(df), function(name) {
+    if (grepl("ceae", name)) {
+      return(paste0("uncultured ", name))
+    } else {
+      return(name)
+    }
+  })
+  return(df)
+}
+
+abund1 <- modifyColumnNames(abund)
+
+colnames(abund1) # Check it works
+```
+
+#### Add asterisks for markdown
+```{r}
+addAsterisksToColumnNames <- function(df) {
+  colnames(df) <- sapply(colnames(df), function(name) {
+    words <- strsplit(name, " ")[[1]]
+    if (length(words) == 1) {
+      return(paste0("*", name, "*"))
+    } else if (length(words) > 1) {
+      return(paste(words[1], paste0("*", words[2], "*")))
+    }
+  })
+  return(df)
+}
+abund2 <- addAsterisksToColumnNames(abund1)
+colnames(abund2) # Check it works
+```
+
+### Bind treatments and abundances
+```{r}
+rownames(abund2) == rownames(meta_w)
+abund_treat = cbind(meta_w,abund2)
+dim(abund_treat) # 68 29
+```
+
+### Gather in long format for ggplot
+
+```{r}
+long <- gather(abund_treat,Taxa,RelAbund,7:ncol(abund_treat)) #change the column index value to match the first column that contains a Taxa name and not a treatment
+head(long) # It looks ok!
+genus_long <- long
+dim(genus_long) # 1564    8 OK
+```
+
+## Stacked bars GENUS
+
+### Relevel groups 
+Put the largest group at the bottom, and the second largest at the top
+```{r}
+genus_long$Taxa <- fct_relevel(genus_long$Taxa, "*Others*", after = 0L)
+genus_long$Taxa <- fct_relevel(genus_long$Taxa, "uncultured *Comamonadaceae*", after = 1L)
+genus_long$Taxa <- fct_relevel(genus_long$Taxa, "uncultured *Sporichthyaceae*", after = 2L)
+genus_long$Taxa <- fct_relevel(genus_long$Taxa, "uncultured *Xanthobacteraceae*", after = 3L)
+genus_long$Taxa <- fct_relevel(genus_long$Taxa, "*Polynucleobacter*", after = Inf)
+```
+
+### Warm plot
+```{r}
+stack_genus_warm <- ggplot(genus_long, aes(fill = Taxa, y = RelAbund, x = Time)) + 
+  geom_bar(stat = "identity", position = "fill") +
+  labs( y = "Relative abundance",
+        x = "Days since OSPW introduction",
+        title = "Warm - Bacterial community - Genus rank") + 
+  theme_minimal() +
+  theme(strip.text.x = element_markdown(face = "bold", size = 10),
+        axis.text.x = element_text(size = 8, angle = 360, hjust = 0.5, face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"),
+        plot.title = element_text(face = "bold", size = 10),
+        legend.title = element_text(size = 10, color = "black", face = "bold"),
+        legend.text = element_markdown(size = 8, color = "black"),
+        axis.title.y = element_text(size = 10, face = "bold"),
+        axis.title.x = element_text(size = 10, face = "bold"),
+        legend.position = "right",
+        rect = element_rect(fill = "white")) +
+  scale_fill_manual(values = pal40, guide = guide_legend(label.theme = element_markdown( size = 8))) +
+  scale_color_manual(values = pal40, guide = guide_legend(label.theme = element_markdown( size = 8))) +
+  facet_grid(.~ Compartment * Sample_type,  scales = "free_x", space = "free_x") + 
+  scale_y_continuous(limits = c(0,1), expand = c(0,0)) + 
+    guides(fill = guide_legend(ncol = 1))
+
+stack_genus_warm
+# Save plots
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_water_16S-warm.pdf"), stack_genus_warm, width = 7, height = 7, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_water_16S-warm.eps"), stack_genus_warm, width = 7, height = 7, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_water_16S-warm.png"), stack_genus_warm, width = 7, height = 7, units = "in", dpi = 300,bg = "white")
+```
+
+## Lolipops GENUS
+
+## Create the lolipop chart
+```{r}
+# Step 1: Calculate the mean values with ave()
+mean_values <- ave(genus_long$RelAbund, genus_long$Time, genus_long$Taxa, FUN = mean)
+
+# Reorder the levels baWater on mean values
+genus_long$Taxa <- reorder(genus_long$Taxa, mean_values, FUN = mean)
+
+# Add small value to prevent inf error when log transforming
+genus_long$RelAbund <- genus_long$RelAbund + 1e-6
+
+high_contrast <- c("#000004FF", "#721F81FF" ,"#B63679FF" ,"#F1605DFF", "#FEAF77FF", "#FFEC8B") 
+# Step 3: Create the plot
+p1 <- ggplot(data = genus_long, aes(y = Taxa, x = RelAbund, color = Time)) +
+    geom_vline(xintercept = c(0.001, 0.01, 0.1, 0.4), color = "lightgrey", size = 0.1) +
+  stat_summary(fun.data = median_hilow, geom = "pointrange", fun.args = list(conf.int = 0.5),
+               position = position_dodge(width = 0.4),
+               linewidth = 0.25) +
+  coord_trans(x = "log10") +
+    ylab("Taxonomic group") + 
+    xlab("log10 Relative abundance") +
+    scale_color_manual(values = high_contrast) + 
+  theme_classic() +
+  theme(
+    axis.text.y = element_markdown(),
+    legend.text = element_markdown(),
+    legend.title = element_blank(),
+    legend.position = "bottom",
+    legend.spacing = unit(0.1, "cm"),
+    #legend.position = c(0.92, 0.15),
+    legend.background = element_rect(color = "darkgrey", fill = "white"),
+    #legend.margin = margin(t = -5, r = 3, b = 3),
+    strip.text.x = element_markdown(size = 12),
+    strip.text.y = element_markdown(size = 12)
+    
+  ) +
+    
+    scale_x_continuous(limits = c(NA, 1.5), 
+                       breaks = c(0.001,0.01, 0.1, 0.4),
+                       labels = c(".001", ".01", ".1", ".4")) +
+  facet_grid(Temperature ~ Sample_type)
+
+p1
+# Save plots
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_water_16S_lolipops-warm.pdf"), p1, width = 6, height = 6, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_water_16S_lolipops-warm.eps"), p1, width = 6, height = 6, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_water_16S_lolipops-warm.png"), p1, width = 6, height = 6, units = "in", dpi = 300,bg = "white")
+```
+
+
+# -------------------------------------------------------
+# COLD
+# -------------------------------------------------------
+
+## Wrangling PHYLUM
+```{r}
+#Subset Water dataset to keep only cold
+meta_c <- meta_sorted[meta_sorted$Temperature == "cold",] # 39 obs in cold
+phylum_c <- phylum_sorted[rownames(phylum_sorted) %in% rownames(meta_c),]
+# Check rownames
+rownames(phylum_c) == rownames(meta_c)
+## Keep only present phyla
+phylum_c_abund <- phylum_c[, (colSums(phylum_c) > 0)]
+dim(phylum_c_abund) # 71 24
+```
+
+
+### Remove low abundances
+
+```{r}
+phylum <- phylum_c
+
+colsums_phylum <- as.data.frame(colSums(phylum_c))
+sum(colsums_phylum$`colSums(phylum_c)` == 0) # 15 phylum have a relative abundance of 0 in cold  samples
+abund <- as.data.frame(phylum_c[, colMeans(phylum_c) > 0.01]) # 5
+abund$Others = 1 - rowSums(abund)#Add an "Other" category
+colnames(abund) # there are empty spaces in column names
+colnames(abund) <- gsub(" ", "", colnames(abund)) # trim empty spaces
+colnames(abund)[colnames(abund) == "Actinobacteriota"] <- "Actinomycetota"
+colnames(abund)[colnames(abund) == "Firmicutes"] <- "Bacillota"
+colnames(abund)[colnames(abund) == "Chloroflexi"] <- "Chloroflexota"
+```
+
+Only 5 phyla/groups had a relative abundance higher than 1%: Actinobacteriota, Bacteroidota,  Planctomycetota, and Pseudomonadota classes Alphaproteobacteria and Gammaproteobacteria. 
+
+
+### Bind treatments and abundances
+```{r}
+rownames(abund) == rownames(meta_c)
+abund_treat <- cbind(meta_c,abund)
+dim(abund_treat) # 71 12
+```
+
+### Gather in long format for ggplot
+
+```{r}
+long <- gather(abund_treat,Taxa,RelAbund,7:ncol(abund_treat)) #change the column index value to match the first column that contains a Taxa name and not a treatment
+head(long) # It looks ok!
+phylum_long <- long
+```
+
+
+## Stacked bars PHYLUM
+
+### Relevel groups 
+Put the largest group at the bottom, and the second largest at the top
+```{r}
+phylum_long$Taxa <- fct_relevel(phylum_long$Taxa, "Alphaproteobacteria", after = 0L)
+phylum_long$Taxa <-fct_relevel(phylum_long$Taxa, "Bacteroidota", after = 1L)
+#phylum_long$Taxa <-fct_relevel(phylum_long$Taxa, "Actinomycetota", after = 2L)
+#phylum_long$Taxa <- fct_relevel(phylum_long$Taxa, "Bacteroidota", after = 3L)
+phylum_long$Taxa <- fct_relevel(phylum_long$Taxa, "Gammaproteobacteria", after = Inf)
+```
+
+### cold plot
+```{r}
+stack_phylum_cold <- ggplot(phylum_long, aes(fill = Taxa, y = RelAbund, x = Time)) + 
+  geom_bar(stat = "identity", position = "fill") +
+  labs( y = "Relative abundance",
+        x = "Days since OSPW introduction",
+        title = "Cold - Bacterial community - Phylum") + 
+  theme_minimal() +
+  theme(strip.text.x = element_markdown(face = "bold", size = 10),
+        axis.text.x = element_text(size = 8, angle = 360, hjust = 0.5, face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"),
+        plot.title = element_text(face = "bold", size = 10),
+        legend.title = element_text(size = 10, color = "black", face = "bold"),
+        #legend.text = element_text(size = 8, face = "bold", color = "black"),
+        axis.title.y = element_text(size = 10, face = "bold"),
+        axis.title.x = element_text(size = 10, face = "bold"),
+        legend.position = "right",
+        rect = element_rect(fill = "white")) +
+  scale_fill_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 9))) +
+  scale_color_manual(values = pal3, guide = guide_legend(label.theme = element_text(face = "italic", size = 9))) +
+  facet_grid(.~ Compartment * Sample_type,  scales = "free_x", space = "free_x") + 
+  scale_y_continuous(limits = c(0,1), expand = c(0,0)) 
+
+stack_phylum_cold
+# Save plots
+# ggsave(file = here::here("output", "figures", "relAbund_phylum_16S_water_16S-cold.pdf"), stack_phylum_cold, width = 7, height = 4, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_phylum_16S_water_16S-cold.eps"), stack_phylum_cold, width = 7, height = 4, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_phylum_16S_water_16S-cold.png"), stack_phylum_cold, width = 7, height = 4, units = "in", dpi = 300,bg = "white")
+```
+
+## Wrangling GENUS
+```{r}
+genus_c <- genus_sorted[rownames(genus_sorted) %in% rownames(meta_c),]
+rownames(genus_c) == rownames(meta_c)
+genus_c_abund <- genus_c[, (colSums(genus_c) > 0)] # 71 385
+dim(genus_c_abund)
+```
+
+
+### Remove low abundances
+
+```{r}
+genus <- genus_c_abund
+dim(genus) # 71 385
+colsums_genus <- as.data.frame(colSums(genus_c))
+sum(colsums_genus$`colSums(genus_c)` == 0) # 45 genera have a relative abundance of 0 in w  samples
+genus <- genus_c[, colSums(genus_c) != 0] # drop genera that are not present in w samples
+dim(genus) # 71 385
+abund <- as.data.frame(genus[, colMeans(genus) > 0.005]) # 37 genera with a relative abundance over 0.5%
+abund <- as.data.frame(genus[, colMeans(genus) > 0.01]) # 23 genera with a relative abundance over 1%
+abund$Others = 1 - rowSums(abund)#Add an "Other" category
+```
+
+### Clean col names
+#### Add uncultured
+```{r}
+colnames(abund) # there are family names in column names. Create function to add "uncultured " at the beggining of those names
+abund1 <- modifyColumnNames(abund)
+
+colnames(abund1) # Check it works
+```
+
+#### Add asterisks for markdown
+```{r}
+abund2 <- addAsterisksToColumnNames(abund1)
+colnames(abund2) # Check it works
+```
+
+### Bind treatments and abundances
+```{r}
+rownames(abund2) == rownames(meta_c)
+abund_treat = cbind(meta_c,abund2)
+dim(abund_treat) # 71 30
+```
+
+### Gather in long format for ggplot
+
+```{r}
+long <- gather(abund_treat,Taxa,RelAbund,7:ncol(abund_treat)) #change the column index value to match the first column that contains a Taxa name and not a treatment
+head(long) # It looks ok!
+genus_long <- long
+dim(genus_long) # 1704    8 OK
+```
+
+## Stacked bars GENUS
+
+### Relevel groups 
+Put the largest group at the bottom, and the second largest at the top
+```{r}
+genus_long$Taxa <- fct_relevel(genus_long$Taxa, "*Others*", after = 0L)
+genus_long$Taxa <- fct_relevel(genus_long$Taxa, "*Polynucleobacter*", after = 1L)
+genus_long$Taxa <- fct_relevel(genus_long$Taxa, "uncultured *Isosphaeraceae*", after = 2L)
+genus_long$Taxa <- fct_relevel(genus_long$Taxa, "uncultured *Rhodobacteraceae*", after = 3L)
+genus_long$Taxa <- fct_relevel(genus_long$Taxa, "uncultured *Comamonadaceae*", after = Inf)
+```
+
+### cold plot
+```{r}
+
+stack_genus_cold <- ggplot(genus_long, aes(fill = Taxa, y = RelAbund, x = Time)) + 
+  geom_bar(stat = "identity", position = "fill") +
+  labs( y = "Relative abundance",
+        x = "Days since OSPW introduction",
+        title = "Cold - Bacterial community - Genus rank") + 
+  theme_minimal() +
+  theme(strip.text.x = element_markdown(face = "bold", size = 10),
+        axis.text.x = element_text(size = 8, angle = 360, hjust = 0.5, face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"),
+        plot.title = element_text(face = "bold", size = 10),
+        legend.title = element_text(size = 10, color = "black", face = "bold"),
+        legend.text = element_markdown(size = 8, color = "black"),
+        axis.title.y = element_text(size = 10, face = "bold"),
+        axis.title.x = element_text(size = 10, face = "bold"),
+        legend.position = "right",
+        rect = element_rect(fill = "white")) +
+  scale_fill_manual(values = pal40, guide = guide_legend(label.theme = element_markdown( size = 8))) +
+  scale_color_manual(values = pal40, guide = guide_legend(label.theme = element_markdown( size = 8))) +
+  facet_grid(.~ Compartment * Sample_type,  scales = "free_x", space = "free_x") + 
+  scale_y_continuous(limits = c(0,1), expand = c(0,0)) +
+guides(fill = guide_legend(ncol = 1))
+
+stack_genus_cold
+# Save plots
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_water_16S-cold.pdf"), stack_genus_cold, width = 7, height = 7, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_water_16S-cold.eps"), stack_genus_cold, width = 7, height = 7, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_water_16S-cold.png"), stack_genus_cold, width = 7, height = 7, units = "in", dpi = 300,bg = "white")
+```
+
+## Lolipops GENUS
+
+## Create the lolipop chart
+```{r}
+# Step 1: Calculate the mean values with ave()
+mean_values <- ave(genus_long$RelAbund, genus_long$Time, genus_long$Taxa, FUN = mean)
+
+# Reorder the levels baWater on mean values
+genus_long$Taxa <- reorder(genus_long$Taxa, mean_values, FUN = mean)
+
+# Add small value to prevent inf error when log transforming
+genus_long$RelAbund <- genus_long$RelAbund + 1e-6
+
+high_contrast <- c("#000004FF", "#721F81FF" ,"#B63679FF" ,"#F1605DFF", "#FEAF77FF", "#FFEC8B") 
+# Step 3: Create the plot
+p1 <- ggplot(data = genus_long, aes(y = Taxa, x = RelAbund, color = Time)) +
+    geom_vline(xintercept = c(0.001, 0.01, 0.1, 0.4), color = "lightgrey", size = 0.1) +
+  stat_summary(fun.data = median_hilow, geom = "pointrange", fun.args = list(conf.int = 0.5),
+               position = position_dodge(width = 0.4),
+               linewidth = 0.25) +
+  coord_trans(x = "log10") +
+    ylab("Taxonomic group") + 
+    xlab("log10 Relative abundance") +
+    scale_color_manual(values = high_contrast) + 
+  theme_classic() +
+  theme(
+    axis.text.y = element_markdown(),
+    legend.text = element_markdown(),
+    legend.title = element_blank(),
+    legend.position = "bottom",
+    legend.spacing = unit(0.1, "cm"),
+    #legend.position = c(0.92, 0.15),
+    legend.background = element_rect(color = "darkgrey", fill = "white"),
+    #legend.margin = margin(t = -5, r = 3, b = 3),
+    strip.text.x = element_markdown(size = 12),
+    strip.text.y = element_markdown(size = 12)
+    
+  ) +
+    
+    scale_x_continuous(limits = c(NA, 1.5), 
+                       breaks = c(0.001,0.01, 0.1, 0.4),
+                       labels = c(".001", ".01", ".1", ".4")) +
+  facet_grid(Temperature ~ Sample_type)
+
+p1
+# Save plots
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_water_16S_lolipops-cold.pdf"), p1, width = 6, height = 6, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_water_16S_lolipops-cold.eps"), p1, width = 6, height = 6, units = "in", dpi = 300,bg = "white")
+# ggsave(file = here::here("output", "figures", "relAbund_genus_16S_water_16S_lolipops-cold.png"), p1, width = 6, height = 6, units = "in", dpi = 300,bg = "white")
+```
+
+------------------------------------------------------------------------
+
+# END OF SCRIPT
+
+# ------------------------------------------------------------------------
