@@ -42,6 +42,52 @@ levels(factor(meta$Experiment)) # Check
 raw <- read.csv(file = here("data", "clean", "feature_table_filtered.tsv"), dec = ".", sep = "\t", header = T, row.names = 1, comment.char = "") #20078 objs in 299 vars
 ```
 
+## Explore Archaea
+
+```{r}
+com <- raw
+archaea_k <- grepl("Archaea", com$taxonomy)
+archaea <- com[archaea_k,]
+archaea$asv_id <- rownames(archaea)
+archea_tax <- as.data.frame(archaea$taxonomy)
+archea_tax$asv_id <- archaea$asv_id
+archaea$asv_sum <- rowSums(archaea[, 1:(ncol(archaea)-3)])
+archaea$Sequence <- NULL
+sums_archea <- as.data.frame(colSums(archaea[, 1:(ncol(archaea)-3)]))
+sums_archea$sample <- rownames(sums_archea)
+
+library(writexl)
+write_xlsx(sums_archea, here::here("data", "clean", "archaea_sums_per_samples.xlsx"))
+write_xlsx(archaea, here::here("data", "clean", "archaea_feature_tabe_filtered.xlsx"))
+write_xlsx(archea_tax, here::here("data", "clean", "archaea_taxonomy.xlsx"))
+```
+
+## Explore methanotrophs
+```{r}
+library(stringr)
+# Define the vector
+potential_methanotrophs <- c("Methylocaldum", "Methylothermus", "Methylobacteria", "Methylosarcina", "Methylomicrobium", "Methylomonas", "Methylocystis", "Methylobacter", "Methylacidiphilum", "Methylacidimicrobium", "Methylocapsa", "Methylosinus", "Methylocella",  "Methylomonas", 'Methylococcaceae', "Methylophaga","Methylophilaceae",  "Methylococcus", "Methylocystis", "Methanobacterium", "Methanosarcina")
+
+# Create a logical vector indicating rows with any matching patterns
+matches <- rowSums(sapply(methanotrophs, function(pattern) {
+  str_detect(com$taxonomy, pattern)
+})) > 0
+
+# Extract the matching rows
+selected_rows <- com[matches, ]
+selected_rows$Sequence <- NULL
+selected_rows$sum <- rowSums(selected_rows[, 1:(ncol(selected_rows)-1)])
+selected_metanotrophs <- selected_rows[, (ncol(selected_rows)-1):ncol(selected_rows)]
+write_xlsx(selected_metanotrophs, here::here("data", "clean", "bacterial_methanotrophs_meso2.xlsx"))
+
+###
+
+
+```
+
+
+
+
 ### Keep only samples
 ```{r}
 # Find columns with "E2" in their name
