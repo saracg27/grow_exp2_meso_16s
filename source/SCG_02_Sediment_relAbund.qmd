@@ -723,3 +723,9 @@ p2
 # ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops0.01top_time_effect.eps"), p2, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
 # ggsave(file = here::here("output", "figures", "relAbund_genus_16S_sediments_pops0.01top_time_effect.png"), p2, width = 9, height = 11, units = "in", dpi = 300,bg = "white")
 ```
+
+------------------------------------------------------------------------
+
+# END OF SCRIPT
+
+# ------------------------------------------------------------------------
