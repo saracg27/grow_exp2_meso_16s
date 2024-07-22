@@ -317,7 +317,6 @@ ggsave(here("Results_W&C","Figures","Water_16S_W&C_RCLR_Ordination.png"),
 ######## Data ####
 
 load(here("Rdata","ps_16S_water_obj.RData"))
-###______#####
 ### BETA DIV ####
 
 ##### Robust Aitchison ####
@@ -346,6 +345,132 @@ Permanova.rclr
 write.table(Permanova.rclr,row.names=T,sep=";",here("Results","Tables","16S_Water_RCLR_Permanova.csv"))
 
 
+
+###### PCA plots  ####
+ord_rclr <- phyloseq::ordinate(ps_rclr, "RDA", distance = "euclidean")
+
+PC1 <- as.numeric(round(ord_rclr$CA$eig[1]/sum(ord_rclr$CA$eig),3)*100)
+PC2 <- as.numeric(round(ord_rclr$CA$eig[2]/sum(ord_rclr$CA$eig),3)*100)
+
+Ordination <- phyloseq::plot_ordination(ps_rclr, ord_rclr, type="samples",shape="Sample_type",color="Sample_type",justDF=T)
+
+## Plant type  
+
+# Code to annotate R2 and pvalue with geom_label_npc()
+df.annotations <- data.frame(
+  label = paste(paste0("~italic(R)^{2} == ", round(Permanova.rclr$R2[2],3)),"~~",
+                paste0("~italic(p) == ",round(Permanova.rclr$`Pr(>F)`[2],3))))
+
+Sample_type <-ggplot(Ordination,aes(x=PC1,y=PC2,colour =Sample_type,shape=Sample_type))+
+                theme_bw()+
+                geom_point(size=4)+
+                
+                scale_shape_manual(values=c(1,0,5),
+                                   name="Sample type",
+                                   labels=c("Unplanted",expression(italic("S. microcarpus")),expression(italic("T. maritima"))))+
+                
+                scale_colour_manual(values = c("chocolate", "slateblue4","chartreuse4"),
+                                    name="Sample type",
+                                    labels=c("Unplanted",expression(italic("S. microcarpus")),expression(italic("T. maritima"))))+
+                
+                geom_label_npc(data= df.annotations , 
+                           aes(npcx = "right", npcy = "bottom", label = label),
+                           parse=T,size=4)+
+                labs(title="Water 16S - Sample type effect",
+                     x=paste0("PC1 (",PC1,"%)"),
+                     y=paste0("PC2 (",PC2,"%)"))+
+                
+                theme(legend.position = "bottom",
+                      legend.title=element_text(size=12),
+                      legend.text=element_text(size=12))
+
+Sample_type
+                  
+        
+
+### Temperature 
+df.annotations <- data.frame(
+  label = paste(paste0("~italic(R)^{2} == ", round(Permanova.rclr$R2[3],3)),"~~",
+                paste0("~italic(p) == ",round(Permanova.rclr$`Pr(>F)`[3],3))))
+
+Temperature <- ggplot(Ordination,aes(x=PC1,y=PC2,fill =Temperature))+
+                      theme_bw()+
+                      geom_point(size=4,shape=21)+
+                      scale_fill_manual(values = c("#0000FE","#B02223"),
+                                          name="Temperature",
+                                          labels=c("10°C/5°C day/night","20°C/10°C day/night"))+
+                      
+                      geom_label_npc(data= df.annotations , 
+                                     aes(npcx = "right", npcy = "bottom", label = label),
+                                     parse=T,size=4)+
+                      labs(title="Water 16S - Temperature effect",
+                           x=paste0("PC1 (",PC1,"%)"),
+                           y=paste0("PC2 (",PC2,"%)"))+
+                    
+                       theme(legend.position = "bottom",
+                             legend.title=element_text(size=12),
+                             legend.text=element_text(size=12))
+                  
+
+### Time 
+df.annotations <- data.frame(
+  label = paste(paste0("~italic(R)^{2} == ", round(Permanova.rclr$R2[1],3)),"~~",
+                paste0("~italic(p) == ",round(Permanova.rclr$`Pr(>F)`[1],3))))
+
+Time <- ggplot(Ordination,aes(x=PC1,y=PC2,fill =Time))+
+    theme_bw()+
+    geom_point(size=4,shape=21)+
+    scale_fill_viridis(option="magma",discrete=T,name="Time")+
+
+    geom_label_npc(data= df.annotations , 
+                   aes(npcx = "right", npcy = "bottom", label = label),
+                   parse=T,size=4)+
+    labs(title="Water 16S - Time effect",
+         x=paste0("PC1 (",PC1,"%)"),
+         y=paste0("PC2 (",PC2,"%)"))+
+  
+  theme(legend.position = "bottom",
+        legend.title=element_text(size=12),
+        legend.text=element_text(size=12))
+
+### Save figure 
+Water_16S <- ggarrange(Sample_type,Temperature,Time,
+                       labels="AUTO",
+                       ncol=1,
+                       legend = "bottom")
+
+
+
+ggsave(here("Results","Figures","16S_Water_RCLR_Ordination.pdf"),device='pdf',height = 7.5, width = 10.5)
+ggsave(here("Results","Figures","16S_Water_RCLR_Ordination.png"),device='png',height = 7.5, width = 10.5)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#### Time Pairwise permanova
+
+Pairwise.time <- pairwise.adonis(rclr_dist_matrix, metadata$Time, p.adjust.m ="bonferroni")
+Pairwise.time$p.adj.FDR <- p.adjust(Pairwise.time$p.value,method="fdr" )
+
+Pairwise.time
+
+write.table(Pairwise.time,row.names=T,sep=";",here("Results/Tables/","16S_Water_RCLR_PWP_Time.csv"))
+
+
+
+
 #### Interactions - Pairwise permanova
 metadata$Temperature <- sub("10C day - 5C night","Cold",metadata$Temperature)
 metadata$Temperature <- sub("20C day - 10C night","Warm",metadata$Temperature)
@@ -363,7 +488,7 @@ Permanova.plant_temp <- adonis2(rclr_dist_matrix~plant_temp,
                                 data = metadata, permutations = 999)
 Permanova.plant_temp
 
-Pairwise.plant_temp <- pairwise.adonis(rclr_dist_matrix, metadata$plant_temp,p.adjust.m ="bonferroni")
+Pairwise.plant_temp <- pairwise.adonis(rclr_dist_matrix, metadata$plant_temp,p.adjust.m ="fdr")
 Pairwise.plant_temp
 write.table(Pairwise.plant_temp,row.names=T,sep=";",here("Results","Tables","16S_Water_RCLR_PWP_Plant_Temp.csv"))
 
@@ -382,7 +507,7 @@ Permanova.plant_time <- adonis2(rclr_dist_matrix~plant_time,
                                 data = metadata, permutations = 999)
 Permanova.plant_time
 
-Pairwise.plant_time <- pairwise.adonis(rclr_dist_matrix, metadata$plant_time,p.adjust.m ="bonferroni")
+Pairwise.plant_time <- pairwise.adonis(rclr_dist_matrix, metadata$plant_time,p.adjust.m ="fdr")
 Pairwise.plant_time
 write.table(Pairwise.plant_time,row.names=T,sep=";",here("Results","Tables","16S_Water_RCLR_PWP_Time_Plant.csv"))
 
