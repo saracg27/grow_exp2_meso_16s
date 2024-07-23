@@ -94,21 +94,29 @@ volcano_root_Scirpus_Triglochin_Warm <- EnhancedVolcano(res2_taxa,
                                                          selectLab = res2_taxa$Genus,
                                                          x = 'log2FoldChange', 
                                                          y = "padj",
-                                                         pCutoff = 1e-05,
-                                                         title = "Differential ab. of 16S reads in roots",
-                                                         titleLabSize = 15,
-                                                         subtitle = "Triglochin vs Scirpus - Genus level",
-                                                         pointSize = 3,
-                                                         labSize = 3.5,
-                                                         labFace = "italic",
-                                                         colAlpha = 0.5,
-                                                         legendPosition = 'bottom',
-                                                         legendLabSize = 10,
-                                                         legendIconSize = 4.0,
-                                                         drawConnectors = TRUE,
-                                                         widthConnectors = 0.6,
-                                                         max.overlaps = 20
-)
+                                                         pCutoff = 1e-05, 
+                                                        title = "Differential abundance of 16S reads in roots",
+                                                        titleLabSize = 16,
+                                                        subtitle = bquote(italic("T. maritima vs S. microcarpus - Genus level")),
+                                                        subtitleLabSize = 13,
+                                                        pointSize = 3,
+                                                        labSize = 3.5,
+                                                        labFace = "italic",
+                                                        colAlpha = 0.5,
+                                                        legendPosition = 'bottom',
+                                                        legendLabSize = 10,
+                                                        legendIconSize = 4.0,
+                                                        drawConnectors = TRUE,
+                                                        widthConnectors = 0.6,
+                                                        max.overlaps = 20,
+                                                        border="full")+
+  theme(legend.box.spacing = unit(0, "pt"),
+        legend.text = element_text(size=15),
+        legend.margin = margin(10, 0, 0, 0),
+        plot.caption = element_text(hjust=1),
+        plot.title = element_text(face="plain",margin=margin(10,0,4,0)),
+        plot.subtitle = element_text(margin=margin(0,0,3,0)))
+
 
 volcano_root_Scirpus_Triglochin_Warm
 
@@ -167,20 +175,28 @@ volcano_root_Scirpus_Triglochin_Cold <- EnhancedVolcano(res2_taxa,
                                                          x = 'log2FoldChange', 
                                                          y = "padj",
                                                          pCutoff = 1e-05,
-                                                         title = "Differential ab. of 16S reads in roots",
-                                                         titleLabSize = 15,
-                                                         subtitle = "Triglochin vs Scirpus - Genus level",
-                                                         pointSize = 3,
-                                                         labSize = 3.5,
-                                                         labFace = "italic",
-                                                         colAlpha = 0.5,
-                                                         legendPosition = 'bottom',
-                                                         legendLabSize = 10,
-                                                         legendIconSize = 4.0,
-                                                         drawConnectors = TRUE,
-                                                         widthConnectors = 0.6,
-                                                         max.overlaps = 20
-)
+                                                        title = "Differential abundance of 16S reads in roots",
+                                                        titleLabSize = 16,
+                                                        subtitle = bquote(italic("T. maritima vs S. microcarpus - Genus level")),
+                                                        subtitleLabSize = 13,
+                                                        pointSize = 3,
+                                                        labSize = 3.5,
+                                                        labFace = "italic",
+                                                        colAlpha = 0.5,
+                                                        legendPosition = 'bottom',
+                                                        legendLabSize = 10,
+                                                        legendIconSize = 4.0,
+                                                        drawConnectors = TRUE,
+                                                        widthConnectors = 0.6,
+                                                        max.overlaps = 20,
+                                                        border="full")+
+  theme(legend.box.spacing = unit(0, "pt"),
+        legend.text = element_text(size=15),
+        legend.margin = margin(10, 0, 0, 0),
+        plot.caption = element_text(hjust=1),
+        plot.title = element_text(face="plain",margin=margin(10,0,4,0)),
+        plot.subtitle = element_text(margin=margin(0,0,3,0)))
+
 
 volcano_root_Scirpus_Triglochin_Cold
 
@@ -191,9 +207,9 @@ volcano_root_Scirpus_Triglochin_Cold
 #####Common plots #####
 
 
-Triglo_Scirpus <- ggarrange(volcano_root_Scirpus_Triglochin_Warm,volcano_root_Scirpus_Triglochin_Cold,
+Triglo_Scirpus_roots <- ggarrange(volcano_root_Scirpus_Triglochin_Warm,volcano_root_Scirpus_Triglochin_Cold,
                             ncol=2,
-                            labels=c("Warm","Cold"))
+                            labels=c("C","D"))
 
 
 ggsave(filename = here("Results_W&C/Figures/", "Volcano_Root_PlantTypes.pdf"),
@@ -202,6 +218,17 @@ ggsave(filename = here("Results_W&C/Figures/", "Volcano_Root_PlantTypes.pdf"),
 ggsave(filename = here("Results_W&C/Figures/", "Volcano_Root_PlantTypes.png"),
        plot=Triglo_Scirpus, height = 7.5, width = 10.5, dpi = 300)
 
+
+
+Triglo_Scirpus_rootrhizo <- ggarrange(Triglo_Scirpus_rhizo,Triglo_Scirpus_roots,
+                                  nrow=2,
+                                  labels=NULL)
+
+ggsave(filename = here("Results_W&C/Figures/", "Volcano_RootRhizo_PlantTypes.pdf"),
+       plot=Triglo_Scirpus_rootrhizo, height = 15, width = 12, dpi = 300)
+
+ggsave(filename = here("Results_W&C/Figures/", "Volcano_RootRhizo_PlantTypes.png"),
+       plot=Triglo_Scirpus_rootrhizo, height = 15, width = 12, dpi = 300)
 
 
 ####~~~~~~~~~~~~~~~~####

@@ -99,9 +99,10 @@ volcano_water_16S_NP_Scirpus_Warm <- EnhancedVolcano(res2_taxa,
                                                x = 'log2FoldChange', 
                                                y = "padj",
                                                pCutoff = 1e-05,
-                                               title = "Differential ab. of 16S reads in water",
-                                               titleLabSize = 15,
-                                               subtitle = "Scirpus vs No plant - Genus level",
+                                               title = "Differential abundance of 16S reads in OSPW",
+                                               titleLabSize = 16,
+                                               subtitle = bquote(italic("S.microcarpus vs Unplanted - Genus level")),
+                                               subtitleLabSize = 13,
                                                pointSize = 3,
                                                labSize = 3.5,
                                                labFace = "italic",
@@ -111,8 +112,14 @@ volcano_water_16S_NP_Scirpus_Warm <- EnhancedVolcano(res2_taxa,
                                                legendIconSize = 4.0,
                                                drawConnectors = TRUE,
                                                widthConnectors = 0.6,
-                                               max.overlaps = 20
-)
+                                               max.overlaps = 20,
+                                               border="full")+
+  theme(legend.box.spacing = unit(0, "pt"),
+        legend.text = element_text(size=15),
+        legend.margin = margin(10, 0, 0, 0),
+        plot.caption = element_text(hjust=1),
+        plot.title = element_text(face="plain",margin=margin(10,0,4,0)),
+        plot.subtitle = element_text(margin=margin(0,0,3,0)))
 
 volcano_water_16S_NP_Scirpus_Warm
 
@@ -164,9 +171,10 @@ volcano_water_16S_NP_Triglochin_Warm <- EnhancedVolcano(res2_taxa,
                                                   x = 'log2FoldChange', 
                                                   y = "padj",
                                                   pCutoff = 1e-05,
-                                                  title = "Differential ab.of 16S reads in water",
-                                                  titleLabSize = 15,
-                                                  subtitle = "Triglochin vs No plant - Genus level",
+                                                  title = "Differential abundance of 16S reads in OSPW",
+                                                  titleLabSize = 16,
+                                                  subtitle = bquote(italic("T. maritima vs Unplanted - Genus level")),
+                                                  subtitleLabSize = 13,
                                                   pointSize = 3,
                                                   labSize = 3.5,
                                                   labFace = "italic",
@@ -176,8 +184,14 @@ volcano_water_16S_NP_Triglochin_Warm <- EnhancedVolcano(res2_taxa,
                                                   legendIconSize = 4.0,
                                                   drawConnectors = TRUE,
                                                   widthConnectors = 0.6,
-                                                  max.overlaps = 20
-)
+                                                  max.overlaps = 20,
+                                                  border="full")+
+  theme(legend.box.spacing = unit(0, "pt"),
+        legend.text = element_text(size=15),
+        legend.margin = margin(10, 0, 0, 0),
+        plot.caption = element_text(hjust=1),
+        plot.title = element_text(face="plain",margin=margin(10,0,4,0)),
+        plot.subtitle = element_text(margin=margin(0,0,3,0)))
 
 volcano_water_16S_NP_Triglochin_Warm
 
@@ -230,9 +244,10 @@ volcano_water_16S_Scirpus_Triglochin_Warm <- EnhancedVolcano(res2_taxa,
                                                        x = 'log2FoldChange', 
                                                        y = "padj",
                                                        pCutoff = 1e-05,
-                                                       title = "Differential ab. of 16S reads in water",
-                                                       titleLabSize = 15,
-                                                       subtitle = "Triglochin vs Scirpus - Genus level",
+                                                       title = "Differential abundance of 16S reads in OSPW",
+                                                       titleLabSize = 16,
+                                                       subtitle = bquote(italic("T. maritima vs S. microcarpus - Genus level")),
+                                                       subtitleLabSize = 13,
                                                        pointSize = 3,
                                                        labSize = 3.5,
                                                        labFace = "italic",
@@ -242,8 +257,14 @@ volcano_water_16S_Scirpus_Triglochin_Warm <- EnhancedVolcano(res2_taxa,
                                                        legendIconSize = 4.0,
                                                        drawConnectors = TRUE,
                                                        widthConnectors = 0.6,
-                                                       max.overlaps = 20
-)
+                                                       max.overlaps = 20,
+                                                       border="full")+
+  theme(legend.box.spacing = unit(0, "pt"),
+        legend.text = element_text(size=15),
+        legend.margin = margin(10, 0, 0, 0),
+        plot.caption = element_text(hjust=1),
+        plot.title = element_text(face="plain",margin=margin(10,0,4,0)),
+        plot.subtitle = element_text(margin=margin(0,0,3,0)))
 
 volcano_water_16S_Scirpus_Triglochin_Warm
 
@@ -305,9 +326,10 @@ volcano_water_16S_NP_Scirpus_Cold <- EnhancedVolcano(res2_taxa,
                                                x = 'log2FoldChange', 
                                                y = "padj",
                                                pCutoff = 1e-05,
-                                               title = "Differential ab. of 16S reads in water",
-                                               titleLabSize = 15,
-                                               subtitle = "Scirpus vs No plant - Genus level",
+                                               title = "Differential abundance of 16S reads in OSPW",
+                                               titleLabSize = 16,
+                                               subtitle = bquote(italic("S. microcarpus vs Unplanted - Genus level")),
+                                               subtitleLabSize = 13,
                                                pointSize = 3,
                                                labSize = 3.5,
                                                labFace = "italic",
@@ -317,10 +339,14 @@ volcano_water_16S_NP_Scirpus_Cold <- EnhancedVolcano(res2_taxa,
                                                legendIconSize = 4.0,
                                                drawConnectors = TRUE,
                                                widthConnectors = 0.6,
-                                               max.overlaps = 20
-)
-
-volcano_water_16S_NP_Scirpus_Cold
+                                               max.overlaps = 20,
+                                               border="full")+
+  theme(legend.box.spacing = unit(0, "pt"),
+        legend.text = element_text(size=15),
+        legend.margin = margin(10, 0, 0, 0),
+        plot.caption = element_text(hjust=1),
+        plot.title = element_text(face="plain",margin=margin(10,0,4,0)),
+        plot.subtitle = element_text(margin=margin(0,0,3,0)))
 
 #ggsave(filename = here("Results_W&C/Figures/", "Volcano_water_16S_Cold_ScirpusVSnoplant.png"),height = 7.5, width = 10.5, dpi = 300)
 #ggsave(filename = here("Results_W&C/Figures/", "Volcano_water_16S_Cold_ScirpusVSnoplant.png"),height = 7.5, width = 10.5, dpi = 300)
@@ -370,9 +396,10 @@ volcano_water_16S_NP_Triglochin_Cold <- EnhancedVolcano(res2_taxa,
                                                   x = 'log2FoldChange', 
                                                   y = "padj",
                                                   pCutoff = 1e-05,
-                                                  title = "Differential ab of 16S reads in water",
-                                                  titleLabSize = 15,
-                                                  subtitle = "Triglochin vs No plant - Genus level",
+                                                  title = "Differential abundance of 16S reads in OSPW",
+                                                  titleLabSize = 16,
+                                                  subtitle = bquote(italic("T. maritima vs Unplanted - Genus level")),
+                                                  subtitleLabSize = 13,
                                                   pointSize = 3,
                                                   labSize = 3.5,
                                                   labFace = "italic",
@@ -382,8 +409,15 @@ volcano_water_16S_NP_Triglochin_Cold <- EnhancedVolcano(res2_taxa,
                                                   legendIconSize = 4.0,
                                                   drawConnectors = TRUE,
                                                   widthConnectors = 0.6,
-                                                  max.overlaps = 20
-)
+                                                  max.overlaps = 20,
+                                                  border="full")+
+  theme(legend.box.spacing = unit(0, "pt"),
+        legend.text = element_text(size=15),
+        legend.margin = margin(10, 0, 0, 0),
+        plot.caption = element_text(hjust=1),
+        plot.title = element_text(face="plain",margin=margin(10,0,4,0)),
+        plot.subtitle = element_text(margin=margin(0,0,3,0)))
+
 
 volcano_water_16S_NP_Triglochin_Cold
 
@@ -436,9 +470,10 @@ volcano_water_16S_Scirpus_Triglochin_Cold <- EnhancedVolcano(res2_taxa,
                                                        x = 'log2FoldChange', 
                                                        y = "padj",
                                                        pCutoff = 1e-05,
-                                                       title = "Differential ab. of 16S reads in water",
-                                                       titleLabSize = 15,
-                                                       subtitle = "Triglochin vs Scirpus - Genus level",
+                                                       title = "Differential abundance of 16S reads in OSPW",
+                                                       titleLabSize = 16,
+                                                       subtitle = bquote(italic("T. maritima vs S. microcarpus - Genus level")),
+                                                       subtitleLabSize = 13,
                                                        pointSize = 3,
                                                        labSize = 3.5,
                                                        labFace = "italic",
@@ -448,8 +483,14 @@ volcano_water_16S_Scirpus_Triglochin_Cold <- EnhancedVolcano(res2_taxa,
                                                        legendIconSize = 4.0,
                                                        drawConnectors = TRUE,
                                                        widthConnectors = 0.6,
-                                                       max.overlaps = 20
-)
+                                                       max.overlaps = 20,
+                                                       border="full")+
+  theme(legend.box.spacing = unit(0, "pt"),
+        legend.text = element_text(size=15),
+        legend.margin = margin(10, 0, 0, 0),
+        plot.caption = element_text(hjust=1),
+        plot.title = element_text(face="plain",margin=margin(10,0,4,0)),
+        plot.subtitle = element_text(margin=margin(0,0,3,0)))
 
 volcano_water_16S_Scirpus_Triglochin_Cold
 
@@ -462,16 +503,16 @@ volcano_water_16S_Scirpus_Triglochin_Cold
 
 Scirpus_NP <- ggarrange(volcano_water_16S_NP_Scirpus_Warm,volcano_water_16S_NP_Scirpus_Cold,
                         ncol=2,
-                        labels=c("Warm","Cold"))
+                        labels=c("A","B"))
 
 
 Triglo_NP <- ggarrange(volcano_water_16S_NP_Triglochin_Warm,volcano_water_16S_NP_Triglochin_Cold,
                        ncol=2,
-                       labels=c("Warm","Cold"))
+                       labels=c("C","D"))
 
 Triglo_Scirpus <- ggarrange(volcano_water_16S_Scirpus_Triglochin_Warm,volcano_water_16S_Scirpus_Triglochin_Cold,
                             ncol=2,
-                            labels=c("Warm","Cold"))
+                            labels=c("E","F"))
 
 Volcano_PlantType <- ggarrange(Scirpus_NP,
                                Triglo_NP,
