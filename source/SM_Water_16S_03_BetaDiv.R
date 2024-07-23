@@ -376,7 +376,7 @@ Sample_type <-ggplot(Ordination,aes(x=PC1,y=PC2,colour =Sample_type,shape=Sample
                 geom_label_npc(data= df.annotations , 
                            aes(npcx = "right", npcy = "bottom", label = label),
                            parse=T,size=4)+
-                labs(title="Water 16S - Sample type effect",
+                labs(title="OSPW 16S - Sample type effect",
                      x=paste0("PC1 (",PC1,"%)"),
                      y=paste0("PC2 (",PC2,"%)"))+
                 
@@ -403,7 +403,7 @@ Temperature <- ggplot(Ordination,aes(x=PC1,y=PC2,fill =Temperature))+
                       geom_label_npc(data= df.annotations , 
                                      aes(npcx = "right", npcy = "bottom", label = label),
                                      parse=T,size=4)+
-                      labs(title="Water 16S - Temperature effect",
+                      labs(title="OSPW 16S - Temperature effect",
                            x=paste0("PC1 (",PC1,"%)"),
                            y=paste0("PC2 (",PC2,"%)"))+
                     
@@ -425,7 +425,7 @@ Time <- ggplot(Ordination,aes(x=PC1,y=PC2,fill =Time))+
     geom_label_npc(data= df.annotations , 
                    aes(npcx = "right", npcy = "bottom", label = label),
                    parse=T,size=4)+
-    labs(title="Water 16S - Time effect",
+    labs(title="OSPW 16S - Time effect",
          x=paste0("PC1 (",PC1,"%)"),
          y=paste0("PC2 (",PC2,"%)"))+
   
@@ -434,15 +434,15 @@ Time <- ggplot(Ordination,aes(x=PC1,y=PC2,fill =Time))+
         legend.text=element_text(size=12))
 
 ### Save figure 
-Water_16S <- ggarrange(Sample_type,Temperature,Time,
+OSPW_16S <- ggarrange(Sample_type,Temperature,Time,
                        labels="AUTO",
                        ncol=1,
                        legend = "bottom")
 
 
 
-ggsave(here("Results","Figures","16S_Water_RCLR_Ordination.pdf"),device='pdf',height = 7.5, width = 10.5)
-ggsave(here("Results","Figures","16S_Water_RCLR_Ordination.png"),device='png',height = 7.5, width = 10.5)
+ggsave(here("Results","Figures","16S_OSPW_RCLR_Ordination.pdf"),device='pdf',height = 7.5, width = 10.5)
+ggsave(here("Results","Figures","16S_OSPW_RCLR_Ordination.png"),device='png',height = 7.5, width = 10.5)
 
 
 

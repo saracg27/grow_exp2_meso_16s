@@ -362,7 +362,7 @@ ord_rclr <- phyloseq::ordinate(ps_rclr, "RDA", distance = "euclidean")
 PC1 <- as.numeric(round(ord_rclr$CA$eig[1]/sum(ord_rclr$CA$eig),3)*100)
 PC2 <- as.numeric(round(ord_rclr$CA$eig[2]/sum(ord_rclr$CA$eig),3)*100)
 
-Ordination <- phyloseq::plot_ordination(ps_rclr, ord_rclr, type="samples",shape="Sample_type",color="Sample_type",justDF=T)
+Ordination <- phyloseq::plot_ordination(ps_rclr, ord_rclr, type="samples",justDF=T)
 
 ## Plant type  
 
@@ -386,7 +386,7 @@ Sample_type <-ggplot(Ordination,aes(x=PC1,y=PC2,colour =Sample_type,shape=Sample
   geom_label_npc(data= df.annotations , 
                  aes(npcx = "right", npcy = "bottom", label = label),
                  parse=T,size=4)+
-  labs(title="Water 18S - Sample type effect",
+  labs(title="OSPW 18S - Sample type effect",
        x=paste0("PC1 (",PC1,"%)"),
        y=paste0("PC2 (",PC2,"%)"))+
   
@@ -413,7 +413,7 @@ Temperature <- ggplot(Ordination,aes(x=PC1,y=PC2,fill =Temperature))+
   geom_label_npc(data= df.annotations , 
                  aes(npcx = "right", npcy = "bottom", label = label),
                  parse=T,size=4)+
-  labs(title="Water 18S - Temperature effect",
+  labs(title="OSPW 18S - Temperature effect",
        x=paste0("PC1 (",PC1,"%)"),
        y=paste0("PC2 (",PC2,"%)"))+
   
@@ -435,7 +435,7 @@ Time <- ggplot(Ordination,aes(x=PC1,y=PC2,fill =Time))+
   geom_label_npc(data= df.annotations , 
                  aes(npcx = "right", npcy = "bottom", label = label),
                  parse=T,size=4)+
-  labs(title="Water 18S - Time effect",
+  labs(title="OSPW 18S - Time effect",
        x=paste0("PC1 (",PC1,"%)"),
        y=paste0("PC2 (",PC2,"%)"))+
   
@@ -444,15 +444,15 @@ Time <- ggplot(Ordination,aes(x=PC1,y=PC2,fill =Time))+
         legend.text=element_text(size=12))
 
 ### Save figure 
-Water_18S <- ggarrange(Sample_type,Temperature,Time,
+OSPW_18S <- ggarrange(Sample_type,Temperature,Time,
                        labels=c("D","E","F"),
                        ncol=1,
                        legend = "bottom")
 
-Figure_A_Water_beta_div <- ggarrange(Water_16S,Water_18S,
+Figure_A_OSPW_beta_div <- ggarrange(OSPW_16S,OSPW_18S,
                                    labels=NULL,
                                    ncol=2)
-ggsave(here("Results","Figures","Figure_A_Water_beta_div.svg"),device='svg',height = 18, width = 12)
+ggsave(here("Results","Figures","Figure_A_OSPW_beta_div.svg"),device='svg',height = 18, width = 12)
 
 ggsave(here("Results","Figures","Figure_A_Water_beta_div"),device='pdf',height = 12, width = 10.5)
 
